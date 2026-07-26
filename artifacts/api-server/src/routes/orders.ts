@@ -3,6 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES } from "@workspace/db";
 import { getProductById, getProductsByIds } from "../lib/catalogService";
 import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncService";
+import { confirmarConversaoCliente } from "./ambassadors";
 
 const router: IRouter = Router();
 
@@ -316,6 +317,23 @@ router.post("/checkout", async (req, res): Promise<void> => {
     }
   } catch (syncErr) {
     console.error("[checkout] falha ao sincronizar pedido com o Vendor.ai (pedido já confirmado):", syncErr);
+  }
+
+  // Programa de Embaixadores: se esse é o primeiro pedido do consumidor e
+  // existe uma indicação pendente pra ele, confirma a conversão e credita
+  // a comissão do embaixador.
+  if (consumerId) {
+    try {
+      const pedidosAnteriores = await db
+        .select({ id: ordersTable.id })
+        .from(ordersTable)
+        .where(eq(ordersTable.consumerId, consumerId));
+      if (pedidosAnteriores.length === 1) {
+        await confirmarConversaoCliente(consumerId);
+      }
+    } catch (refErr) {
+      console.error("[checkout] falha ao confirmar conversão de embaixador (pedido já confirmado):", refErr);
+    }
   }
 
   // Moeda de fidelidade: 1 moeda a cada R$10 gastos (compra concluída).
