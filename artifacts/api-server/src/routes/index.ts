@@ -18,6 +18,7 @@ import coinsRouter from "./coins";
 import reviewsRouter from "./reviews";
 import chatRouter from "./chat";
 import ambassadorsRouter from "./ambassadors";
+import deliveriesRouter from "./deliveries";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(coinsRouter);
 router.use(reviewsRouter);
 router.use(chatRouter);
 router.use(ambassadorsRouter);
+router.use(deliveriesRouter);
 
 export default router;

@@ -7,3 +7,4 @@ export * from "./productQuestions";
 export * from "./coins";
 export * from "./reviews";
 export * from "./ambassadors";
+export * from "./deliveries";
