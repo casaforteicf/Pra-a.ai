@@ -10,6 +10,8 @@ import feedRouter from "./feed";
 import favoritesRouter from "./favorites";
 import profileRouter from "./profile";
 import authRouter from "./auth";
+import freteRouter from "./frete";
+import disputesRouter from "./disputes";
 
 const router: IRouter = Router();
 
@@ -24,5 +26,7 @@ router.use(couponsRouter);
 router.use(feedRouter);
 router.use(favoritesRouter);
 router.use(profileRouter);
+router.use(freteRouter);
+router.use(disputesRouter);
 
 export default router;

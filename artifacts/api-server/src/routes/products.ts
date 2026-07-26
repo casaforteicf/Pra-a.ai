@@ -5,7 +5,8 @@ import { mapCatalogRow, getProductById } from "../lib/catalogService";
 const router: IRouter = Router();
 
 router.get("/products", async (req, res): Promise<void> => {
-  const { category, search, sort, page = "1", limit = "20" } = req.query as Record<string, string>;
+  const { category, search, sort, page = "1", limit = "20", precoMin, precoMax, marca, cidade } =
+    req.query as Record<string, string>;
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
@@ -26,6 +27,30 @@ router.get("/products", async (req, res): Promise<void> => {
     conditions.push(
       `(lower(pc.nome) LIKE $${params.length} OR lower(coalesce(pc.descricao, '')) LIKE $${params.length})`,
     );
+  }
+
+  if (precoMin) {
+    params.push(Number(precoMin));
+    conditions.push(`pc.preco_base >= $${params.length}`);
+  }
+
+  if (precoMax) {
+    params.push(Number(precoMax));
+    conditions.push(`pc.preco_base <= $${params.length}`);
+  }
+
+  if (marca) {
+    params.push(marca);
+    conditions.push(`pc.marca = $${params.length}`);
+  }
+
+  // Filtro de localização: sem chave de geocoding (Google Maps/Mapbox), não dá
+  // pra filtrar por raio real em km — comparação por cidade cadastrada do
+  // lojista é a aproximação disponível hoje. TODO: trocar por raio real
+  // quando existir geocoding (mesma limitação do cálculo de frete).
+  if (cidade) {
+    params.push(cidade);
+    conditions.push(`lower(t.cidade) = lower($${params.length})`);
   }
 
   let orderBy = "pc.destaque DESC, pc.created_at DESC";
