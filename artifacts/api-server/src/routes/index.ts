@@ -15,6 +15,7 @@ import disputesRouter from "./disputes";
 import storesRouter from "./stores";
 import productQuestionsRouter from "./productQuestions";
 import coinsRouter from "./coins";
+import reviewsRouter from "./reviews";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(disputesRouter);
 router.use(storesRouter);
 router.use(productQuestionsRouter);
 router.use(coinsRouter);
+router.use(reviewsRouter);
 
 export default router;

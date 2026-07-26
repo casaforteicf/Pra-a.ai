@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { vendorPool } from "../lib/vendorDb";
 import { mapCatalogRow, getProductById } from "../lib/catalogService";
+import { getProductRatingSummary } from "./reviews";
 
 const router: IRouter = Router();
 
@@ -112,17 +113,12 @@ router.get("/products/:id", async (req, res): Promise<void> => {
       res.status(404).json({ error: "Produto não encontrado" });
       return;
     }
-    res.json(product);
+    const ratingSummary = await getProductRatingSummary(id);
+    res.json({ ...product, ...ratingSummary });
   } catch (err) {
     console.error("[products] erro ao buscar produto:", err);
     res.status(500).json({ error: "Não foi possível carregar o produto agora." });
   }
-});
-
-router.get("/products/:id/reviews", async (_req, res): Promise<void> => {
-  // Avaliação real depende da seção 4/9.9 (avaliação de pedido) — lista vazia
-  // até esse fluxo existir, em vez de review fake.
-  res.json([]);
 });
 
 export default router;
