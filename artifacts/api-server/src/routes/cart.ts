@@ -162,6 +162,7 @@ router.post("/cart/items", async (req, res): Promise<void> => {
       productName: product.name,
       productImageUrl: product.imageUrl,
       productPrice: String(product.price),
+      vendorId: product.vendorId,
       quantity,
       selectedSize: selectedSize ?? null,
     });

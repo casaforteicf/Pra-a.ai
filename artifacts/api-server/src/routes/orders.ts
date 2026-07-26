@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable } from "@workspace/db";
 import { getProductById, getProductsByIds } from "../lib/catalogService";
+import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncService";
 
 const router: IRouter = Router();
 
@@ -269,8 +270,52 @@ router.post("/checkout", async (req, res): Promise<void> => {
       productImageUrl: item.productImageUrl,
       quantity: item.quantity,
       priceAtPurchase: item.productPrice,
+      vendorId: item.vendorId,
       selectedSize: item.selectedSize ?? null,
     });
+  }
+
+  // Sincroniza com o Vendor.ai: cada pedido vira 1+ negócios (deal), um por
+  // lojista presente no carrinho (carrinho multi-vendedor — seção 9.7).
+  // Falha na sincronização não deve derrubar o pedido em si (o pagamento já
+  // foi confirmado do lado do Praça.ai) — registra o erro e segue.
+  try {
+    let consumerInfo = { nome: "Cliente Praça.ai", telefone: null as string | null, email: null as string | null };
+    if (consumerId) {
+      const [consumer] = await db.select().from(consumersTable).where(eq(consumersTable.id, consumerId)).limit(1);
+      if (consumer) {
+        consumerInfo = { nome: consumer.name, telefone: consumer.phone ?? null, email: consumer.email };
+      }
+    }
+    // Pedido anônimo (sem login) ainda não captura nome/telefone do cliente
+    // no formulário de entrega — gap conhecido, lead fica com dado mínimo
+    // até o checkout coletar isso também pra convidado.
+    const enderecoStr = typeof deliveryAddress === "object"
+      ? `${deliveryAddress.street ?? ""}, ${deliveryAddress.number ?? ""}, ${deliveryAddress.neighborhood ?? ""}, ${deliveryAddress.city ?? "Chapecó"} - ${deliveryAddress.state ?? "SC"}`
+      : String(deliveryAddress ?? "");
+
+    const itemsByVendor = new Map<string, typeof cartItems>();
+    for (const item of cartItems) {
+      if (!item.vendorId) continue; // item legado sem vendorId (carrinho anterior a essa mudança) — ignora na sync
+      const list = itemsByVendor.get(item.vendorId) ?? [];
+      list.push(item);
+      itemsByVendor.set(item.vendorId, list);
+    }
+
+    for (const [vendorId, vendorItems] of itemsByVendor) {
+      const vendorSubtotal = vendorItems.reduce((sum, i) => sum + Number(i.productPrice) * i.quantity, 0);
+      const leadId = await findOrCreateLead(vendorId, { ...consumerInfo, endereco: enderecoStr });
+      const dealId = await createDealFromPracaOrder({
+        tenantId: vendorId,
+        leadId,
+        orderNumber,
+        items: vendorItems.map((i) => ({ productName: i.productName, quantity: i.quantity })),
+        valor: vendorSubtotal,
+      });
+      await db.insert(orderDealLinksTable).values({ orderId: order.id, vendorId, dealId });
+    }
+  } catch (syncErr) {
+    console.error("[checkout] falha ao sincronizar pedido com o Vendor.ai (pedido já confirmado):", syncErr);
   }
 
   // Clear the cart

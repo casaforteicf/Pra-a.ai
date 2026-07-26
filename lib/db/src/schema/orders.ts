@@ -28,8 +28,21 @@ export const orderItemsTable = pgTable("order_items", {
   productImageUrl: text("product_image_url").notNull(),
   quantity: integer("quantity").notNull(),
   priceAtPurchase: numeric("price_at_purchase", { precision: 10, scale: 2 }).notNull(),
+  vendorId: text("vendor_id"), // tenant_id do Vendor.ai — necessário pra virar deal
   selectedSize: text("selected_size"),
 });
 
 export type Order = typeof ordersTable.$inferSelect;
 export type OrderItem = typeof orderItemsTable.$inferSelect;
+
+// Rastreia quais deals (Vendor.ai) já foram criados a partir de qual pedido,
+// por tenant — um pedido multi-vendedor pode gerar mais de um deal.
+export const orderDealLinksTable = pgTable("order_deal_links", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id").notNull().references(() => ordersTable.id, { onDelete: "cascade" }),
+  vendorId: text("vendor_id").notNull(),
+  dealId: text("deal_id").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type OrderDealLink = typeof orderDealLinksTable.$inferSelect;

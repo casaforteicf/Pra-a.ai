@@ -16,6 +16,7 @@ export const cartItemsTable = pgTable("cart_items", {
   productName: text("product_name").notNull(),
   productImageUrl: text("product_image_url").notNull(),
   productPrice: numeric("product_price", { precision: 10, scale: 2 }).notNull(),
+  vendorId: text("vendor_id"), // tenant_id do Vendor.ai — necessário pra virar deal no checkout
   quantity: integer("quantity").notNull().default(1),
   selectedSize: text("selected_size"),
 });
