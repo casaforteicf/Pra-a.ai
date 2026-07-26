@@ -12,6 +12,9 @@ import profileRouter from "./profile";
 import authRouter from "./auth";
 import freteRouter from "./frete";
 import disputesRouter from "./disputes";
+import storesRouter from "./stores";
+import productQuestionsRouter from "./productQuestions";
+import coinsRouter from "./coins";
 
 const router: IRouter = Router();
 
@@ -28,5 +31,8 @@ router.use(favoritesRouter);
 router.use(profileRouter);
 router.use(freteRouter);
 router.use(disputesRouter);
+router.use(storesRouter);
+router.use(productQuestionsRouter);
+router.use(coinsRouter);
 
 export default router;

@@ -44,6 +44,11 @@ router.get("/products", async (req, res): Promise<void> => {
     conditions.push(`pc.marca = $${params.length}`);
   }
 
+  if (req.query.vendorId) {
+    params.push(req.query.vendorId as string);
+    conditions.push(`t.id = $${params.length}`);
+  }
+
   // Filtro de localização: sem chave de geocoding (Google Maps/Mapbox), não dá
   // pra filtrar por raio real em km — comparação por cidade cadastrada do
   // lojista é a aproximação disponível hoje. TODO: trocar por raio real

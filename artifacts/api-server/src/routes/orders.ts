@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES } from "@workspace/db";
 import { getProductById, getProductsByIds } from "../lib/catalogService";
 import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncService";
 
@@ -316,6 +316,31 @@ router.post("/checkout", async (req, res): Promise<void> => {
     }
   } catch (syncErr) {
     console.error("[checkout] falha ao sincronizar pedido com o Vendor.ai (pedido já confirmado):", syncErr);
+  }
+
+  // Moeda de fidelidade: 1 moeda a cada R$10 gastos (compra concluída).
+  // Só pra consumidor logado — convidado não tem saldo pra creditar.
+  if (consumerId) {
+    try {
+      const moedasGanhas = Math.floor(subtotal / 10) * COIN_RULES.COMPRA_A_CADA_R10;
+      if (moedasGanhas > 0) {
+        const [consumer] = await db.select().from(consumersTable).where(eq(consumersTable.id, consumerId)).limit(1);
+        if (consumer) {
+          await db
+            .update(consumersTable)
+            .set({ saldoMoedas: consumer.saldoMoedas + moedasGanhas })
+            .where(eq(consumersTable.id, consumerId));
+          await db.insert(coinTransactionsTable).values({
+            consumerId,
+            tipo: "ganho",
+            quantidade: moedasGanhas,
+            motivo: "compra",
+          });
+        }
+      }
+    } catch (coinErr) {
+      console.error("[checkout] falha ao creditar moeda de fidelidade (pedido já confirmado):", coinErr);
+    }
   }
 
   // Clear the cart
