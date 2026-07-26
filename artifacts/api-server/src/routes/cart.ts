@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, cartsTable, cartItemsTable } from "@workspace/db";
-import { PRODUCTS_BY_ID } from "./productData";
+import { getProductById, getProductsByIds } from "../lib/catalogService";
 import crypto from "crypto";
 
 const router: IRouter = Router();
@@ -64,8 +64,11 @@ async function buildCartResponse(cartId: number) {
     .from(cartItemsTable)
     .where(eq(cartItemsTable.cartId, cartId));
 
+  const realProducts = await getProductsByIds(items.map((i) => i.productId));
+  const realById = new Map(realProducts.map((p) => [p.id, p]));
+
   const enriched = items.map((item) => {
-    const product = PRODUCTS_BY_ID[item.productId] ?? {
+    const product = realById.get(item.productId) ?? {
       id: item.productId,
       name: item.productName,
       description: "",
@@ -129,7 +132,7 @@ router.post("/cart/items", async (req, res): Promise<void> => {
 
   const { productId, quantity = 1, selectedSize } = req.body;
 
-  const product = PRODUCTS_BY_ID[productId];
+  const product = await getProductById(productId);
   if (!product) {
     res.status(404).json({ error: "Produto não encontrado" });
     return;

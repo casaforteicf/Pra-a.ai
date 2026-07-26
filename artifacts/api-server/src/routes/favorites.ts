@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
 import { db, favoritesTable } from "@workspace/db";
-import { PRODUCTS_BY_ID, ALL_PRODUCTS } from "./productData";
+import { getProductsByIds } from "../lib/catalogService";
 
 const router: IRouter = Router();
 
@@ -17,10 +17,10 @@ router.get("/favorites", async (req, res): Promise<void> => {
     .from(favoritesTable)
     .where(eq(favoritesTable.consumerId, consumerId));
 
-  const favoriteIds = new Set(rows.map((r) => r.productId));
-  const products = ALL_PRODUCTS
-    .filter((p) => favoriteIds.has(p.id))
-    .map((p) => ({ ...p, isFavorited: true }));
+  const products = (await getProductsByIds(rows.map((r) => r.productId))).map((p) => ({
+    ...p,
+    isFavorited: true,
+  }));
 
   res.json(products);
 });

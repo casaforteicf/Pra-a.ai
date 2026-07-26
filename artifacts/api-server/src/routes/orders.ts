@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable } from "@workspace/db";
-import { PRODUCTS_BY_ID } from "./productData";
+import { getProductById, getProductsByIds } from "../lib/catalogService";
 
 const router: IRouter = Router();
 
@@ -117,7 +117,7 @@ router.post("/orders", async (req, res): Promise<void> => {
   let subtotal = 0;
   const enrichedItems: any[] = [];
   for (const item of items ?? []) {
-    const product = PRODUCTS_BY_ID[item.productId];
+    const product = await getProductById(item.productId);
     const price = product?.price ?? 0;
     subtotal += price * (item.quantity ?? 1);
     enrichedItems.push({ ...item, price, product });
@@ -206,6 +206,22 @@ router.post("/checkout", async (req, res): Promise<void> => {
     return;
   }
 
+  // Mitigação parcial do risco de overselling (auditoria, item 5): confirma
+  // que cada produto ainda existe/está ativo/o tenant ainda vende no
+  // Praça.ai no momento do checkout, não só confia no snapshot do carrinho
+  // (que pode ter sido feito há dias). Verificação de estoque real em si
+  // ainda não é possível — produtos_catalogo não tem esse campo hoje.
+  const realProducts = await getProductsByIds(cartItems.map((i) => i.productId));
+  const realIds = new Set(realProducts.map((p) => p.id));
+  const unavailable = cartItems.filter((i) => !realIds.has(i.productId));
+  if (unavailable.length > 0) {
+    res.status(409).json({
+      error: "Alguns itens do carrinho não estão mais disponíveis.",
+      unavailableProducts: unavailable.map((i) => ({ productId: i.productId, name: i.productName })),
+    });
+    return;
+  }
+
   let subtotal = 0;
   for (const item of cartItems) {
     subtotal += Number(item.productPrice) * item.quantity;
@@ -246,7 +262,6 @@ router.post("/checkout", async (req, res): Promise<void> => {
     .returning();
 
   for (const item of cartItems) {
-    const product = PRODUCTS_BY_ID[item.productId];
     await db.insert(orderItemsTable).values({
       orderId: order.id,
       productId: item.productId,
