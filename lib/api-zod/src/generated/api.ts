@@ -9,6 +9,62 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Register a new consumer
+ */
+export const RegisterConsumerBody = zod.object({
+  "name": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string().nullish(),
+  "password": zod.string()
+})
+
+export const RegisterConsumerResponse = zod.object({
+  "id": zod.union([zod.number(),zod.string()]),
+  "name": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Login with email and password
+ */
+export const LoginConsumerBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string()
+})
+
+export const LoginConsumerResponse = zod.object({
+  "id": zod.union([zod.number(),zod.string()]),
+  "name": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Logout current session
+ */
+export const LogoutConsumerResponse = zod.object({
+  "error": zod.string()
+})
+
+
+/**
+ * @summary Get current logged-in consumer
+ */
+export const GetMeResponse = zod.object({
+  "id": zod.union([zod.number(),zod.string()]),
+  "name": zod.string(),
+  "email": zod.string(),
+  "phone": zod.string().nullish(),
+  "createdAt": zod.string().optional()
+})
+
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({

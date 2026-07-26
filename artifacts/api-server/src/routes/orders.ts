@@ -1,220 +1,300 @@
 import { Router, type IRouter } from "express";
+import { eq, and, desc } from "drizzle-orm";
+import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable } from "@workspace/db";
+import { PRODUCTS_BY_ID } from "./productData";
 
 const router: IRouter = Router();
 
-const MOCK_ORDERS = [
-  {
-    id: "ord1",
-    orderNumber: "PCA-2025-001247",
-    status: "out_for_delivery",
-    items: [
-      {
-        productId: "p1",
-        productName: "Tênis Esportivo Air Run Pro",
-        productImageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80",
-        quantity: 1,
-        price: 189.90,
-        selectedSize: "42",
-      },
-    ],
-    subtotal: 189.90,
-    shipping: 0,
-    discount: 0,
-    total: 189.90,
-    paymentMethod: "Pix",
-    deliveryAddress: "Rua das Missões, 456, Centro, Chapecó - SC",
-    estimatedDelivery: "2025-07-27",
-    trackingCode: "BR123456789SC",
-    trackingEvents: [
-      {
-        status: "Pedido Confirmado",
-        description: "Seu pedido foi confirmado e está sendo processado",
-        timestamp: "2025-07-25T09:00:00",
-        completed: true,
-      },
-      {
-        status: "Em Preparação",
-        description: "O vendedor está preparando seu pedido",
-        timestamp: "2025-07-25T10:30:00",
-        completed: true,
-      },
-      {
-        status: "Saiu para Entrega",
-        description: "Seu pedido está a caminho",
-        timestamp: "2025-07-26T08:00:00",
-        completed: true,
-      },
-      {
-        status: "Entregue",
-        description: "Pedido entregue com sucesso",
-        timestamp: "",
-        completed: false,
-      },
-    ],
-    createdAt: "2025-07-25T09:00:00",
-  },
-  {
-    id: "ord2",
-    orderNumber: "PCA-2025-001198",
-    status: "delivered",
-    items: [
-      {
-        productId: "p2",
-        productName: "Smartphone Samsung Galaxy A55",
-        productImageUrl: "https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?w=400&q=80",
-        quantity: 1,
-        price: 1649.00,
-        selectedSize: null,
-      },
-    ],
-    subtotal: 1649.00,
-    shipping: 0,
-    discount: 164.90,
-    total: 1484.10,
-    paymentMethod: "Pix",
-    deliveryAddress: "Rua das Missões, 456, Centro, Chapecó - SC",
-    estimatedDelivery: "2025-07-20",
-    trackingCode: "BR987654321SC",
-    trackingEvents: [
-      {
-        status: "Pedido Confirmado",
-        description: "Pedido confirmado",
-        timestamp: "2025-07-18T10:00:00",
-        completed: true,
-      },
-      {
-        status: "Em Preparação",
-        description: "Preparando pedido",
-        timestamp: "2025-07-18T11:00:00",
-        completed: true,
-      },
-      {
-        status: "Saiu para Entrega",
-        description: "A caminho",
-        timestamp: "2025-07-19T09:00:00",
-        completed: true,
-      },
-      {
-        status: "Entregue",
-        description: "Entregue com sucesso",
-        timestamp: "2025-07-20T14:30:00",
-        completed: true,
-      },
-    ],
-    createdAt: "2025-07-18T10:00:00",
-  },
-];
+function buildTrackingEvents(status: string) {
+  const statuses = ["confirmed", "preparing", "shipped", "out_for_delivery", "delivered"];
+  const labels = [
+    { status: "Pedido Confirmado", description: "Seu pedido foi confirmado e está sendo processado" },
+    { status: "Em Preparação", description: "O vendedor está preparando seu pedido" },
+    { status: "Saiu para Entrega", description: "Seu pedido está a caminho" },
+    { status: "A Caminho", description: "Com o entregador, chegará em breve" },
+    { status: "Entregue", description: "Pedido entregue com sucesso!" },
+  ];
+  const currentIdx = statuses.indexOf(status);
+  return labels.map((l, i) => ({
+    ...l,
+    timestamp: i <= currentIdx ? new Date().toISOString() : "",
+    completed: i <= currentIdx,
+  }));
+}
+
+function formatOrder(order: any, items: any[]) {
+  let address: any = {};
+  try { address = JSON.parse(order.deliveryAddress); } catch {}
+
+  return {
+    id: String(order.id),
+    orderNumber: order.orderNumber,
+    status: order.status,
+    items: items.map((i) => ({
+      productId: i.productId,
+      productName: i.productName,
+      productImageUrl: i.productImageUrl,
+      quantity: i.quantity,
+      price: Number(i.priceAtPurchase),
+      selectedSize: i.selectedSize,
+    })),
+    subtotal: Number(order.subtotal),
+    shipping: Number(order.shipping),
+    discount: Number(order.discount),
+    total: Number(order.total),
+    paymentMethod: order.paymentMethod,
+    deliveryAddress: typeof address === "object"
+      ? `${address.street ?? ""}, ${address.number ?? ""}, ${address.neighborhood ?? ""}, ${address.city ?? "Chapecó"} - ${address.state ?? "SC"}`
+      : String(order.deliveryAddress),
+    estimatedDelivery: order.estimatedDelivery ?? new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0],
+    trackingCode: order.trackingCode,
+    trackingEvents: buildTrackingEvents(order.status),
+    createdAt: order.createdAt,
+  };
+}
 
 router.get("/orders", async (req, res): Promise<void> => {
-  res.json(MOCK_ORDERS);
+  const consumerId = req.session?.consumerId;
+  if (!consumerId) {
+    res.json([]);
+    return;
+  }
+
+  const orders = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.consumerId, consumerId))
+    .orderBy(desc(ordersTable.createdAt));
+
+  const result = await Promise.all(
+    orders.map(async (order) => {
+      const items = await db
+        .select()
+        .from(orderItemsTable)
+        .where(eq(orderItemsTable.orderId, order.id));
+      return formatOrder(order, items);
+    }),
+  );
+
+  res.json(result);
 });
 
 router.get("/orders/:id", async (req, res): Promise<void> => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const order = MOCK_ORDERS.find((o) => o.id === id);
+  const orderId = parseInt(id, 10);
+
+  if (isNaN(orderId)) {
+    res.status(404).json({ error: "Pedido não encontrado" });
+    return;
+  }
+
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+
   if (!order) {
     res.status(404).json({ error: "Pedido não encontrado" });
     return;
   }
-  res.json(order);
+
+  const items = await db
+    .select()
+    .from(orderItemsTable)
+    .where(eq(orderItemsTable.orderId, order.id));
+
+  res.json(formatOrder(order, items));
 });
 
 router.post("/orders", async (req, res): Promise<void> => {
-  const newOrder = {
-    id: `ord${Date.now()}`,
-    orderNumber: `PCA-2025-${Math.floor(Math.random() * 900000) + 100000}`,
-    status: "confirmed",
-    items: req.body.items ?? [],
-    subtotal: 0,
-    shipping: req.body.deliveryOption === "express" ? 12.90 : 0,
-    discount: 0,
-    total: 0,
-    paymentMethod: req.body.paymentMethod ?? "pix",
-    deliveryAddress: `${req.body.deliveryAddress?.street ?? ""}, ${req.body.deliveryAddress?.number ?? ""}, ${req.body.deliveryAddress?.neighborhood ?? ""}, Chapecó - SC`,
-    estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    trackingCode: null,
-    trackingEvents: [
-      {
-        status: "Pedido Confirmado",
-        description: "Seu pedido foi confirmado e está sendo processado",
-        timestamp: new Date().toISOString(),
-        completed: true,
-      },
-    ],
-    createdAt: new Date().toISOString(),
-  };
-  res.status(201).json(newOrder);
-});
+  const consumerId = req.session?.consumerId ?? null;
+  const { items, deliveryAddress, deliveryOption, paymentMethod, couponCode } = req.body;
 
-router.post("/checkout", async (req, res): Promise<void> => {
-  const orderNumber = `PCA-2025-${Math.floor(Math.random() * 900000) + 100000}`;
-  const isPixPayment = req.body.paymentMethod === "pix";
+  const shipping = deliveryOption === "express" ? 12.9 : 0;
+  const isPixDiscount = paymentMethod === "pix";
 
-  const order = {
-    id: `ord${Date.now()}`,
-    orderNumber,
-    status: "confirmed",
-    items: [
-      {
-        productId: "p1",
-        productName: "Tênis Esportivo Air Run Pro",
-        productImageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80",
-        quantity: 1,
-        price: 189.90,
-        selectedSize: null,
-      },
-    ],
-    subtotal: 189.90,
-    shipping: req.body.deliveryOption === "express" ? 12.90 : 0,
-    discount: isPixPayment ? 18.99 : 0,
-    total: isPixPayment ? 170.91 : 189.90,
-    paymentMethod: req.body.paymentMethod,
-    deliveryAddress: `${req.body.deliveryAddress?.street ?? "Rua das Missões"}, ${req.body.deliveryAddress?.number ?? "456"}, ${req.body.deliveryAddress?.neighborhood ?? "Centro"}, Chapecó - SC`,
-    estimatedDelivery: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    trackingCode: null,
-    trackingEvents: [
-      {
-        status: "Pedido Confirmado",
-        description: "Seu pedido foi confirmado com sucesso!",
-        timestamp: new Date().toISOString(),
-        completed: true,
-      },
-      {
-        status: "Em Preparação",
-        description: "O vendedor está preparando seu pedido",
-        timestamp: "",
-        completed: false,
-      },
-      {
-        status: "Saiu para Entrega",
-        description: "Seu pedido está a caminho",
-        timestamp: "",
-        completed: false,
-      },
-      {
-        status: "Entregue",
-        description: "Pedido entregue com sucesso",
-        timestamp: "",
-        completed: false,
-      },
-    ],
-    createdAt: new Date().toISOString(),
-  };
-
-  const result: {
-    order: typeof order;
-    pixCode?: string;
-    pixQrCodeUrl?: string;
-    boletoUrl?: string;
-  } = { order };
-
-  if (isPixPayment) {
-    result.pixCode = "00020126580014BR.GOV.BCB.PIX0136praca-ai-chave-pix@mercadopago.com.br5204000053039865406189.905802BR5925PRACA AI MARKETPLACE6009CHAPECOSC62070503***6304ABCD";
-    result.pixQrCodeUrl = "https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl=PIX_PAYMENT_CODE&chld=M|0";
+  let subtotal = 0;
+  const enrichedItems: any[] = [];
+  for (const item of items ?? []) {
+    const product = PRODUCTS_BY_ID[item.productId];
+    const price = product?.price ?? 0;
+    subtotal += price * (item.quantity ?? 1);
+    enrichedItems.push({ ...item, price, product });
   }
 
-  if (req.body.paymentMethod === "boleto") {
-    result.boletoUrl = "https://praça.ai/boleto/mock";
+  const discount = isPixDiscount ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
+  const total = subtotal + shipping - discount;
+  const orderNumber = `PCA-${Date.now().toString().slice(-8)}`;
+
+  const [order] = await db
+    .insert(ordersTable)
+    .values({
+      orderNumber,
+      consumerId,
+      status: "confirmed",
+      subtotal: String(subtotal),
+      shipping: String(shipping),
+      discount: String(discount),
+      total: String(total),
+      paymentMethod,
+      deliveryAddress: JSON.stringify(deliveryAddress),
+      deliveryOption,
+      couponCode: couponCode ?? null,
+      estimatedDelivery: new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0],
+    })
+    .returning();
+
+  for (const item of enrichedItems) {
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: item.productId,
+      productName: item.product?.name ?? "Produto",
+      productImageUrl: item.product?.imageUrl ?? "",
+      quantity: item.quantity ?? 1,
+      priceAtPurchase: String(item.price),
+      selectedSize: item.selectedSize ?? null,
+    });
+  }
+
+  const savedItems = await db
+    .select()
+    .from(orderItemsTable)
+    .where(eq(orderItemsTable.orderId, order.id));
+
+  res.status(201).json(formatOrder(order, savedItems));
+});
+
+// POST /checkout — read cart, create order, clear cart
+router.post("/checkout", async (req, res): Promise<void> => {
+  const consumerId = req.session?.consumerId ?? null;
+  const { deliveryAddress, deliveryOption, paymentMethod, couponCode, cardNumber, cardHolder, cardExpiry, cardCvv } = req.body;
+
+  const shipping = deliveryOption === "express" ? 12.9 : 0;
+  const isPixPayment = paymentMethod === "pix";
+
+  // Get cart items
+  let cartItems: any[] = [];
+  if (consumerId) {
+    const [cart] = await db
+      .select()
+      .from(cartsTable)
+      .where(eq(cartsTable.consumerId, consumerId))
+      .limit(1);
+    if (cart) {
+      cartItems = await db
+        .select()
+        .from(cartItemsTable)
+        .where(eq(cartItemsTable.cartId, cart.id));
+    }
+  } else if (req.session?.cartToken) {
+    const [cart] = await db
+      .select()
+      .from(cartsTable)
+      .where(eq(cartsTable.sessionToken, req.session.cartToken))
+      .limit(1);
+    if (cart) {
+      cartItems = await db
+        .select()
+        .from(cartItemsTable)
+        .where(eq(cartItemsTable.cartId, cart.id));
+    }
+  }
+
+  if (cartItems.length === 0) {
+    res.status(400).json({ error: "Carrinho vazio." });
+    return;
+  }
+
+  let subtotal = 0;
+  for (const item of cartItems) {
+    subtotal += Number(item.productPrice) * item.quantity;
+  }
+
+  // Apply coupon discount if valid
+  let discount = 0;
+  if (isPixPayment) {
+    discount = Math.round(subtotal * 0.1 * 100) / 100;
+  }
+  if (couponCode === "PRACA10" && !isPixPayment) {
+    discount = Math.round(subtotal * 0.1 * 100) / 100;
+  } else if (couponCode === "VERAO25" && subtotal >= 150 && !isPixPayment) {
+    discount = 25;
+  } else if (couponCode === "FRETEGRATIS") {
+    discount = Math.min(shipping, 12.9);
+  }
+
+  const total = Math.max(0, subtotal + shipping - discount);
+  const orderNumber = `PCA-${Date.now().toString().slice(-8)}`;
+
+  const [order] = await db
+    .insert(ordersTable)
+    .values({
+      orderNumber,
+      consumerId,
+      status: "confirmed",
+      subtotal: String(subtotal),
+      shipping: String(shipping),
+      discount: String(discount),
+      total: String(total),
+      paymentMethod,
+      deliveryAddress: JSON.stringify(deliveryAddress),
+      deliveryOption,
+      couponCode: couponCode ?? null,
+      estimatedDelivery: new Date(Date.now() + (deliveryOption === "express" ? 1 : 3) * 86400000).toISOString().split("T")[0],
+    })
+    .returning();
+
+  for (const item of cartItems) {
+    const product = PRODUCTS_BY_ID[item.productId];
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: item.productId,
+      productName: item.productName,
+      productImageUrl: item.productImageUrl,
+      quantity: item.quantity,
+      priceAtPurchase: item.productPrice,
+      selectedSize: item.selectedSize ?? null,
+    });
+  }
+
+  // Clear the cart
+  if (consumerId) {
+    const [cart] = await db
+      .select()
+      .from(cartsTable)
+      .where(eq(cartsTable.consumerId, consumerId))
+      .limit(1);
+    if (cart) {
+      await db.delete(cartItemsTable).where(eq(cartItemsTable.cartId, cart.id));
+    }
+  } else if (req.session?.cartToken) {
+    const [cart] = await db
+      .select()
+      .from(cartsTable)
+      .where(eq(cartsTable.sessionToken, req.session.cartToken))
+      .limit(1);
+    if (cart) {
+      await db.delete(cartItemsTable).where(eq(cartItemsTable.cartId, cart.id));
+    }
+  }
+
+  const savedItems = await db
+    .select()
+    .from(orderItemsTable)
+    .where(eq(orderItemsTable.orderId, order.id));
+
+  const formattedOrder = formatOrder(order, savedItems);
+
+  const result: any = { order: formattedOrder };
+
+  if (isPixPayment) {
+    result.pixCode = "00020126580014BR.GOV.BCB.PIX0136praca-ai@mercadopago.com.br5204000053039865406189.905802BR5913PRACA AI6009CHAPECOSC63044F2B";
+    result.pixQrCodeUrl = null;
+  }
+
+  if (paymentMethod === "boleto") {
+    result.boletoUrl = "https://praca.ai/boleto/mock";
   }
 
   res.status(201).json(result);

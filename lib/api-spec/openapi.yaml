@@ -32,6 +32,88 @@ tags:
     description: Discount coupons
 
 paths:
+  /auth/register:
+    post:
+      operationId: registerConsumer
+      tags: [profile]
+      summary: Register a new consumer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsumerRegisterInput"
+      responses:
+        "201":
+          description: Registered and logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsumerSession"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: loginConsumer
+      tags: [profile]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConsumerLoginInput"
+      responses:
+        "200":
+          description: Logged in successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsumerSession"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logoutConsumer
+      tags: [profile]
+      summary: Logout current session
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [profile]
+      summary: Get current logged-in consumer
+      responses:
+        "200":
+          description: Current consumer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsumerSession"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /healthz:
     get:
       operationId: healthCheck
@@ -417,6 +499,51 @@ paths:
 
 components:
   schemas:
+    ConsumerRegisterInput:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        password:
+          type: string
+      required:
+        - name
+        - email
+        - password
+
+    ConsumerLoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    ConsumerSession:
+      type: object
+      properties:
+        id:
+          type: ["integer", "string"]
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - email
+
     HealthStatus:
       type: object
       properties:

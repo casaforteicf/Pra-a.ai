@@ -1,0 +1,1 @@
+- [Praça.ai Phase 2 — Auth & Persistence](praca-ai-phase2.md) — session auth + full DB persistence for cart, orders, favorites; key gotchas documented

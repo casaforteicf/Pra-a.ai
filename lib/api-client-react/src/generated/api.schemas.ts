@@ -5,6 +5,28 @@
  * Praça.ai marketplace API
  * OpenAPI spec version: 0.1.0
  */
+export interface ConsumerRegisterInput {
+  name: string;
+  email: string;
+  /** @nullable */
+  phone?: string | null;
+  password: string;
+}
+
+export interface ConsumerLoginInput {
+  email: string;
+  password: string;
+}
+
+export interface ConsumerSession {
+  id: number | string;
+  name: string;
+  email: string;
+  /** @nullable */
+  phone?: string | null;
+  createdAt?: string;
+}
+
 export interface HealthStatus {
   status: string;
 }

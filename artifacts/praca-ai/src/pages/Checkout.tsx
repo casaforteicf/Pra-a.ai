@@ -1,26 +1,29 @@
 import * as React from "react"
 import { useLocation } from "wouter"
-import { ChevronLeft, CreditCard, QrCode, Receipt, Check, ArrowRight, Tag } from "lucide-react"
-import { useGetCart, getGetCartQueryKey, useProcessCheckout } from "@workspace/api-client-react"
+import { ChevronLeft, CreditCard, QrCode, Receipt, Check, ArrowRight, Tag, X } from "lucide-react"
+import { useGetCart, getGetCartQueryKey, useProcessCheckout, useValidateCoupon } from "@workspace/api-client-react"
 import { formatMoney } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
+import { useQueryClient } from "@tanstack/react-query"
 import { motion, AnimatePresence } from "framer-motion"
 
 export default function Checkout() {
   const [, setLocation] = useLocation()
   const { toast } = useToast()
-  
+  const queryClient = useQueryClient()
+
   const { data: cart, isLoading } = useGetCart({
     query: { queryKey: getGetCartQueryKey() }
   })
-  
+
   const checkoutMutation = useProcessCheckout()
-  
+  const validateCouponMutation = useValidateCoupon()
+
   const [step, setStep] = React.useState(1)
-  
+
   // Form State
   const [address, setAddress] = React.useState({
     zipCode: '89801-000',
@@ -31,16 +34,43 @@ export default function Checkout() {
     city: 'Chapecó',
     state: 'SC'
   })
-  
+
   const [deliveryOption, setDeliveryOption] = React.useState<'express' | 'standard'>('express')
   const [paymentMethod, setPaymentMethod] = React.useState<'credit_card' | 'pix' | 'boleto'>('pix')
-  
+
+  const [couponCode, setCouponCode] = React.useState('')
+  const [appliedCoupon, setAppliedCoupon] = React.useState<{ code: string; discount: number; description: string } | null>(null)
+  const [couponError, setCouponError] = React.useState('')
+
   const [cardData, setCardData] = React.useState({
     number: '',
     holder: '',
     expiry: '',
     cvv: ''
   })
+
+  const handleApplyCoupon = () => {
+    if (!couponCode.trim()) return
+    setCouponError('')
+    validateCouponMutation.mutate(
+      { data: { code: couponCode.trim().toUpperCase(), subtotal: cart?.subtotal ?? 0 } as any },
+      {
+        onSuccess: (data: any) => {
+          setAppliedCoupon({ code: couponCode.trim().toUpperCase(), discount: data.discount, description: data.description ?? `Desconto aplicado` })
+          toast({ title: "Cupom aplicado!", description: data.description ?? `Desconto de ${formatMoney(data.discount)}` })
+        },
+        onError: () => {
+          setCouponError('Cupom inválido ou expirado.')
+        }
+      }
+    )
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponCode('')
+    setCouponError('')
+  }
 
   if (isLoading) return <PageLoader />
   if (!cart || cart.items.length === 0) {
@@ -62,22 +92,31 @@ export default function Checkout() {
     else window.history.back()
   }
 
+  const shipping = deliveryOption === 'express' ? 12.9 : 0
+  const pixDiscount = paymentMethod === 'pix' ? Math.round((cart.subtotal ?? 0) * 0.1 * 100) / 100 : 0
+  const couponDiscount = appliedCoupon?.discount ?? 0
+  const totalDiscount = Math.max(pixDiscount, couponDiscount)
+  const grandTotal = (cart.subtotal ?? 0) + shipping - totalDiscount
+
   const handleSubmit = () => {
     checkoutMutation.mutate({
       data: {
-        deliveryAddress: address,
+        deliveryAddress: address as any,
         deliveryOption: deliveryOption as any,
         paymentMethod: paymentMethod as any,
+        couponCode: appliedCoupon?.code ?? undefined,
         ...(paymentMethod === 'credit_card' ? {
           cardNumber: cardData.number,
           cardHolder: cardData.holder,
           cardExpiry: cardData.expiry,
           cardCvv: cardData.cvv
         } : {})
-      }
+      } as any
     }, {
-      onSuccess: () => {
-        setLocation('/success')
+      onSuccess: (data: any) => {
+        queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() })
+        const orderId = data?.order?.id ?? data?.id
+        setLocation(orderId ? `/success/${orderId}` : '/success/0')
       },
       onError: () => {
         toast({
@@ -90,10 +129,10 @@ export default function Checkout() {
   }
 
   return (
-    <div className="flex flex-col w-full min-h-full pb-32 bg-background relative">
+    <div className="flex flex-col w-full min-h-full pb-52 bg-background relative">
       <header className="sticky top-0 sm:top-7 inset-x-0 bg-background/95 backdrop-blur-md z-30 px-4 pt-4 pb-3 border-b">
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={handleBack}
             className="w-10 h-10 rounded-full bg-muted flex items-center justify-center active:scale-95"
           >
@@ -103,7 +142,7 @@ export default function Checkout() {
             <h1 className="text-xl font-black">Finalizar Pedido</h1>
           </div>
         </div>
-        
+
         {/* Progress Bar */}
         <div className="flex items-center gap-2 mt-6 mb-2">
           {[1, 2, 3].map(i => (
@@ -128,7 +167,7 @@ export default function Checkout() {
         <AnimatePresence mode="wait">
           {/* STEP 1: ADDRESS */}
           {step === 1 && (
-            <motion.div 
+            <motion.div
               key="step1"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -136,7 +175,7 @@ export default function Checkout() {
               className="flex flex-col gap-4"
             >
               <h2 className="font-bold text-lg mb-2">Para onde vamos enviar?</h2>
-              
+
               <div className="space-y-4">
                 <Input placeholder="CEP" value={address.zipCode} onChange={e => setAddress({...address, zipCode: e.target.value})} />
                 <div className="grid grid-cols-[2fr_1fr] gap-3">
@@ -155,7 +194,7 @@ export default function Checkout() {
 
           {/* STEP 2: DELIVERY & COUPON */}
           {step === 2 && (
-            <motion.div 
+            <motion.div
               key="step2"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -165,7 +204,7 @@ export default function Checkout() {
               <div>
                 <h2 className="font-bold text-lg mb-4">Opções de Entrega</h2>
                 <div className="flex flex-col gap-3">
-                  <div 
+                  <div
                     onClick={() => setDeliveryOption('express')}
                     className={`p-4 rounded-2xl border-2 transition-colors cursor-pointer flex items-center justify-between ${
                       deliveryOption === 'express' ? 'border-primary bg-primary/5' : 'border-muted bg-card'
@@ -178,7 +217,7 @@ export default function Checkout() {
                     <span className="font-black text-terracota">R$ 12,90</span>
                   </div>
 
-                  <div 
+                  <div
                     onClick={() => setDeliveryOption('standard')}
                     className={`p-4 rounded-2xl border-2 transition-colors cursor-pointer flex items-center justify-between ${
                       deliveryOption === 'standard' ? 'border-primary bg-primary/5' : 'border-muted bg-card'
@@ -197,17 +236,46 @@ export default function Checkout() {
                 <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
                   <Tag className="w-4 h-4" /> Cupom de Desconto
                 </h3>
-                <div className="flex gap-2">
-                  <Input placeholder="Digite o código" className="bg-muted uppercase" />
-                  <Button variant="outline" className="shrink-0">Aplicar</Button>
-                </div>
+                {appliedCoupon ? (
+                  <div className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-xl px-3 py-2">
+                    <div>
+                      <p className="font-bold text-sm text-primary">{appliedCoupon.code}</p>
+                      <p className="text-xs text-muted-foreground">-{formatMoney(appliedCoupon.discount)}</p>
+                    </div>
+                    <button onClick={handleRemoveCoupon} className="text-muted-foreground hover:text-destructive">
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Digite o código"
+                        className="bg-muted uppercase"
+                        value={couponCode}
+                        onChange={(e) => { setCouponCode(e.target.value.toUpperCase()); setCouponError('') }}
+                        onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
+                      />
+                      <Button
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={handleApplyCoupon}
+                        disabled={validateCouponMutation.isPending || !couponCode.trim()}
+                      >
+                        {validateCouponMutation.isPending ? '...' : 'Aplicar'}
+                      </Button>
+                    </div>
+                    {couponError && <p className="text-xs text-destructive mt-2">{couponError}</p>}
+                    <p className="text-[10px] text-muted-foreground mt-2">Tente: PRACA10, VERAO25, FRETEGRATIS</p>
+                  </>
+                )}
               </div>
             </motion.div>
           )}
 
           {/* STEP 3: PAYMENT */}
           {step === 3 && (
-            <motion.div 
+            <motion.div
               key="step3"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -215,15 +283,15 @@ export default function Checkout() {
               className="flex flex-col gap-6"
             >
               <h2 className="font-bold text-lg mb-2">Como você prefere pagar?</h2>
-              
+
               <div className="flex bg-muted p-1 rounded-2xl">
-                <button 
+                <button
                   onClick={() => setPaymentMethod('pix')}
                   className={`flex-1 py-3 text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 ${paymentMethod === 'pix' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground'}`}
                 >
                   <QrCode className="w-4 h-4" /> Pix
                 </button>
-                <button 
+                <button
                   onClick={() => setPaymentMethod('credit_card')}
                   className={`flex-1 py-3 text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 ${paymentMethod === 'credit_card' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground'}`}
                 >
@@ -239,17 +307,16 @@ export default function Checkout() {
                   <h3 className="font-black text-primary text-lg mb-1">Pagamento via Pix</h3>
                   <p className="text-sm text-muted-foreground">Você terá 10 minutos para pagar o QR Code que será gerado na próxima tela.</p>
                   <div className="mt-4 bg-terracota/10 text-terracota px-3 py-1 rounded-full text-xs font-bold">
-                    + 5% de desconto automático
+                    + 10% de desconto automático
                   </div>
                 </div>
               )}
 
               {paymentMethod === 'credit_card' && (
                 <div className="flex flex-col gap-4">
-                  {/* Live Card Preview */}
                   <div className="w-full h-48 rounded-2xl bg-gradient-to-tr from-zinc-900 to-zinc-700 p-6 flex flex-col justify-between text-white shadow-xl">
                     <div className="flex justify-between items-center">
-                      <div className="w-10 h-8 bg-white/20 rounded-md"></div>
+                      <div className="w-10 h-8 bg-white/20 rounded-md" />
                       <div className="font-mono text-xl font-bold tracking-wider opacity-50">VISA</div>
                     </div>
                     <div className="font-mono text-xl tracking-widest mt-2">
@@ -280,31 +347,37 @@ export default function Checkout() {
         </AnimatePresence>
       </div>
 
-      {/* Order Summary Sidebar/Panel */}
+      {/* Order Summary Panel */}
       <div className="fixed bottom-[88px] sm:bottom-0 sm:absolute inset-x-0 bg-white border-t rounded-t-[32px] p-6 z-40 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-        <div className="flex justify-between text-sm mb-2 text-muted-foreground">
+        <div className="flex justify-between text-sm mb-1 text-muted-foreground">
           <span>Subtotal ({cart.itemCount} itens)</span>
           <span>{formatMoney(cart.subtotal)}</span>
         </div>
-        <div className="flex justify-between text-sm mb-4 text-muted-foreground">
+        <div className="flex justify-between text-sm mb-1 text-muted-foreground">
           <span>Frete</span>
           <span>{deliveryOption === 'express' ? 'R$ 12,90' : 'Grátis'}</span>
         </div>
-        <div className="flex justify-between items-end mb-6">
+        {totalDiscount > 0 && (
+          <div className="flex justify-between text-sm mb-1 text-primary font-medium">
+            <span>{paymentMethod === 'pix' ? 'Desconto Pix (10%)' : `Cupom ${appliedCoupon?.code ?? ''}`}</span>
+            <span>-{formatMoney(totalDiscount)}</span>
+          </div>
+        )}
+        <div className="flex justify-between items-end mb-4 mt-2">
           <span className="font-bold">Total</span>
           <span className="text-2xl font-black text-primary">
-            {formatMoney(cart.subtotal + (deliveryOption === 'express' ? 12.9 : 0))}
+            {formatMoney(grandTotal)}
           </span>
         </div>
-        
+
         {step < 3 ? (
           <Button size="lg" className="w-full flex items-center justify-center gap-2" onClick={handleNext}>
             Continuar <ArrowRight className="w-5 h-5" />
           </Button>
         ) : (
-          <Button 
-            size="lg" 
-            className="w-full bg-terracota hover:bg-terracota/90 text-white" 
+          <Button
+            size="lg"
+            className="w-full bg-terracota hover:bg-terracota/90 text-white"
             onClick={handleSubmit}
             disabled={checkoutMutation.isPending}
           >

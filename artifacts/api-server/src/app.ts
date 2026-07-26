@@ -1,6 +1,9 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
+import session from "express-session";
+import ConnectPgSimple from "connect-pg-simple";
+import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
@@ -25,9 +28,41 @@ app.use(
     },
   }),
 );
-app.use(cors());
+
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  }),
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Session store backed by PostgreSQL
+const PgStore = ConnectPgSimple(session);
+
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET must be set");
+}
+
+app.use(
+  session({
+    store: new PgStore({
+      pool,
+      tableName: "session",
+    }),
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // set to true in production behind HTTPS
+      httpOnly: true,
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      sameSite: "lax",
+    },
+  }),
+);
 
 app.use("/api", router);
 

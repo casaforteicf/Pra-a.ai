@@ -1,102 +1,193 @@
 import { Router, type IRouter } from "express";
+import { eq, and } from "drizzle-orm";
+import { db, cartsTable, cartItemsTable } from "@workspace/db";
+import { PRODUCTS_BY_ID } from "./productData";
+import crypto from "crypto";
 
 const router: IRouter = Router();
 
-// In-memory cart for demo
-let cart = {
-  items: [
-    {
-      productId: "p9",
-      product: {
-        id: "p9",
-        name: "Mochila Escolar Reforçada 35L",
-        description: "Impermeável, 35 litros, compartimento notebook",
-        price: 89.90,
-        originalPrice: 179.90,
-        discountPct: 50,
-        imageUrl: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&q=80",
-        images: ["https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&q=80"],
-        category: "Esportes",
-        categorySlug: "esportes",
-        vendorId: "v1",
-        vendorName: "SportCO Chapecó",
-        vendorLogoUrl: null,
-        rating: 4.5,
-        reviewCount: 156,
-        salesCount: 892,
-        stock: 7,
-        isFavorited: false,
-        sizes: null,
-        deliveryDays: 2,
-        freeShipping: true,
-      },
-      quantity: 1,
-      selectedSize: null,
-    },
-  ],
-  subtotal: 89.90,
-  shipping: 0,
-  total: 89.90,
-  itemCount: 1,
-};
+// Helpers
+async function getOrCreateCart(consumerId: number | undefined, sessionToken: string) {
+  if (consumerId) {
+    // Check if user has a cart
+    let [cart] = await db
+      .select()
+      .from(cartsTable)
+      .where(eq(cartsTable.consumerId, consumerId))
+      .limit(1);
 
-function recalcCart() {
-  cart.subtotal = cart.items.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
-  cart.shipping = cart.subtotal > 79 ? 0 : 9.90;
-  cart.total = cart.subtotal + cart.shipping;
-  cart.itemCount = cart.items.reduce((sum, i) => sum + i.quantity, 0);
+    if (!cart) {
+      // Check if there's an anonymous cart with this token to migrate
+      const [anonCart] = await db
+        .select()
+        .from(cartsTable)
+        .where(eq(cartsTable.sessionToken, sessionToken))
+        .limit(1);
+
+      if (anonCart && !anonCart.consumerId) {
+        // Migrate: assign consumer to anonymous cart
+        [cart] = await db
+          .update(cartsTable)
+          .set({ consumerId })
+          .where(eq(cartsTable.id, anonCart.id))
+          .returning();
+      } else {
+        // Create new cart for consumer
+        [cart] = await db
+          .insert(cartsTable)
+          .values({ consumerId, sessionToken: `user-${consumerId}` })
+          .returning();
+      }
+    }
+    return cart;
+  } else {
+    // Anonymous cart by session token
+    let [cart] = await db
+      .select()
+      .from(cartsTable)
+      .where(eq(cartsTable.sessionToken, sessionToken))
+      .limit(1);
+
+    if (!cart) {
+      [cart] = await db
+        .insert(cartsTable)
+        .values({ consumerId: null, sessionToken })
+        .returning();
+    }
+    return cart;
+  }
+}
+
+async function buildCartResponse(cartId: number) {
+  const items = await db
+    .select()
+    .from(cartItemsTable)
+    .where(eq(cartItemsTable.cartId, cartId));
+
+  const enriched = items.map((item) => {
+    const product = PRODUCTS_BY_ID[item.productId] ?? {
+      id: item.productId,
+      name: item.productName,
+      description: "",
+      price: Number(item.productPrice),
+      originalPrice: null,
+      discountPct: null,
+      imageUrl: item.productImageUrl,
+      images: [item.productImageUrl],
+      category: "",
+      categorySlug: "",
+      vendorId: "",
+      vendorName: "",
+      vendorLogoUrl: null,
+      rating: 0,
+      reviewCount: 0,
+      salesCount: 0,
+      stock: 99,
+      isFavorited: false,
+      sizes: null,
+      deliveryDays: 3,
+      freeShipping: false,
+    };
+    return {
+      productId: item.productId,
+      product,
+      quantity: item.quantity,
+      selectedSize: item.selectedSize,
+    };
+  });
+
+  const subtotal = enriched.reduce(
+    (sum, i) => sum + Number(i.product.price) * i.quantity,
+    0,
+  );
+  const shipping = subtotal > 0 && subtotal < 79 ? 9.9 : 0;
+  const total = subtotal + shipping;
+  const itemCount = enriched.reduce((sum, i) => sum + i.quantity, 0);
+
+  return { items: enriched, subtotal, shipping, total, itemCount };
+}
+
+function getSessionToken(req: any): string {
+  if (!req.session.cartToken) {
+    req.session.cartToken = crypto.randomUUID();
+  }
+  return req.session.cartToken;
 }
 
 router.get("/cart", async (req, res): Promise<void> => {
-  res.json(cart);
+  const consumerId = req.session?.consumerId;
+  const token = getSessionToken(req);
+  const cart = await getOrCreateCart(consumerId, token);
+  const response = await buildCartResponse(cart.id);
+  res.json(response);
 });
 
 router.post("/cart/items", async (req, res): Promise<void> => {
+  const consumerId = req.session?.consumerId;
+  const token = getSessionToken(req);
+  const cart = await getOrCreateCart(consumerId, token);
+
   const { productId, quantity = 1, selectedSize } = req.body;
-  const existing = cart.items.find((i) => i.productId === productId);
+
+  const product = PRODUCTS_BY_ID[productId];
+  if (!product) {
+    res.status(404).json({ error: "Produto não encontrado" });
+    return;
+  }
+
+  // Check if already in cart
+  const [existing] = await db
+    .select()
+    .from(cartItemsTable)
+    .where(
+      and(
+        eq(cartItemsTable.cartId, cart.id),
+        eq(cartItemsTable.productId, productId),
+      ),
+    )
+    .limit(1);
+
   if (existing) {
-    existing.quantity += quantity;
+    await db
+      .update(cartItemsTable)
+      .set({ quantity: existing.quantity + quantity })
+      .where(eq(cartItemsTable.id, existing.id));
   } else {
-    cart.items.push({
+    await db.insert(cartItemsTable).values({
+      cartId: cart.id,
       productId,
-      product: {
-        id: productId,
-        name: "Produto adicionado",
-        description: "",
-        price: 99.90,
-        originalPrice: null,
-        discountPct: null,
-        imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80",
-        images: [],
-        category: "Geral",
-        categorySlug: "geral",
-        vendorId: "v1",
-        vendorName: "Loja",
-        vendorLogoUrl: null,
-        rating: 4.5,
-        reviewCount: 10,
-        salesCount: 100,
-        stock: 10,
-        isFavorited: false,
-        sizes: null,
-        deliveryDays: 3,
-        freeShipping: false,
-      },
+      productName: product.name,
+      productImageUrl: product.imageUrl,
+      productPrice: String(product.price),
       quantity,
       selectedSize: selectedSize ?? null,
     });
   }
-  recalcCart();
-  res.json(cart);
+
+  const response = await buildCartResponse(cart.id);
+  res.json(response);
 });
 
 router.delete("/cart/items/:productId", async (req, res): Promise<void> => {
+  const consumerId = req.session?.consumerId;
+  const token = getSessionToken(req);
+  const cart = await getOrCreateCart(consumerId, token);
+
   const productId = Array.isArray(req.params.productId)
     ? req.params.productId[0]
     : req.params.productId;
-  cart.items = cart.items.filter((i) => i.productId !== productId);
-  recalcCart();
-  res.json(cart);
+
+  await db
+    .delete(cartItemsTable)
+    .where(
+      and(
+        eq(cartItemsTable.cartId, cart.id),
+        eq(cartItemsTable.productId, productId),
+      ),
+    );
+
+  const response = await buildCartResponse(cart.id);
+  res.json(response);
 });
 
 export default router;
