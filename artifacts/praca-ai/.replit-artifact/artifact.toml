@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Praça.ai"
+version = "1.0.0"
+id = "artifacts/praca-ai"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19962
+
+[services.development]
+run = "pnpm --filter @workspace/praca-ai run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/praca-ai", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/praca-ai/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19962"
+BASE_PATH = "/"

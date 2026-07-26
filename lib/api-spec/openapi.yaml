@@ -3,20 +3,40 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Praça.ai marketplace API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: home
+    description: Home page data
+  - name: products
+    description: Product catalog
+  - name: categories
+    description: Product categories
+  - name: orders
+    description: Order management
+  - name: cart
+    description: Shopping cart
+  - name: reviews
+    description: Product reviews
+  - name: feed
+    description: Social feed
+  - name: favorites
+    description: User favorites
+  - name: profile
+    description: User profile
+  - name: coupons
+    description: Discount coupons
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +44,377 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /home:
+    get:
+      operationId: getHome
+      tags: [home]
+      summary: Home page aggregated data
+      responses:
+        "200":
+          description: Home data including banners, featured products and carousels
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HomeData"
+
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [categories]
+      summary: List all categories
+      responses:
+        "200":
+          description: Array of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List products with filters
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [relevance, price_asc, price_desc, best_sellers, rating, offers]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated product list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductListResponse"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get product detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Product detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /products/{id}/reviews:
+    get:
+      operationId: listProductReviews
+      tags: [reviews]
+      summary: List reviews for a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reviews list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+
+  /orders:
+    get:
+      operationId: listOrders
+      tags: [orders]
+      summary: List user orders
+      responses:
+        "200":
+          description: Orders list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Order"
+    post:
+      operationId: createOrder
+      tags: [orders]
+      summary: Create a new order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrderInput"
+      responses:
+        "201":
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      summary: Get order detail with tracking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Order detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /cart:
+    get:
+      operationId: getCart
+      tags: [cart]
+      summary: Get current cart
+      responses:
+        "200":
+          description: Current cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+
+  /cart/items:
+    post:
+      operationId: addToCart
+      tags: [cart]
+      summary: Add item to cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CartItemInput"
+      responses:
+        "200":
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+
+  /cart/items/{productId}:
+    delete:
+      operationId: removeFromCart
+      tags: [cart]
+      summary: Remove item from cart
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated cart
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cart"
+
+  /checkout:
+    post:
+      operationId: processCheckout
+      tags: [orders]
+      summary: Process checkout and create order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutInput"
+      responses:
+        "201":
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutResult"
+
+  /coupons/validate:
+    post:
+      operationId: validateCoupon
+      tags: [coupons]
+      summary: Validate a discount coupon
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CouponValidateInput"
+      responses:
+        "200":
+          description: Coupon validated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CouponValidateResult"
+
+  /coupons:
+    get:
+      operationId: listCoupons
+      tags: [coupons]
+      summary: List available coupons for user
+      responses:
+        "200":
+          description: Coupons list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Coupon"
+
+  /feed:
+    get:
+      operationId: listFeed
+      tags: [feed]
+      summary: List social feed posts from vendors
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        "200":
+          description: Feed posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FeedPost"
+
+  /feed/{id}/like:
+    post:
+      operationId: toggleFeedLike
+      tags: [feed]
+      summary: Like or unlike a feed post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Like toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedPost"
+
+  /favorites:
+    get:
+      operationId: listFavorites
+      tags: [favorites]
+      summary: List user favorite products
+      responses:
+        "200":
+          description: Favorites list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+
+  /favorites/{productId}:
+    post:
+      operationId: toggleFavorite
+      tags: [favorites]
+      summary: Toggle product as favorite
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Favorite toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FavoriteToggleResult"
+
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: Get user profile
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+    patch:
+      operationId: updateProfile
+      tags: [profile]
+      summary: Update user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +425,636 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        icon:
+          type: string
+        productCount:
+          type: integer
+      required:
+        - id
+        - name
+        - slug
+        - icon
+        - productCount
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        price:
+          type: number
+        originalPrice:
+          type: ["number", "null"]
+        discountPct:
+          type: ["integer", "null"]
+        imageUrl:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+        category:
+          type: string
+        categorySlug:
+          type: string
+        vendorId:
+          type: string
+        vendorName:
+          type: string
+        vendorLogoUrl:
+          type: ["string", "null"]
+        rating:
+          type: number
+        reviewCount:
+          type: integer
+        salesCount:
+          type: integer
+        stock:
+          type: integer
+        isFavorited:
+          type: boolean
+        sizes:
+          type: ["array", "null"]
+          items:
+            type: string
+        deliveryDays:
+          type: integer
+        freeShipping:
+          type: boolean
+      required:
+        - id
+        - name
+        - description
+        - price
+        - imageUrl
+        - images
+        - category
+        - categorySlug
+        - vendorId
+        - vendorName
+        - rating
+        - reviewCount
+        - salesCount
+        - stock
+        - isFavorited
+        - deliveryDays
+        - freeShipping
+
+    ProductDetail:
+      allOf:
+        - $ref: "#/components/schemas/Product"
+        - type: object
+          properties:
+            vendorRating:
+              type: number
+            vendorSalesCount:
+              type: integer
+            vendorDescription:
+              type: ["string", "null"]
+            shippingInfo:
+              type: string
+            returnPolicy:
+              type: string
+          required:
+            - vendorRating
+            - vendorSalesCount
+            - shippingInfo
+            - returnPolicy
+
+    ProductListResponse:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        total:
+          type: integer
+        page:
+          type: integer
+        hasMore:
+          type: boolean
+      required:
+        - products
+        - total
+        - page
+        - hasMore
+
+    Review:
+      type: object
+      properties:
+        id:
+          type: string
+        authorName:
+          type: string
+        authorAvatarUrl:
+          type: ["string", "null"]
+        rating:
+          type: integer
+        comment:
+          type: string
+        date:
+          type: string
+        verified:
+          type: boolean
+        helpfulCount:
+          type: integer
+      required:
+        - id
+        - authorName
+        - rating
+        - comment
+        - date
+        - verified
+        - helpfulCount
+
+    CartItem:
+      type: object
+      properties:
+        productId:
+          type: string
+        product:
+          $ref: "#/components/schemas/Product"
+        quantity:
+          type: integer
+        selectedSize:
+          type: ["string", "null"]
+      required:
+        - productId
+        - product
+        - quantity
+
+    Cart:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItem"
+        subtotal:
+          type: number
+        shipping:
+          type: number
+        total:
+          type: number
+        itemCount:
+          type: integer
+      required:
+        - items
+        - subtotal
+        - shipping
+        - total
+        - itemCount
+
+    CartItemInput:
+      type: object
+      properties:
+        productId:
+          type: string
+        quantity:
+          type: integer
+        selectedSize:
+          type: ["string", "null"]
+      required:
+        - productId
+        - quantity
+
+    OrderItem:
+      type: object
+      properties:
+        productId:
+          type: string
+        productName:
+          type: string
+        productImageUrl:
+          type: string
+        quantity:
+          type: integer
+        price:
+          type: number
+        selectedSize:
+          type: ["string", "null"]
+      required:
+        - productId
+        - productName
+        - productImageUrl
+        - quantity
+        - price
+
+    TrackingEvent:
+      type: object
+      properties:
+        status:
+          type: string
+        description:
+          type: string
+        timestamp:
+          type: string
+        completed:
+          type: boolean
+      required:
+        - status
+        - description
+        - timestamp
+        - completed
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: string
+        orderNumber:
+          type: string
+        status:
+          type: string
+          enum: [pending, confirmed, preparing, shipped, out_for_delivery, delivered, cancelled]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderItem"
+        subtotal:
+          type: number
+        shipping:
+          type: number
+        discount:
+          type: number
+        total:
+          type: number
+        paymentMethod:
+          type: string
+        deliveryAddress:
+          type: string
+        estimatedDelivery:
+          type: string
+        trackingCode:
+          type: ["string", "null"]
+        trackingEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrackingEvent"
+        createdAt:
+          type: string
+      required:
+        - id
+        - orderNumber
+        - status
+        - items
+        - subtotal
+        - shipping
+        - discount
+        - total
+        - paymentMethod
+        - deliveryAddress
+        - estimatedDelivery
+        - trackingEvents
+        - createdAt
+
+    OrderInput:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CartItemInput"
+        deliveryAddress:
+          $ref: "#/components/schemas/AddressInput"
+        deliveryOption:
+          type: string
+          enum: [express, standard, scheduled, pickup]
+        paymentMethod:
+          type: string
+          enum: [credit_card, pix, boleto]
+        couponCode:
+          type: ["string", "null"]
+      required:
+        - items
+        - deliveryAddress
+        - deliveryOption
+        - paymentMethod
+
+    AddressInput:
+      type: object
+      properties:
+        street:
+          type: string
+        number:
+          type: string
+        complement:
+          type: ["string", "null"]
+        neighborhood:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zipCode:
+          type: string
+      required:
+        - street
+        - number
+        - neighborhood
+        - city
+        - state
+        - zipCode
+
+    CheckoutInput:
+      type: object
+      properties:
+        deliveryAddress:
+          $ref: "#/components/schemas/AddressInput"
+        deliveryOption:
+          type: string
+          enum: [express, standard, scheduled, pickup]
+        paymentMethod:
+          type: string
+          enum: [credit_card, pix, boleto]
+        couponCode:
+          type: ["string", "null"]
+        cardHolder:
+          type: ["string", "null"]
+        cardNumber:
+          type: ["string", "null"]
+        cardExpiry:
+          type: ["string", "null"]
+        cardCvv:
+          type: ["string", "null"]
+      required:
+        - deliveryAddress
+        - deliveryOption
+        - paymentMethod
+
+    CheckoutResult:
+      type: object
+      properties:
+        order:
+          $ref: "#/components/schemas/Order"
+        pixCode:
+          type: ["string", "null"]
+        pixQrCodeUrl:
+          type: ["string", "null"]
+        boletoUrl:
+          type: ["string", "null"]
+      required:
+        - order
+
+    Coupon:
+      type: object
+      properties:
+        id:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+        discountType:
+          type: string
+          enum: [percentage, fixed]
+        discountValue:
+          type: number
+        minOrderValue:
+          type: ["number", "null"]
+        expiresAt:
+          type: ["string", "null"]
+        used:
+          type: boolean
+      required:
+        - id
+        - code
+        - description
+        - discountType
+        - discountValue
+        - used
+
+    CouponValidateInput:
+      type: object
+      properties:
+        code:
+          type: string
+        orderValue:
+          type: number
+      required:
+        - code
+        - orderValue
+
+    CouponValidateResult:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        coupon:
+          $ref: "#/components/schemas/Coupon"
+        discountAmount:
+          type: number
+        message:
+          type: ["string", "null"]
+      required:
+        - valid
+        - discountAmount
+
+    FeedPost:
+      type: object
+      properties:
+        id:
+          type: string
+        vendorId:
+          type: string
+        vendorName:
+          type: string
+        vendorLogoUrl:
+          type: ["string", "null"]
+        content:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        likeCount:
+          type: integer
+        commentCount:
+          type: integer
+        isLiked:
+          type: boolean
+        productId:
+          type: ["string", "null"]
+        productName:
+          type: ["string", "null"]
+        productPrice:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - vendorId
+        - vendorName
+        - content
+        - likeCount
+        - commentCount
+        - isLiked
+        - createdAt
+
+    FavoriteToggleResult:
+      type: object
+      properties:
+        productId:
+          type: string
+        isFavorited:
+          type: boolean
+      required:
+        - productId
+        - isFavorited
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        cpf:
+          type: ["string", "null"]
+        addresses:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedAddress"
+        orderCount:
+          type: integer
+        favoriteCount:
+          type: integer
+      required:
+        - id
+        - name
+        - email
+        - orderCount
+        - favoriteCount
+
+    SavedAddress:
+      type: object
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        street:
+          type: string
+        number:
+          type: string
+        complement:
+          type: ["string", "null"]
+        neighborhood:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zipCode:
+          type: string
+        isDefault:
+          type: boolean
+      required:
+        - id
+        - label
+        - street
+        - number
+        - neighborhood
+        - city
+        - state
+        - zipCode
+        - isDefault
+
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+
+    Banner:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        subtitle:
+          type: ["string", "null"]
+        imageUrl:
+          type: string
+        linkUrl:
+          type: ["string", "null"]
+        badgeText:
+          type: ["string", "null"]
+      required:
+        - id
+        - title
+        - imageUrl
+
+    CategoryCarousel:
+      type: object
+      properties:
+        category:
+          $ref: "#/components/schemas/Category"
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+      required:
+        - category
+        - products
+
+    HomeData:
+      type: object
+      properties:
+        banners:
+          type: array
+          items:
+            $ref: "#/components/schemas/Banner"
+        categories:
+          type: array
+          items:
+            $ref: "#/components/schemas/Category"
+        featuredProducts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+        carousels:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryCarousel"
+        flashDeals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
+      required:
+        - banners
+        - categories
+        - featuredProducts
+        - carousels
+        - flashDeals
