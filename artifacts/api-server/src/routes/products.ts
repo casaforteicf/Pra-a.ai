@@ -2,8 +2,26 @@ import { Router, type IRouter } from "express";
 import { vendorPool } from "../lib/vendorDb";
 import { mapCatalogRow, getProductById } from "../lib/catalogService";
 import { getProductRatingSummary } from "./reviews";
+import { db, orderItemsTable, ordersTable } from "@workspace/db";
+import { and, eq, gte, sql } from "drizzle-orm";
 
 const router: IRouter = Router();
+
+// Prova social de urgência (9.11): só a contagem real de compras nas
+// últimas 24h é implementada — "restam Y unidades" precisaria de estoque
+// real, que produtos_catalogo não tem hoje (mesmo gap já documentado no
+// catalogService). Não exibe abaixo de um mínimo, pra não parecer vazio.
+const MIN_COMPRAS_PARA_EXIBIR = 5;
+
+async function getComprasUltimas24h(productId: string): Promise<number> {
+  const desde = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [result] = await db
+    .select({ total: sql<number>`count(distinct ${orderItemsTable.orderId})` })
+    .from(orderItemsTable)
+    .innerJoin(ordersTable, eq(ordersTable.id, orderItemsTable.orderId))
+    .where(and(eq(orderItemsTable.productId, productId), gte(ordersTable.createdAt, desde)));
+  return Number(result?.total ?? 0);
+}
 
 router.get("/products", async (req, res): Promise<void> => {
   const { category, search, sort, page = "1", limit = "20", precoMin, precoMax, marca, cidade } =
@@ -114,7 +132,12 @@ router.get("/products/:id", async (req, res): Promise<void> => {
       return;
     }
     const ratingSummary = await getProductRatingSummary(id);
-    res.json({ ...product, ...ratingSummary });
+    const comprasUltimas24h = await getComprasUltimas24h(id);
+    res.json({
+      ...product,
+      ...ratingSummary,
+      comprasUltimas24h: comprasUltimas24h >= MIN_COMPRAS_PARA_EXIBIR ? comprasUltimas24h : null,
+    });
   } catch (err) {
     console.error("[products] erro ao buscar produto:", err);
     res.status(500).json({ error: "Não foi possível carregar o produto agora." });

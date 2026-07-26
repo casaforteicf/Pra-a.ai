@@ -39,6 +39,79 @@ export async function findOrCreateLead(tenantId: string, consumer: ConsumerInfo)
   return leadId;
 }
 
+interface ChatMessage {
+  id: string;
+  conteudo: string;
+  enviadoPor: string; // 'lead' | 'agente_ia' | 'humano'
+  direcao: string; // 'entrada' | 'saida'
+  createdAt: string;
+}
+
+/**
+ * Encontra (ou cria) a conversa do Praça.ai desse lead com esse tenant.
+ * Reaproveita as tabelas conversations/messages já usadas pelo Vendor.ai —
+ * a mensagem cai direto na mesma inbox que o lojista já usa (Conversas),
+ * marcada com channel = 'praca_ai', em vez de criar uma inbox nova e solta.
+ */
+async function findOrCreateConversation(tenantId: string, leadId: string): Promise<string> {
+  const existing = await vendorPool.query(
+    `SELECT id FROM conversations WHERE tenant_id = $1 AND lead_id = $2 AND channel = 'praca_ai' LIMIT 1`,
+    [tenantId, leadId],
+  );
+  if (existing.rows.length > 0) return existing.rows[0].id;
+
+  const conversationId = crypto.randomUUID();
+  await vendorPool.query(
+    `INSERT INTO conversations (id, tenant_id, lead_id, channel, status, created_at, updated_at)
+     VALUES ($1, $2, $3, 'praca_ai', 'open', now(), now())`,
+    [conversationId, tenantId, leadId],
+  );
+  return conversationId;
+}
+
+export async function sendChatMessage(params: {
+  tenantId: string;
+  leadId: string;
+  conteudo: string;
+}): Promise<ChatMessage> {
+  const conversationId = await findOrCreateConversation(params.tenantId, params.leadId);
+  const messageId = crypto.randomUUID();
+
+  await vendorPool.query(
+    `INSERT INTO messages (id, tenant_id, conversation_id, lead_id, direcao, canal, conteudo, tipo_conteudo, enviado_por, status, created_at)
+     VALUES ($1, $2, $3, $4, 'entrada', 'chat', $5, 'texto', 'lead', 'enviado', now())`,
+    [messageId, params.tenantId, conversationId, params.leadId, params.conteudo],
+  );
+
+  await vendorPool.query(
+    `UPDATE conversations SET ultima_mensagem_em = now(), updated_at = now(), nao_lidas = nao_lidas + 1 WHERE id = $1`,
+    [conversationId],
+  );
+
+  return { id: messageId, conteudo: params.conteudo, enviadoPor: "lead", direcao: "entrada", createdAt: new Date().toISOString() };
+}
+
+export async function getChatMessages(tenantId: string, leadId: string): Promise<ChatMessage[]> {
+  const conv = await vendorPool.query(
+    `SELECT id FROM conversations WHERE tenant_id = $1 AND lead_id = $2 AND channel = 'praca_ai' LIMIT 1`,
+    [tenantId, leadId],
+  );
+  if (conv.rows.length === 0) return [];
+
+  const result = await vendorPool.query(
+    `SELECT id, conteudo, enviado_por, direcao, created_at
+     FROM messages WHERE conversation_id = $1 ORDER BY created_at ASC`,
+    [conv.rows[0].id],
+  );
+
+  return result.rows.map((r) => ({
+    id: r.id,
+    conteudo: r.conteudo,
+    enviadoPor: r.enviado_por,
+    direcao: r.direcao,
+    createdAt: r.created_at,
+  }));
+}
 interface DealItemSummary {
   productName: string;
   quantity: number;
