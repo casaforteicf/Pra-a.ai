@@ -20,6 +20,7 @@ import chatRouter from "./chat";
 import ambassadorsRouter from "./ambassadors";
 import deliveriesRouter from "./deliveries";
 import supportPointsRouter from "./supportPoints";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -44,5 +45,6 @@ router.use(chatRouter);
 router.use(ambassadorsRouter);
 router.use(deliveriesRouter);
 router.use(supportPointsRouter);
+router.use(adminRouter);
 
 export default router;
