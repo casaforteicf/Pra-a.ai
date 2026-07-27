@@ -3,6 +3,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES } from "@workspace/db";
 import { getProductById, getProductsByIds } from "../lib/catalogService";
 import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncService";
+import { calcularFrete } from "../lib/freteService";
 import { confirmarConversaoCliente } from "./ambassadors";
 
 const router: IRouter = Router();
@@ -172,7 +173,6 @@ router.post("/checkout", async (req, res): Promise<void> => {
   const consumerId = req.session?.consumerId ?? null;
   const { deliveryAddress, deliveryOption, paymentMethod, couponCode, cardNumber, cardHolder, cardExpiry, cardCvv } = req.body;
 
-  const shipping = deliveryOption === "express" ? 12.9 : 0;
   const isPixPayment = paymentMethod === "pix";
 
   // Get cart items
@@ -227,6 +227,31 @@ router.post("/checkout", async (req, res): Promise<void> => {
   let subtotal = 0;
   for (const item of cartItems) {
     subtotal += Number(item.productPrice) * item.quantity;
+  }
+
+  // Frete real, calculado por vendedor (carrinho multi-vendedor, seção 9.7)
+  // e somado no total do pedido — retirada na loja não tem frete;
+  // pra qualquer outro modo, calcula por vendedor via calcularFrete().
+  let shipping = 0;
+  const cidadeCliente = typeof deliveryAddress === "object" ? deliveryAddress?.city : undefined;
+  if (deliveryOption !== "pickup") {
+    const itemsByVendorForFrete = new Map<string, typeof cartItems>();
+    for (const item of cartItems) {
+      if (!item.vendorId) continue;
+      const list = itemsByVendorForFrete.get(item.vendorId) ?? [];
+      list.push(item);
+      itemsByVendorForFrete.set(item.vendorId, list);
+    }
+    for (const [vendorId, vendorItems] of itemsByVendorForFrete) {
+      const vendorSubtotal = vendorItems.reduce((sum, i) => sum + Number(i.productPrice) * i.quantity, 0);
+      try {
+        const resultado = await calcularFrete(vendorId, cidadeCliente, vendorSubtotal);
+        shipping += resultado.valor;
+      } catch (freteErr) {
+        console.error("[checkout] erro ao calcular frete por vendedor, usando fallback:", freteErr);
+        shipping += deliveryOption === "express" ? 12.9 : 0;
+      }
+    }
   }
 
   // Apply coupon discount if valid
