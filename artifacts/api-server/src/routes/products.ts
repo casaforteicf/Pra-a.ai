@@ -80,8 +80,12 @@ router.get("/products", async (req, res): Promise<void> => {
   let orderBy = "pc.destaque DESC, pc.created_at DESC";
   if (sort === "price_asc") orderBy = "pc.preco_base ASC";
   else if (sort === "price_desc") orderBy = "pc.preco_base DESC";
-  // "best_sellers", "rating" e "offers" dependem de dado que ainda não existe
-  // real (vendas/avaliação/promoção) — caem no default até esses fluxos existirem
+  else if (sort === "offers") {
+    conditions.push("pc.preco_promocional IS NOT NULL", "pc.promocao_ativa_ate > now()");
+    orderBy = "(1 - pc.preco_promocional / pc.preco_base) DESC"; // maior desconto primeiro
+  }
+  // "best_sellers" e "rating" ainda dependem de dado que não existe real
+  // (vendas/avaliação agregada por ordenação) — caem no default por enquanto
 
   const whereClause = conditions.join(" AND ");
 

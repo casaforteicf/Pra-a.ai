@@ -20,15 +20,27 @@ export function mapCatalogRow(row: any) {
   const imagens: string[] = Array.isArray(row.imagens) ? row.imagens : [];
   const imageUrl = row.imagem_url || imagens[0] || null;
 
+  // Promoção real (Vendor.ai, migration 036) — só considera ativa se
+  // promocao_ativa_ate ainda não passou.
+  const promocaoAtiva =
+    row.preco_promocional != null &&
+    row.promocao_ativa_ate != null &&
+    new Date(row.promocao_ativa_ate).getTime() > Date.now();
+  const precoPromocional = promocaoAtiva ? Number(row.preco_promocional) : null;
+  const discountPct = promocaoAtiva && precoBase > 0
+    ? Math.round((1 - precoPromocional! / precoBase) * 100)
+    : null;
+
   return {
     id: row.id,
     name: row.nome,
     description: row.descricao_longa || row.descricao || "",
-    price: precoBase,
-    originalPrice: null, // preço promocional real vem da seção 21 (Promoções Configuráveis)
-    discountPct: null,
+    price: promocaoAtiva ? precoPromocional! : precoBase,
+    originalPrice: promocaoAtiva ? precoBase : null,
+    discountPct,
     imageUrl,
     images: imagens.length > 0 ? imagens : imageUrl ? [imageUrl] : [],
+    videoUrl: row.video_url || null,
     category: row.categoria_nome || "Outros",
     categorySlug: row.categoria_nome ? slugify(row.categoria_nome) : "outros",
     vendorId: row.tenant_id,
