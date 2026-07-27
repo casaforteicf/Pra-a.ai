@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { desc } from "drizzle-orm";
 import { db, ambassadorsTable, referralsTable, disputesTable, consumersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -6,11 +6,37 @@ import { eq } from "drizzle-orm";
 const router: IRouter = Router();
 
 /**
- * Endpoints administrativos — sem autenticação de admin própria ainda
- * (Praça.ai não tem sistema de superadmin construído). Documentado como
- * gap: antes de expor isso publicamente, precisa de um middleware de
- * autenticação de admin, hoje inexistente.
+ * Autenticação de admin — medida provisória real, não sistema completo.
+ * Praça.ai não tem conta de admin própria (login, perfis, auditoria por
+ * usuário) ainda — construir isso é decisão maior que exige credencial e
+ * definição de quem tem acesso, não algo pra decidir sozinho no código.
+ *
+ * Isso aqui fecha o buraco real que existia (qualquer um com a URL
+ * acessava sem barreira nenhuma): agora exige uma chave secreta
+ * compartilhada via header, configurada como PRACA_ADMIN_API_KEY nos
+ * Secrets do Replit. Não é rastreável por usuário — é um perímetro, não
+ * uma conta. Quando existir tela de admin de verdade, isso deve ser
+ * substituído por login + sessão própria.
  */
+function requireAdminKey(req: Request, res: Response, next: NextFunction): void {
+  const configuredKey = process.env.PRACA_ADMIN_API_KEY;
+  if (!configuredKey) {
+    // Sem chave configurada, os endpoints ficam bloqueados por padrão —
+    // nunca abertos "por esquecimento" de configurar o secret.
+    res.status(503).json({ error: "Admin API não configurada (PRACA_ADMIN_API_KEY ausente)." });
+    return;
+  }
+
+  const providedKey = req.header("x-admin-key");
+  if (providedKey !== configuredKey) {
+    res.status(401).json({ error: "Chave de admin inválida ou ausente." });
+    return;
+  }
+
+  next();
+}
+
+router.use(requireAdminKey);
 
 router.get("/admin/embaixadores", async (_req, res): Promise<void> => {
   const ambassadors = await db
