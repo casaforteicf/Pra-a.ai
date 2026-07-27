@@ -56,9 +56,14 @@ router.get("/embaixadores/me", async (req, res): Promise<void> => {
 // (?ref=CODIGO). Registra a indicação como "pendente" até a conversão real
 // (primeiro pedido do indicado, verificado no checkout).
 router.post("/embaixadores/indicar", async (req, res): Promise<void> => {
-  const { codigo, indicadoConsumerId } = req.body as { codigo?: string; indicadoConsumerId?: number };
-  if (!codigo || !indicadoConsumerId) {
-    res.status(400).json({ error: "Código de indicação e consumidor são obrigatórios." });
+  const { codigo, indicadoConsumerId, indicadoTenantId } = req.body as {
+    codigo?: string;
+    indicadoConsumerId?: number;
+    indicadoTenantId?: string;
+  };
+
+  if (!codigo || (!indicadoConsumerId && !indicadoTenantId)) {
+    res.status(400).json({ error: "Código de indicação e (consumidor ou tenant) são obrigatórios." });
     return;
   }
 
@@ -68,7 +73,7 @@ router.post("/embaixadores/indicar", async (req, res): Promise<void> => {
     return;
   }
 
-  if (ambassador.consumerId === indicadoConsumerId) {
+  if (indicadoConsumerId && ambassador.consumerId === indicadoConsumerId) {
     res.status(400).json({ error: "Você não pode se autoindicar." });
     return;
   }
@@ -77,13 +82,56 @@ router.post("/embaixadores/indicar", async (req, res): Promise<void> => {
     .insert(referralsTable)
     .values({
       ambassadorId: ambassador.id,
-      indicadoTipo: "cliente",
-      indicadoConsumerId,
+      indicadoTipo: indicadoTenantId ? "lojista" : "cliente",
+      indicadoConsumerId: indicadoConsumerId ?? null,
+      indicadoTenantId: indicadoTenantId ?? null,
       status: "pendente",
     })
     .returning();
 
   res.status(201).json(referral);
+});
+
+/**
+ * Confirma a conversão de uma indicação de LOJISTA (primeira venda do
+ * tenant indicado fechada). Endpoint stateless — chamado pelo Vendor.ai
+ * quando um deal fecha 'ganho' pela primeira vez pra um tenant, sem o
+ * Vendor.ai precisar saber nada sobre embaixador/indicação (só manda o
+ * tenantId, a lógica de achar a indicação pendente fica aqui).
+ */
+router.post("/embaixadores/confirmar-conversao-lojista", async (req, res): Promise<void> => {
+  const { tenantId } = req.body as { tenantId?: string };
+  if (!tenantId) {
+    res.status(400).json({ error: "tenantId é obrigatório." });
+    return;
+  }
+
+  const [referral] = await db
+    .select()
+    .from(referralsTable)
+    .where(and(eq(referralsTable.indicadoTenantId, tenantId), eq(referralsTable.status, "pendente")))
+    .limit(1);
+
+  if (!referral) {
+    res.json({ converted: false, reason: "Nenhuma indicação pendente pra esse tenant." });
+    return;
+  }
+
+  const valor = REFERRAL_COMMISSION.LOJISTA_PRIMEIRA_VENDA;
+  await db
+    .update(referralsTable)
+    .set({ status: "convertido", valorComissao: String(valor), convertidoEm: new Date() })
+    .where(eq(referralsTable.id, referral.id));
+
+  const [ambassador] = await db.select().from(ambassadorsTable).where(eq(ambassadorsTable.id, referral.ambassadorId)).limit(1);
+  if (ambassador) {
+    await db
+      .update(ambassadorsTable)
+      .set({ saldoComissao: String(Number(ambassador.saldoComissao) + valor) })
+      .where(eq(ambassadorsTable.id, ambassador.id));
+  }
+
+  res.json({ converted: true, valorComissao: valor });
 });
 
 /**
@@ -113,12 +161,5 @@ export async function confirmarConversaoCliente(consumerId: number): Promise<voi
       .where(eq(ambassadorsTable.id, ambassador.id));
   }
 }
-
-// NOTA: conversão de indicação de LOJISTA (indicadoTipo = "lojista", primeira
-// venda do tenant indicado) depende de um gatilho do lado do Vendor.ai (quando
-// um tenant novo se cadastra via código de indicação, e quando ele fecha a
-// primeira venda) — isso vive noutro codebase, bloqueado pelo Agent no
-// momento desta implementação. Endpoint de conversão manual/admin fica como
-// próximo passo, não implementado nesta rodada.
 
 export default router;
