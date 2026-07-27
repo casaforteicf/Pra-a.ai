@@ -5,6 +5,35 @@ import { getProductById } from "../lib/catalogService";
 
 const router: IRouter = Router();
 
+const VENDOR_API_BASE_URL = process.env.VENDOR_API_BASE_URL || "https://appvendorai.com/api";
+
+/**
+ * Chama o endpoint de IA do Vendor.ai pra responder automaticamente. Se
+ * falhar por qualquer motivo (Vendor.ai fora do ar, sem chave configurada,
+ * timeout), a pergunta fica pendente — alguém responde manualmente depois
+ * via PATCH /perguntas/:id/responder. Nunca deixa a criação da pergunta
+ * falhar por causa disso.
+ */
+async function tentarResponderViaIA(vendorId: string, productId: string, pergunta: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const response = await fetch(`${VENDOR_API_BASE_URL}/produtos-catalogo/${productId}/responder-pergunta`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pergunta }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!response.ok) return null;
+    const data = (await response.json()) as { resposta?: unknown };
+    return typeof data.resposta === "string" ? data.resposta : null;
+  } catch (err) {
+    console.error("[productQuestions] falha ao chamar IA do Vendor.ai (pergunta fica pendente):", err);
+    return null;
+  }
+}
+
 router.get("/products/:id/perguntas", async (req, res): Promise<void> => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
@@ -41,6 +70,8 @@ router.post("/products/:id/perguntas", async (req, res): Promise<void> => {
     return;
   }
 
+  const respostaIA = await tentarResponderViaIA(product.vendorId, id, pergunta.trim());
+
   const [question] = await db
     .insert(productQuestionsTable)
     .values({
@@ -48,15 +79,17 @@ router.post("/products/:id/perguntas", async (req, res): Promise<void> => {
       vendorId: product.vendorId,
       consumerId,
       pergunta: pergunta.trim(),
+      resposta: respostaIA,
+      respondidoEm: respostaIA ? new Date() : null,
     })
     .returning();
 
   res.status(201).json(question);
 });
 
-// Uso interno/lojista — sem tela própria ainda (a resposta automática via
-// agente de IA do Vendor.ai depende do Agent estar disponível; até lá, esse
-// endpoint permite responder manualmente).
+// Fallback manual — usado quando a resposta automática via IA (acima) falha
+// ou não está disponível (Vendor.ai fora do ar, etc.). Sem tela própria de
+// lojista ainda, mas o dado já existe e é PATCHável.
 router.patch("/perguntas/:id/responder", async (req, res): Promise<void> => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const questionId = parseInt(id, 10);
