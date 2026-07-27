@@ -17,6 +17,7 @@ export const deliveriesTable = pgTable("deliveries", {
   orderId: integer("order_id").notNull().references(() => ordersTable.id, { onDelete: "cascade" }),
   vendorId: text("vendor_id").notNull(),
   partnerId: integer("partner_id").references(() => deliveryPartnersTable.id, { onDelete: "set null" }),
+  supportPointId: integer("support_point_id"), // preenchido quando a retirada é via ponto de apoio, não direto na loja
   status: text("status").notNull().default("aguardando"), // aguardando | aceita | coletada | a_caminho | entregue | cancelada
   valorPagoParceiro: numeric("valor_pago_parceiro", { precision: 10, scale: 2 }),
   aceitaEm: timestamp("aceita_em", { withTimezone: true }),
@@ -24,6 +25,18 @@ export const deliveriesTable = pgTable("deliveries", {
   entregueEm: timestamp("entregue_em", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const supportPointsTable = pgTable("support_points", {
+  id: serial("id").primaryKey(),
+  praca: text("praca").notNull().default("Chapecó"),
+  nome: text("nome").notNull(),
+  endereco: text("endereco").notNull(),
+  tipo: text("tipo").notNull().default("loja_parceira"), // "loja_parceira" | "ponto_dedicado"
+  ativo: text("ativo").notNull().default("true"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type SupportPoint = typeof supportPointsTable.$inferSelect;
 
 export type DeliveryPartner = typeof deliveryPartnersTable.$inferSelect;
 export type Delivery = typeof deliveriesTable.$inferSelect;

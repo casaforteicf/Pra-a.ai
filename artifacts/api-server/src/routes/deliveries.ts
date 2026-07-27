@@ -22,7 +22,7 @@ async function encontrarParceiroDisponivel(praca: string) {
 router.post("/pedidos/:id/entrega", async (req, res): Promise<void> => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const orderId = parseInt(id, 10);
-  const { vendorId } = req.body as { vendorId?: string };
+  const { vendorId, supportPointId } = req.body as { vendorId?: string; supportPointId?: number };
 
   if (isNaN(orderId) || !vendorId) {
     res.status(400).json({ error: "Pedido e vendorId são obrigatórios." });
@@ -43,6 +43,7 @@ router.post("/pedidos/:id/entrega", async (req, res): Promise<void> => {
       orderId,
       vendorId,
       partnerId: partner?.id ?? null,
+      supportPointId: supportPointId ?? null,
       status: partner ? "aceita" : "aguardando",
       aceitaEm: partner ? new Date() : null,
     })
