@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import { db, productQuestionsTable } from "@workspace/db";
 import { getProductById } from "../lib/catalogService";
 
@@ -87,16 +87,41 @@ router.post("/products/:id/perguntas", async (req, res): Promise<void> => {
   res.status(201).json(question);
 });
 
+// Lista de perguntas pendentes de um vendedor — usada pelo Vendor.ai (área
+// do lojista) pra mostrar a fila de perguntas sem resposta ainda.
+router.get("/tenants/:tenantId/perguntas-pendentes", async (req, res): Promise<void> => {
+  const tenantId = Array.isArray(req.params.tenantId) ? req.params.tenantId[0] : req.params.tenantId;
+
+  const perguntas = await db
+    .select()
+    .from(productQuestionsTable)
+    .where(and(eq(productQuestionsTable.vendorId, tenantId), isNull(productQuestionsTable.resposta)))
+    .orderBy(desc(productQuestionsTable.createdAt));
+
+  res.json(perguntas);
+});
+
 // Fallback manual — usado quando a resposta automática via IA (acima) falha
-// ou não está disponível (Vendor.ai fora do ar, etc.). Sem tela própria de
-// lojista ainda, mas o dado já existe e é PATCHável.
+// ou não está disponível (Vendor.ai fora do ar, etc.). Chamado pelo
+// Vendor.ai server-to-server — exige vendorId no corpo batendo com o dono
+// real da pergunta, pra um tenant não conseguir responder pergunta de outro.
 router.patch("/perguntas/:id/responder", async (req, res): Promise<void> => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const questionId = parseInt(id, 10);
-  const { resposta } = req.body as { resposta?: string };
+  const { resposta, vendorId } = req.body as { resposta?: string; vendorId?: string };
 
-  if (isNaN(questionId) || !resposta) {
-    res.status(400).json({ error: "Informe a resposta." });
+  if (isNaN(questionId) || !resposta || !vendorId) {
+    res.status(400).json({ error: "Informe a resposta e o vendorId." });
+    return;
+  }
+
+  const [question] = await db.select().from(productQuestionsTable).where(eq(productQuestionsTable.id, questionId));
+  if (!question) {
+    res.status(404).json({ error: "Pergunta não encontrada" });
+    return;
+  }
+  if (question.vendorId !== vendorId) {
+    res.status(403).json({ error: "Essa pergunta não pertence a esse vendedor." });
     return;
   }
 
@@ -105,11 +130,6 @@ router.patch("/perguntas/:id/responder", async (req, res): Promise<void> => {
     .set({ resposta, respondidoEm: new Date() })
     .where(eq(productQuestionsTable.id, questionId))
     .returning();
-
-  if (!updated) {
-    res.status(404).json({ error: "Pergunta não encontrada" });
-    return;
-  }
 
   res.json(updated);
 });
