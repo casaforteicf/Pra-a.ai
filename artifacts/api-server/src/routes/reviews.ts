@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, eq, desc, avg, count } from "drizzle-orm";
+import { and, eq, desc, avg, count, inArray } from "drizzle-orm";
 import { db, productReviewsTable, orderItemsTable, ordersTable, consumersTable, coinTransactionsTable, COIN_RULES } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -9,6 +9,57 @@ export async function getProductRatingSummary(productId: string): Promise<{ rati
     .select({ avgNota: avg(productReviewsTable.nota), total: count() })
     .from(productReviewsTable)
     .where(eq(productReviewsTable.productId, productId));
+
+  return {
+    rating: summary?.avgNota ? Math.round(Number(summary.avgNota) * 10) / 10 : 0,
+    reviewCount: Number(summary?.total ?? 0),
+  };
+}
+
+/**
+ * Versão em lote de getProductRatingSummary — usada pra enriquecer listas
+ * de produto (catalogService.ts) sem fazer uma query por produto. Catálogo
+ * e avaliação vivem em bancos diferentes (catalogService usa vendorPool,
+ * direto no banco do Vendor.ai; isso aqui é o banco próprio do Praça.ai),
+ * então o merge acontece em JS, não em SQL — não dá pra fazer join direto.
+ */
+export async function getRatingsForProducts(productIds: string[]): Promise<Map<string, { rating: number; reviewCount: number }>> {
+  const map = new Map<string, { rating: number; reviewCount: number }>();
+  if (productIds.length === 0) return map;
+
+  const rows = await db
+    .select({ productId: productReviewsTable.productId, avgNota: avg(productReviewsTable.nota), total: count() })
+    .from(productReviewsTable)
+    .where(inArray(productReviewsTable.productId, productIds))
+    .groupBy(productReviewsTable.productId);
+
+  for (const row of rows) {
+    map.set(row.productId, {
+      rating: row.avgNota ? Math.round(Number(row.avgNota) * 10) / 10 : 0,
+      reviewCount: Number(row.total ?? 0),
+    });
+  }
+  return map;
+}
+
+/**
+ * Nota média agregada de TODOS os produtos vendidos por um lojista — join
+ * de avaliações com o item de pedido correspondente (mesmo orderId +
+ * productId) pra achar o vendorId, já que product_reviews não guarda isso
+ * direto. Usada em stores.ts, que antes deixava rating sempre zerado.
+ */
+export async function getVendorRatingSummary(vendorId: string): Promise<{ rating: number; reviewCount: number }> {
+  const [summary] = await db
+    .select({ avgNota: avg(productReviewsTable.nota), total: count() })
+    .from(productReviewsTable)
+    .innerJoin(
+      orderItemsTable,
+      and(
+        eq(orderItemsTable.orderId, productReviewsTable.orderId),
+        eq(orderItemsTable.productId, productReviewsTable.productId),
+      ),
+    )
+    .where(eq(orderItemsTable.vendorId, vendorId));
 
   return {
     rating: summary?.avgNota ? Math.round(Number(summary.avgNota) * 10) / 10 : 0,

@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { getRealCategories, getFeaturedProducts, getProductsByCategoryName } from "../lib/catalogService";
+import { getRealCategories, getFeaturedProducts, getProductsByCategoryName, getPromotedProducts } from "../lib/catalogService";
+import { getRatingsForProducts } from "./reviews";
 
 const router: IRouter = Router();
 
@@ -36,6 +37,7 @@ router.get("/home", async (_req, res): Promise<void> => {
   try {
     const categories = await getRealCategories(8);
     const featuredProducts = await getFeaturedProducts(6);
+    const flashDeals = await getPromotedProducts(8);
 
     // Monta carrosséis a partir das 3 categorias com mais produto real,
     // em vez de categoria fixa mockada — se a base de produto crescer/mudar,
@@ -48,14 +50,23 @@ router.get("/home", async (_req, res): Promise<void> => {
       })),
     );
 
+    // Nota real por produto — uma busca só, cobrindo todos os produtos que
+    // aparecem em qualquer seção da home (destaque, oferta, carrossel).
+    const allProductIds = [
+      ...featuredProducts.map((p) => p.id),
+      ...flashDeals.map((p) => p.id),
+      ...carousels.flatMap((c) => c.products.map((p) => p.id)),
+    ];
+    const ratings = await getRatingsForProducts(allProductIds);
+    const withRating = <T extends { id: string }>(list: T[]) =>
+      list.map((p) => ({ ...p, ...(ratings.get(p.id) ?? { rating: 0, reviewCount: 0 }) }));
+
     res.json({
       banners: BANNERS,
       categories,
-      featuredProducts,
-      carousels: carousels.filter((c) => c.products.length > 0),
-      // "Ofertas relâmpago" depende de desconto/promoção real (seção 21,
-      // Promoções Configuráveis) — ainda não existe, fica vazio em vez de mock.
-      flashDeals: [],
+      featuredProducts: withRating(featuredProducts),
+      carousels: carousels.map((c) => ({ ...c, products: withRating(c.products) })).filter((c) => c.products.length > 0),
+      flashDeals: withRating(flashDeals),
     });
   } catch (err) {
     console.error("[home] erro ao montar home real:", err);

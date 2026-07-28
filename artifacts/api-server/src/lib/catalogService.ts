@@ -120,6 +120,30 @@ export async function getFeaturedProducts(limit = 6) {
   return result.rows.map(mapCatalogRow);
 }
 
+/**
+ * Produtos com promoção real ativa (Vendor.ai, migration 036) — usada pras
+ * "Ofertas relâmpago" da home, que antes ficava sempre vazia porque a
+ * feature de promoção configurável não existia ainda quando essa seção foi
+ * escrita. Já existe e já está conectada no catálogo (mapCatalogRow), só
+ * faltava essa consulta específica.
+ */
+export async function getPromotedProducts(limit = 8) {
+  const result = await vendorPool.query(
+    `SELECT pc.*, cp.nome AS categoria_nome, t.nome_empresa
+     FROM produtos_catalogo pc
+     JOIN tenants t ON t.id = pc.tenant_id
+     LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
+     WHERE t.vende_no_praca_ai = true AND pc.ativo = true
+       AND pc.preco_promocional IS NOT NULL
+       AND pc.promocao_ativa_ate IS NOT NULL
+       AND pc.promocao_ativa_ate > now()
+     ORDER BY pc.promocao_ativa_ate ASC
+     LIMIT $1`,
+    [limit],
+  );
+  return result.rows.map(mapCatalogRow);
+}
+
 export async function getProductsByCategoryName(categoriaNome: string, limit = 4) {
   const result = await vendorPool.query(
     `SELECT pc.*, cp.nome AS categoria_nome, t.nome_empresa

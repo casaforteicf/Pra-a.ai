@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { count, eq, sql } from "drizzle-orm";
 import { db, orderItemsTable, ordersTable } from "@workspace/db";
 import { vendorPool } from "../lib/vendorDb";
+import { getVendorRatingSummary } from "./reviews";
 
 const router: IRouter = Router();
 
@@ -64,6 +65,7 @@ router.get("/lojas/:id", async (req, res): Promise<void> => {
     const tempoDeCasaDias = Math.floor(
       (Date.now() - new Date(tenant.created_at).getTime()) / 86400000,
     );
+    const { rating, reviewCount } = await getVendorRatingSummary(id);
 
     res.json({
       id: tenant.id,
@@ -74,9 +76,8 @@ router.get("/lojas/:id", async (req, res): Promise<void> => {
       totalEntregues,
       pctEntregue: Math.round(pctEntregue * 10) / 10,
       tempoDeCasaDias,
-      // Avaliação (nota média) ainda depende da seção 4/9.9 — zerado até existir.
-      rating: 0,
-      reviewCount: 0,
+      rating,
+      reviewCount,
     });
   } catch (err) {
     console.error("[lojas] erro ao montar página da loja:", err);

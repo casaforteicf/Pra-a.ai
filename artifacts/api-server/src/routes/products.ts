@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { vendorPool } from "../lib/vendorDb";
 import { mapCatalogRow, getProductById } from "../lib/catalogService";
-import { getProductRatingSummary } from "./reviews";
+import { getProductRatingSummary, getRatingsForProducts } from "./reviews";
 import { db, orderItemsTable, ordersTable } from "@workspace/db";
 import { and, eq, gte, sql } from "drizzle-orm";
 
@@ -114,8 +114,16 @@ router.get("/products", async (req, res): Promise<void> => {
 
     const products = dataResult.rows.map(mapCatalogRow);
 
+    // Nota real por produto (Praça.ai tem banco próprio, não dá join direto
+    // com o catálogo do Vendor.ai — busca em lote e mescla em JS).
+    const ratings = await getRatingsForProducts(products.map((p) => p.id));
+    const productsWithRating = products.map((p) => ({
+      ...p,
+      ...(ratings.get(p.id) ?? { rating: 0, reviewCount: 0 }),
+    }));
+
     res.json({
-      products,
+      products: productsWithRating,
       total,
       page: pageNum,
       hasMore: offset + products.length < total,
