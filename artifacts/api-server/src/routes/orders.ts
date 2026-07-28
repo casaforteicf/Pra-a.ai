@@ -4,6 +4,7 @@ import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDeal
 import { getProductById, getProductsByIds } from "../lib/catalogService";
 import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncService";
 import { calcularFrete } from "../lib/freteService";
+import { validateCoupon } from "../lib/couponService";
 import { confirmarConversaoCliente } from "./ambassadors";
 
 const router: IRouter = Router();
@@ -102,6 +103,16 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  // BUG DE SEGURANÇA CORRIGIDO (auditoria): esse endpoint não checava se o
+  // pedido pertencia a quem estava pedindo — qualquer um sabendo o ID
+  // (sequencial, fácil de adivinhar) via endereço, itens e valor de
+  // pedido de outra pessoa. GET /orders (lista) já fazia certo.
+  const consumerId = req.session?.consumerId;
+  if (order.consumerId && order.consumerId !== consumerId) {
+    res.status(403).json({ error: "Acesso negado a este pedido." });
+    return;
+  }
+
   const items = await db
     .select()
     .from(orderItemsTable)
@@ -110,6 +121,13 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
   res.json(formatOrder(order, items));
 });
 
+// NOTA DE AUDITORIA: este endpoint não é chamado por nenhum lugar do
+// frontend real (confirmado por busca completa) — o fluxo de verdade é
+// POST /checkout, abaixo, que lê do carrinho, calcula frete por vendedor
+// e valida cupom de verdade. Esse aqui é mais simples/incompleto
+// (não valida cupom, não faz frete multi-vendedor) — mantido por
+// enquanto caso algum integrador externo dependa dele, mas não é o
+// caminho usado pela UI.
 router.post("/orders", async (req, res): Promise<void> => {
   const consumerId = req.session?.consumerId ?? null;
   const { items, deliveryAddress, deliveryOption, paymentMethod, couponCode } = req.body;
@@ -254,17 +272,15 @@ router.post("/checkout", async (req, res): Promise<void> => {
     }
   }
 
-  // Apply coupon discount if valid
+  // Desconto: pix (10%, sempre) OU cupom (regra de negócio: um ou outro,
+  // exceto FRETEGRATIS que sempre se aplica) — agora usando a mesma
+  // validação (com expiração real checada) usada em /coupons/validate.
   let discount = 0;
   if (isPixPayment) {
     discount = Math.round(subtotal * 0.1 * 100) / 100;
-  }
-  if (couponCode === "PRACA10" && !isPixPayment) {
-    discount = Math.round(subtotal * 0.1 * 100) / 100;
-  } else if (couponCode === "VERAO25" && subtotal >= 150 && !isPixPayment) {
-    discount = 25;
-  } else if (couponCode === "FRETEGRATIS") {
-    discount = Math.min(shipping, 12.9);
+  } else if (couponCode) {
+    const result = validateCoupon(couponCode, subtotal, shipping);
+    if (result.valid) discount = result.discountAmount;
   }
 
   const total = Math.max(0, subtotal + shipping - discount);
