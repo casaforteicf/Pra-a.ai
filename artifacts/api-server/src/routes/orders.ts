@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES, vendorPayoutsTable } from "@workspace/db";
 import { getProductById, getProductsByIds } from "../lib/catalogService";
 import { vendorPool } from "../lib/vendorDb";
 import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncService";
@@ -521,6 +521,31 @@ router.post("/checkout", async (req, res): Promise<void> => {
         valor: vendorSubtotal,
       });
       await db.insert(orderDealLinksTable).values({ orderId: order.id, vendorId, dealId });
+
+      // Razão de repasse — cálculo, não split automático (ver
+      // lib/db/src/schema/vendorPayouts.ts). Comissão vem do cadastro
+      // real do tenant no Vendor.ai (comissao_praca_ai_percentual, já
+      // configurável por lojista); 8% é só o default se nunca foi setado.
+      try {
+        const { rows } = await vendorPool.query<{ comissao_praca_ai_percentual: string | null }>(
+          `SELECT comissao_praca_ai_percentual FROM tenants WHERE id = $1`,
+          [vendorId],
+        );
+        const comissaoPercentual = Number(rows[0]?.comissao_praca_ai_percentual ?? 8);
+        const comissaoValor = Math.round(vendorSubtotal * (comissaoPercentual / 100) * 100) / 100;
+        const valorLiquido = Math.round((vendorSubtotal - comissaoValor) * 100) / 100;
+
+        await db.insert(vendorPayoutsTable).values({
+          orderId: order.id,
+          vendorId,
+          valorBruto: String(vendorSubtotal),
+          comissaoPercentual: String(comissaoPercentual),
+          comissaoValor: String(comissaoValor),
+          valorLiquido: String(valorLiquido),
+        });
+      } catch (payoutErr) {
+        console.error(`[checkout] falha ao registrar repasse do vendedor ${vendorId} (pedido já confirmado):`, payoutErr);
+      }
     }
   } catch (syncErr) {
     console.error("[checkout] falha ao sincronizar pedido com o Vendor.ai (pedido já confirmado):", syncErr);

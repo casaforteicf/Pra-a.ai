@@ -9,3 +9,4 @@ export * from "./reviews";
 export * from "./ambassadors";
 export * from "./deliveries";
 export * from "./session";
+export * from "./vendorPayouts";

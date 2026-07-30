@@ -218,6 +218,23 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS asaas_pix_qrcode_image text;
 -- além do PIX, e é o dado que a Asaas exige pra cobrança de verdade.
 ALTER TABLE consumers ADD COLUMN IF NOT EXISTS cpf text;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_cpf text;
+
+-- Razão de repasses pro lojista (cálculo, não split automático — ver
+-- comentário em lib/db/src/schema/vendorPayouts.ts).
+CREATE TABLE IF NOT EXISTS vendor_payouts (
+  id serial PRIMARY KEY,
+  order_id integer NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  vendor_id text NOT NULL,
+  valor_bruto numeric(12,2) NOT NULL,
+  comissao_percentual numeric(5,2) NOT NULL,
+  comissao_valor numeric(12,2) NOT NULL,
+  valor_liquido numeric(12,2) NOT NULL,
+  status text NOT NULL DEFAULT 'pendente',
+  pago_em timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_vendor_payouts_vendor ON vendor_payouts (vendor_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_payouts_status ON vendor_payouts (status);
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {

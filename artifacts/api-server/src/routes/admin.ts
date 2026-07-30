@@ -1,7 +1,8 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { desc } from "drizzle-orm";
-import { db, ambassadorsTable, referralsTable, disputesTable, consumersTable } from "@workspace/db";
+import { desc, and } from "drizzle-orm";
+import { db, ambassadorsTable, referralsTable, disputesTable, consumersTable, vendorPayoutsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { vendorPool } from "../lib/vendorDb";
 
 const router: IRouter = Router();
 
@@ -105,6 +106,72 @@ router.get("/admin/disputas", async (req, res): Promise<void> => {
     : await db.select().from(disputesTable).orderBy(desc(disputesTable.createdAt));
 
   res.json(disputas);
+});
+
+/**
+ * Razão de repasses por lojista — ver lib/db/src/schema/vendorPayouts.ts.
+ * Não é split automático (sem subconta Asaas por lojista ainda): isso
+ * aqui só mostra quanto cada um tem a receber, pra você repassar
+ * manualmente por fora (PIX/transferência) e depois marcar como pago.
+ */
+router.get("/admin/repasses/resumo", async (_req, res): Promise<void> => {
+  const rows = await db.select().from(vendorPayoutsTable);
+
+  const porVendedor = new Map<string, { vendorId: string; pendente: number; pago: number; qtdPedidosPendentes: number }>();
+  for (const row of rows) {
+    const entry = porVendedor.get(row.vendorId) ?? { vendorId: row.vendorId, pendente: 0, pago: 0, qtdPedidosPendentes: 0 };
+    if (row.status === "pendente") {
+      entry.pendente += Number(row.valorLiquido);
+      entry.qtdPedidosPendentes += 1;
+    } else {
+      entry.pago += Number(row.valorLiquido);
+    }
+    porVendedor.set(row.vendorId, entry);
+  }
+
+  const vendorIds = [...porVendedor.keys()];
+  let nomes: Record<string, string> = {};
+  if (vendorIds.length > 0) {
+    const { rows: tenantRows } = await vendorPool.query<{ id: string; nome_empresa: string }>(
+      `SELECT id, nome_empresa FROM tenants WHERE id = ANY($1)`,
+      [vendorIds],
+    );
+    nomes = Object.fromEntries(tenantRows.map((t) => [t.id, t.nome_empresa]));
+  }
+
+  const resultado = [...porVendedor.values()]
+    .map((v) => ({ ...v, nomeEmpresa: nomes[v.vendorId] ?? v.vendorId }))
+    .sort((a, b) => b.pendente - a.pendente);
+
+  res.json(resultado);
+});
+
+router.get("/admin/repasses/:vendorId", async (req, res): Promise<void> => {
+  const vendorId = Array.isArray(req.params.vendorId) ? req.params.vendorId[0] : req.params.vendorId;
+  const { status } = req.query as { status?: string };
+
+  const conditions = [eq(vendorPayoutsTable.vendorId, vendorId)];
+  if (status) conditions.push(eq(vendorPayoutsTable.status, status));
+
+  const repasses = await db
+    .select()
+    .from(vendorPayoutsTable)
+    .where(and(...conditions))
+    .orderBy(desc(vendorPayoutsTable.createdAt));
+
+  res.json(repasses);
+});
+
+router.patch("/admin/repasses/:vendorId/marcar-pago", async (req, res): Promise<void> => {
+  const vendorId = Array.isArray(req.params.vendorId) ? req.params.vendorId[0] : req.params.vendorId;
+
+  const updated = await db
+    .update(vendorPayoutsTable)
+    .set({ status: "pago", pagoEm: new Date() })
+    .where(and(eq(vendorPayoutsTable.vendorId, vendorId), eq(vendorPayoutsTable.status, "pendente")))
+    .returning();
+
+  res.json({ marcados: updated.length, repasses: updated });
 });
 
 export default router;
