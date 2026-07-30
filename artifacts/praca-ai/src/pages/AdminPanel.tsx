@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -216,6 +216,102 @@ function DisputasTab() {
   );
 }
 
+// ── Repasses ───────────────────────────────────────────────────────────────
+
+function RepassesTab() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [vendorAberto, setVendorAberto] = useState<string | null>(null);
+
+  const { data: resumo = [], isLoading } = useQuery<any[]>({
+    queryKey: ["admin-repasses-resumo"],
+    queryFn: () => fetch("/api/admin/repasses/resumo", { headers: adminHeaders() }).then((r) => r.json()),
+  });
+
+  const { data: detalhes = [] } = useQuery<any[]>({
+    queryKey: ["admin-repasses-detalhe", vendorAberto],
+    queryFn: () => fetch(`/api/admin/repasses/${vendorAberto}?status=pendente`, { headers: adminHeaders() }).then((r) => r.json()),
+    enabled: !!vendorAberto,
+  });
+
+  const marcarPago = useMutation({
+    mutationFn: (vendorId: string) =>
+      fetch(`/api/admin/repasses/${vendorId}/marcar-pago`, { method: "PATCH", headers: adminHeaders() }).then((r) => r.json()),
+    onSuccess: (data: any) => {
+      qc.invalidateQueries({ queryKey: ["admin-repasses-resumo"] });
+      qc.invalidateQueries({ queryKey: ["admin-repasses-detalhe"] });
+      toast({ title: `${data.marcados} repasse(s) marcado(s) como pago` });
+      setVendorAberto(null);
+    },
+  });
+
+  if (isLoading) return <Loader2 className="h-5 w-5 animate-spin mx-auto mt-8" />;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Cálculo do que cada lojista tem a receber — sem repasse automático ainda.
+        Faça a transferência por fora (PIX/transferência) e marque como pago aqui.
+      </p>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Loja</TableHead>
+                <TableHead>Pendente</TableHead>
+                <TableHead>Pedidos pendentes</TableHead>
+                <TableHead>Já pago</TableHead>
+                <TableHead>Ação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {resumo.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">Nenhum repasse registrado ainda.</TableCell></TableRow>
+              ) : (
+                resumo.map((v: any) => (
+                  <Fragment key={v.vendorId}>
+                    <TableRow>
+                      <TableCell className="font-medium">{v.nomeEmpresa}</TableCell>
+                      <TableCell className="font-bold">{fmt(v.pendente)}</TableCell>
+                      <TableCell>{v.qtdPedidosPendentes}</TableCell>
+                      <TableCell className="text-muted-foreground">{fmt(v.pago)}</TableCell>
+                      <TableCell className="space-x-2">
+                        <Button size="sm" variant="outline" onClick={() => setVendorAberto(vendorAberto === v.vendorId ? null : v.vendorId)}>
+                          {vendorAberto === v.vendorId ? "Fechar" : "Ver pedidos"}
+                        </Button>
+                        {v.pendente > 0 && (
+                          <Button size="sm" onClick={() => marcarPago.mutate(v.vendorId)} disabled={marcarPago.isPending}>
+                            Marcar tudo como pago
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {vendorAberto === v.vendorId && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="bg-muted/30">
+                          <div className="space-y-1 py-2">
+                            {detalhes.map((d: any) => (
+                              <div key={d.id} className="flex justify-between text-sm">
+                                <span className="text-muted-foreground">Pedido #{d.orderId} — bruto {fmt(d.valorBruto)}, comissão {d.comissaoPercentual}%</span>
+                                <span className="font-medium">{fmt(d.valorLiquido)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </Fragment>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ── Página ─────────────────────────────────────────────────────────────────
 
 function AdminContent() {
@@ -229,12 +325,16 @@ function AdminContent() {
           <TabsList>
             <TabsTrigger value="embaixadores">Embaixadores</TabsTrigger>
             <TabsTrigger value="disputas">Disputas</TabsTrigger>
+            <TabsTrigger value="repasses">Repasses</TabsTrigger>
           </TabsList>
           <TabsContent value="embaixadores" className="mt-4">
             <EmbaixadoresTab />
           </TabsContent>
           <TabsContent value="disputas" className="mt-4">
             <DisputasTab />
+          </TabsContent>
+          <TabsContent value="repasses" className="mt-4">
+            <RepassesTab />
           </TabsContent>
         </Tabs>
       </div>
