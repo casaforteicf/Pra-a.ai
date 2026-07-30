@@ -18,6 +18,9 @@ export const ordersTable = pgTable("orders", {
   couponCode: text("coupon_code"),
   estimatedDelivery: text("estimated_delivery"),
   trackingCode: text("tracking_code"),
+  asaasChargeId: text("asaas_charge_id"),
+  asaasPixPayload: text("asaas_pix_payload"),
+  asaasPixQrcodeImage: text("asaas_pix_qrcode_image"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

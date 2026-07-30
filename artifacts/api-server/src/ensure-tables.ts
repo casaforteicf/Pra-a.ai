@@ -206,6 +206,13 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_phone text;
 -- quantidade passa a valer e bloqueia venda além do disponível.
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS estoque_quantidade integer;
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS controla_estoque boolean NOT NULL DEFAULT false;
+
+-- Cobrança real via Asaas (só PIX por enquanto — ver comentário em
+-- lib/asaas.ts sobre o escopo). Guarda o id da cobrança e o QR code
+-- pra exibir na tela de sucesso/pedido.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS asaas_charge_id text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS asaas_pix_payload text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS asaas_pix_qrcode_image text;
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {

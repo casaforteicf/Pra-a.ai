@@ -7,6 +7,7 @@ import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncSer
 import { calcularFrete } from "../lib/freteService";
 import { validateCoupon } from "../lib/couponService";
 import { confirmarConversaoCliente } from "./ambassadors";
+import { isAsaasConfigured, createOrGetCustomer, createCharge, getPixQrCode } from "../lib/asaas";
 
 const router: IRouter = Router();
 
@@ -54,6 +55,8 @@ function formatOrder(order: any, items: any[]) {
     estimatedDelivery: order.estimatedDelivery ?? new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0],
     trackingCode: order.trackingCode,
     trackingEvents: buildTrackingEvents(order.status),
+    pixPayload: order.asaasPixPayload ?? null,
+    pixQrcodeImage: order.asaasPixQrcodeImage ?? null,
     createdAt: order.createdAt,
   };
 }
@@ -365,6 +368,55 @@ router.post("/checkout", async (req, res): Promise<void> => {
     }
   }
 
+  // Cobrança real via Asaas — só pra PIX por enquanto (ver lib/asaas.ts:
+  // boleto exige CPF que o checkout não coleta ainda, cartão exige
+  // tratamento de dado sensível que não foi desenhado aqui). Falha aqui
+  // não derruba o pedido (já foi criado) — fica sem QR code de pagamento
+  // real, mas o pedido existe e pode ser cobrado manualmente depois.
+  if (paymentMethod === "pix" && isAsaasConfigured()) {
+    try {
+      const buyerName = consumerId ? undefined : guestName.trim();
+      const buyerPhone = consumerId ? undefined : guestPhone.trim();
+      let buyerEmail: string | undefined;
+      let finalName = buyerName ?? "Cliente Praça.ai";
+      if (consumerId) {
+        const [consumer] = await db.select().from(consumersTable).where(eq(consumersTable.id, consumerId)).limit(1);
+        if (consumer) {
+          finalName = consumer.name;
+          buyerEmail = consumer.email;
+        }
+      }
+
+      const customer = await createOrGetCustomer({
+        name: finalName,
+        email: buyerEmail,
+        phone: buyerPhone,
+      });
+
+      const charge = await createCharge({
+        customer: customer.id,
+        billingType: "PIX",
+        value: total,
+        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]!,
+        description: `Pedido ${orderNumber} — Praça.ai`,
+        externalReference: orderNumber,
+      });
+
+      const pixQrCode = await getPixQrCode(charge.id);
+
+      await db
+        .update(ordersTable)
+        .set({
+          asaasChargeId: charge.id,
+          asaasPixPayload: pixQrCode.payload,
+          asaasPixQrcodeImage: pixQrCode.encodedImage,
+        })
+        .where(eq(ordersTable.id, order.id));
+    } catch (asaasErr) {
+      console.error("[checkout] falha ao criar cobrança Asaas (pedido já confirmado, sem QR code real):", asaasErr);
+    }
+  }
+
   // Sincroniza com o Vendor.ai: cada pedido vira 1+ negócios (deal), um por
   // lojista presente no carrinho (carrinho multi-vendedor — seção 9.7).
   // Falha na sincronização não deve derrubar o pedido em si (o pagamento já
@@ -480,8 +532,20 @@ router.post("/checkout", async (req, res): Promise<void> => {
   const result: any = { order: formattedOrder };
 
   if (isPixPayment) {
-    result.pixCode = "00020126580014BR.GOV.BCB.PIX0136praca-ai@mercadopago.com.br5204000053039865406189.905802BR5913PRACA AI6009CHAPECOSC63044F2B";
-    result.pixQrCodeUrl = null;
+    // Usa o PIX real gerado pelo Asaas quando a cobrança deu certo
+    // (ver bloco acima); se falhou ou Asaas não está configurado, cai
+    // pro código simulado antigo — melhor que travar o checkout, mas
+    // deixa claro no log que esse pedido não tem cobrança real.
+    if (formattedOrder.pixPayload) {
+      result.pixCode = formattedOrder.pixPayload;
+      result.pixQrCodeUrl = formattedOrder.pixQrcodeImage
+        ? `data:image/png;base64,${formattedOrder.pixQrcodeImage}`
+        : null;
+    } else {
+      console.warn(`[checkout] pedido ${order.orderNumber} sem cobrança Asaas real — usando PIX simulado`);
+      result.pixCode = "00020126580014BR.GOV.BCB.PIX0136praca-ai@mercadopago.com.br5204000053039865406189.905802BR5913PRACA AI6009CHAPECOSC63044F2B";
+      result.pixQrCodeUrl = null;
+    }
   }
 
   if (paymentMethod === "boleto") {
