@@ -389,13 +389,13 @@ router.post("/checkout", async (req, res): Promise<void> => {
     }
   }
 
-  // Cobrança real via Asaas — PIX e boleto agora (CPF passou a ser
-  // obrigatório no checkout, o que desbloqueia boleto). Cartão de crédito
-  // continua simulado (tratamento de dado sensível de cartão é decisão
-  // maior, não desenhada aqui — ver conversa sobre PCI). Falha aqui não
-  // derruba o pedido (já foi criado) — fica sem cobrança real, mas o
-  // pedido existe e pode ser cobrado manualmente depois.
-  const asaasBillingType = paymentMethod === "pix" ? "PIX" : paymentMethod === "boleto" ? "BOLETO" : null;
+  // Cobrança real via Asaas — PIX, boleto e cartão de crédito. Dado de
+  // cartão (número/validade/CVV) NUNCA é salvo no nosso banco nem em log
+  // — só passa direto pro Asaas dentro dessa requisição e é descartado.
+  // Falha aqui não derruba o pedido (já foi criado) — fica sem cobrança
+  // real, mas o pedido existe e pode ser cobrado manualmente depois.
+  const asaasBillingType =
+    paymentMethod === "pix" ? "PIX" : paymentMethod === "boleto" ? "BOLETO" : paymentMethod === "credit_card" ? "CREDIT_CARD" : null;
   if (asaasBillingType && isAsaasConfigured()) {
     try {
       const buyerName = consumerId ? undefined : guestName.trim();
@@ -417,6 +417,32 @@ router.post("/checkout", async (req, res): Promise<void> => {
         cpfCnpj: buyerCpf,
       });
 
+      let creditCardPayload: { creditCard: any; creditCardHolderInfo: any } | undefined;
+      if (asaasBillingType === "CREDIT_CARD") {
+        const [expiryMonth, expiryYearShort] = String(cardExpiry ?? "").split("/");
+        if (!cardNumber || !cardHolder || !expiryMonth || !expiryYearShort || !cardCvv) {
+          throw new Error("Dados do cartão incompletos.");
+        }
+        const addressObj = deliveryAddress as any;
+        creditCardPayload = {
+          creditCard: {
+            holderName: cardHolder,
+            number: String(cardNumber).replace(/\s/g, ""),
+            expiryMonth: expiryMonth.padStart(2, "0"),
+            expiryYear: `20${expiryYearShort}`,
+            ccv: cardCvv,
+          },
+          creditCardHolderInfo: {
+            name: finalName,
+            email: buyerEmail,
+            cpfCnpj: buyerCpf,
+            postalCode: String(addressObj?.zipCode ?? "").replace(/\D/g, ""),
+            addressNumber: String(addressObj?.number ?? "s/n"),
+            phone: buyerPhone,
+          },
+        };
+      }
+
       const charge = await createCharge({
         customer: customer.id,
         billingType: asaasBillingType,
@@ -424,6 +450,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
         dueDate: new Date(Date.now() + (asaasBillingType === "BOLETO" ? 3 : 1) * 24 * 60 * 60 * 1000).toISOString().split("T")[0]!,
         description: `Pedido ${orderNumber} — Praça.ai`,
         externalReference: orderNumber,
+        ...creditCardPayload,
       });
 
       const updateData: Record<string, unknown> = { asaasChargeId: charge.id };
@@ -431,14 +458,29 @@ router.post("/checkout", async (req, res): Promise<void> => {
         const pixQrCode = await getPixQrCode(charge.id);
         updateData.asaasPixPayload = pixQrCode.payload;
         updateData.asaasPixQrcodeImage = pixQrCode.encodedImage;
-      } else {
+      } else if (asaasBillingType === "BOLETO") {
         // Boleto: guarda a URL do próprio Asaas pro cliente imprimir/pagar.
         updateData.asaasPixPayload = charge.bankSlipUrl ?? charge.invoiceUrl;
       }
+      // Cartão: nada a mais pra guardar — status da cobrança (aprovado/
+      // negado) já vem em charge.status, checado logo abaixo.
 
       await db.update(ordersTable).set(updateData).where(eq(ordersTable.id, order.id));
+
+      if (asaasBillingType === "CREDIT_CARD" && charge.status && !["CONFIRMED", "RECEIVED"].includes(charge.status)) {
+        // Cobrança criada mas não aprovada (ex: cartão recusado) — pedido
+        // já existe, mas fica marcado como pagamento pendente pro cliente
+        // saber que precisa resolver, em vez de aparecer como confirmado.
+        await db.update(ordersTable).set({ status: "payment_pending" }).where(eq(ordersTable.id, order.id));
+      }
     } catch (asaasErr) {
-      console.error("[checkout] falha ao criar cobrança Asaas (pedido já confirmado, sem cobrança real):", asaasErr);
+      console.error(
+        `[checkout] falha ao criar cobrança Asaas pro pedido ${orderNumber} (pedido já confirmado, sem cobrança real):`,
+        asaasErr instanceof Error ? asaasErr.message : asaasErr,
+      );
+      if (asaasBillingType === "CREDIT_CARD") {
+        await db.update(ordersTable).set({ status: "payment_pending" }).where(eq(ordersTable.id, order.id));
+      }
     }
   }
 

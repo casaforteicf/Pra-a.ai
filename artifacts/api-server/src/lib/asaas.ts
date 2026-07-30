@@ -103,6 +103,23 @@ export interface AsaasChargeOutput {
   bankSlipUrl: string | null;
 }
 
+export interface AsaasCreditCard {
+  holderName: string;
+  number: string;
+  expiryMonth: string;
+  expiryYear: string;
+  ccv: string;
+}
+
+export interface AsaasCreditCardHolderInfo {
+  name: string;
+  email?: string;
+  cpfCnpj: string;
+  postalCode: string;
+  addressNumber: string;
+  phone?: string;
+}
+
 export async function createCharge(data: {
   customer: string;
   billingType: AsaasBillingType;
@@ -110,6 +127,8 @@ export async function createCharge(data: {
   dueDate: string;
   description?: string;
   externalReference?: string;
+  creditCard?: AsaasCreditCard;
+  creditCardHolderInfo?: AsaasCreditCardHolderInfo;
 }): Promise<AsaasChargeOutput> {
   return asaasRequest<AsaasChargeOutput>("POST", "/payments", data);
 }
