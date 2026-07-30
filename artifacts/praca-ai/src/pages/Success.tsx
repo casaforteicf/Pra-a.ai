@@ -73,6 +73,35 @@ export default function Success() {
 
       {!total && <div className="mb-8" />}
 
+      {(order as any)?.pixQrcodeImage && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className="w-full"
+        >
+          <Card className="w-full p-6 mb-8 border-none shadow-lg flex flex-col items-center gap-3">
+            <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wider">
+              Pague com PIX pra confirmar
+            </h3>
+            <img
+              src={`data:image/png;base64,${(order as any).pixQrcodeImage}`}
+              alt="QR Code PIX"
+              className="w-48 h-48"
+            />
+            {(order as any)?.pixPayload && (
+              <button
+                type="button"
+                onClick={() => navigator.clipboard.writeText((order as any).pixPayload)}
+                className="text-xs text-primary underline break-all text-center px-4"
+              >
+                Copiar código PIX
+              </button>
+            )}
+          </Card>
+        </motion.div>
+      )}
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
