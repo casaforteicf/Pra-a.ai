@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES } from "@workspace/db";
 import { getProductById, getProductsByIds } from "../lib/catalogService";
+import { vendorPool } from "../lib/vendorDb";
 import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncService";
 import { calcularFrete } from "../lib/freteService";
 import { validateCoupon } from "../lib/couponService";
@@ -239,18 +240,35 @@ router.post("/checkout", async (req, res): Promise<void> => {
     return;
   }
 
-  // Mitigação parcial do risco de overselling (auditoria, item 5): confirma
-  // que cada produto ainda existe/está ativo/o tenant ainda vende no
-  // Praça.ai no momento do checkout, não só confia no snapshot do carrinho
-  // (que pode ter sido feito há dias). Verificação de estoque real em si
-  // ainda não é possível — produtos_catalogo não tem esse campo hoje.
+  // Mitigação do risco de overselling (auditoria, item 5): confirma que
+  // cada produto ainda existe/está ativo/o tenant ainda vende no Praça.ai
+  // no momento do checkout, não só confia no snapshot do carrinho (que
+  // pode ter sido feito há dias). Estoque real agora existe (opt-in por
+  // produto via controla_estoque) e é checado logo abaixo.
   const realProducts = await getProductsByIds(cartItems.map((i) => i.productId));
-  const realIds = new Set(realProducts.map((p) => p.id));
-  const unavailable = cartItems.filter((i) => !realIds.has(i.productId));
+  const realProductsById = new Map(realProducts.map((p) => [p.id, p]));
+  const unavailable = cartItems.filter((i) => !realProductsById.has(i.productId));
   if (unavailable.length > 0) {
     res.status(409).json({
       error: "Alguns itens do carrinho não estão mais disponíveis.",
       unavailableProducts: unavailable.map((i) => ({ productId: i.productId, name: i.productName })),
+    });
+    return;
+  }
+
+  // Checagem de estoque real — só se aplica a produtos com controle
+  // ativado (controlaEstoque=true); os demais seguem sem limite.
+  const outOfStock = cartItems.filter((i) => {
+    const product = realProductsById.get(i.productId)!;
+    return product.controlaEstoque && (product.stock ?? 0) < i.quantity;
+  });
+  if (outOfStock.length > 0) {
+    res.status(409).json({
+      error: "Alguns itens não têm estoque suficiente.",
+      outOfStockProducts: outOfStock.map((i) => {
+        const product = realProductsById.get(i.productId)!;
+        return { productId: i.productId, name: i.productName, available: product.stock ?? 0, requested: i.quantity };
+      }),
     });
     return;
   }
@@ -330,6 +348,21 @@ router.post("/checkout", async (req, res): Promise<void> => {
       vendorId: item.vendorId,
       selectedSize: item.selectedSize ?? null,
     });
+
+    // Decrementa estoque real (só produtos com controla_estoque=true —
+    // já validado acima que havia quantidade suficiente). Update
+    // condicional (WHERE estoque_quantidade >= quantidade) evita ficar
+    // negativo em caso de corrida entre dois checkouts simultâneos.
+    try {
+      await vendorPool.query(
+        `UPDATE produtos_catalogo
+         SET estoque_quantidade = estoque_quantidade - $1
+         WHERE id = $2 AND controla_estoque = true AND estoque_quantidade >= $1`,
+        [item.quantity, item.productId],
+      );
+    } catch (stockErr) {
+      console.error("[checkout] falha ao decrementar estoque (pedido já confirmado):", stockErr);
+    }
   }
 
   // Sincroniza com o Vendor.ai: cada pedido vira 1+ negócios (deal), um por

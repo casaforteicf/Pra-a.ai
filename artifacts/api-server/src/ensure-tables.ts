@@ -198,6 +198,14 @@ CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON session (expire);
 -- Captura de nome/telefone pra pedidos feitos sem login (checkout anônimo)
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_name text;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_phone text;
+
+-- Estoque real de produto (tabela produtos_catalogo é do Vendor.ai, mas
+-- vive no mesmo banco físico — o Praça.ai lê/escreve direto nela via
+-- vendorPool). controla_estoque é opt-in por produto: quando false,
+-- comportamento antigo (sem checagem) é mantido; quando true, estoque_
+-- quantidade passa a valer e bloqueia venda além do disponível.
+ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS estoque_quantidade integer;
+ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS controla_estoque boolean NOT NULL DEFAULT false;
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {

@@ -1,10 +1,5 @@
 import { vendorPool } from "./vendorDb";
 
-// Estoque ainda não existe como campo em produtos_catalogo (Vendor.ai) —
-// gap real identificado na auditoria de riscos (item 5: risco de overselling).
-// Placeholder até esse campo existir do lado do Vendor.ai.
-const STOCK_PLACEHOLDER = 999;
-
 export function slugify(text: string): string {
   return text
     .normalize("NFD")
@@ -51,7 +46,11 @@ export function mapCatalogRow(row: any) {
     rating: 0,
     reviewCount: 0,
     salesCount: 0,
-    stock: STOCK_PLACEHOLDER,
+    // Estoque real agora (migration adicionada no boot do api-server).
+    // Produto sem controle de estoque ativado (controla_estoque=false)
+    // continua sem limite — null aqui significa "não controla".
+    stock: row.controla_estoque ? Number(row.estoque_quantidade ?? 0) : null,
+    controlaEstoque: Boolean(row.controla_estoque),
     isFavorited: false,
     sizes: null,
     deliveryDays: null, // depende do frete real (seção 9.2)
