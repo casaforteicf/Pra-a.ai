@@ -37,7 +37,12 @@ function requireAdminKey(req: Request, res: Response, next: NextFunction): void 
   next();
 }
 
-router.use(requireAdminKey);
+// Escopo restrito a /admin/* — sem isso, esse middleware bloqueava
+// (por engano) TODAS as rotas registradas depois dele no index.ts,
+// incluindo veículos/imóveis/farmácia/restaurantes/serviços/fretes, já
+// que router.use(fn) sem path aplica pra qualquer requisição que passe
+// por esse router, não só as que batem com uma rota definida nele.
+router.use("/admin", requireAdminKey);
 
 router.get("/admin/embaixadores", async (_req, res): Promise<void> => {
   const ambassadors = await db
