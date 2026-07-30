@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Search, ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car, Home as HomeIcon, UtensilsCrossed } from "lucide-react"
+import { Search, ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car, Home as HomeIcon, UtensilsCrossed, Paintbrush, Droplet, Grid3x3, Trees, DoorOpen, Zap, Waves, Blocks, Package } from "lucide-react"
 import { useGetHome, getGetHomeQueryKey } from "@workspace/api-client-react"
 import { Link } from "wouter"
 import { formatMoney } from "@/lib/utils"
@@ -8,6 +8,31 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ProductCard } from "@/components/ProductCard"
+
+// Mapa dos nomes de ícone que o backend calcula (lib/catalogService.ts,
+// ICON_BY_NAME) pros componentes reais do lucide-react. Categoria sem
+// ícone mapeado cai no Package (nunca mais fica em branco).
+const CATEGORY_ICON_MAP: Record<string, typeof Package> = {
+  shirt: Shirt,
+  bike: Bike,
+  smartphone: Smartphone,
+  sofa: Sofa,
+  wrench: Wrench,
+  "shopping-cart": ShoppingCart,
+  pill: Pill,
+  dumbbell: Dumbbell,
+  home: HomeIcon,
+  car: Car,
+  truck: Truck,
+  paintbrush: Paintbrush,
+  droplet: Droplet,
+  grid: Grid3x3,
+  trees: Trees,
+  "door-open": DoorOpen,
+  zap: Zap,
+  waves: Waves,
+  blocks: Blocks,
+}
 
 export default function HomePage() {
   const { data: homeData, isLoading, isError } = useGetHome({
@@ -82,21 +107,17 @@ export default function HomePage() {
           {/* Categories Grid */}
           <section className="px-4">
             <div className="grid grid-cols-4 gap-y-4 gap-x-2">
-              {homeData.categories.map((category) => (
-                <Link key={category.id} href={`/listing?category=${category.slug}`} className="flex flex-col items-center gap-2 group">
-                  <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-muted group-active:scale-95 transition-transform">
-                    {category.slug === "moda" && <Shirt className="w-7 h-7 text-primary" />}
-                    {category.slug === "delivery" && <Bike className="w-7 h-7 text-primary" />}
-                    {category.slug === "eletronicos" && <Smartphone className="w-7 h-7 text-primary" />}
-                    {category.slug === "moveis" && <Sofa className="w-7 h-7 text-primary" />}
-                    {category.slug === "servicos" && <Wrench className="w-7 h-7 text-primary" />}
-                    {category.slug === "mercado" && <ShoppingCart className="w-7 h-7 text-primary" />}
-                    {category.slug === "farmacia" && <Pill className="w-7 h-7 text-primary" />}
-                    {category.slug === "esportes" && <Dumbbell className="w-7 h-7 text-primary" />}
-                  </div>
-                  <span className="text-[11px] font-bold text-center leading-tight">{category.name}</span>
-                </Link>
-              ))}
+              {homeData.categories.map((category) => {
+                const Icon = CATEGORY_ICON_MAP[(category as any).icon] ?? Package
+                return (
+                  <Link key={category.id} href={`/listing?category=${category.slug}`} className="flex flex-col items-center gap-2 group">
+                    <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-muted group-active:scale-95 transition-transform">
+                      <Icon className="w-7 h-7 text-primary" />
+                    </div>
+                    <span className="text-[11px] font-bold text-center leading-tight">{category.name}</span>
+                  </Link>
+                )
+              })}
               {/* Veículos não vem do catálogo dinâmico (produtos_catalogo) —
                   fica numa tabela própria do Vendor.ai, por isso é fixo aqui. */}
               <Link href="/veiculos" className="flex flex-col items-center gap-2 group">

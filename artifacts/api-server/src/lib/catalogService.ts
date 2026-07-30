@@ -187,6 +187,18 @@ const ICON_BY_NAME: Record<string, string> = {
   veiculos: "car",
   "veículos": "car",
   fretes: "truck",
+  // Categorias reais do negócio (material de construção — Chapecó/SC)
+  acabamento: "paintbrush",
+  hidraulica: "droplet",
+  "hidráulica": "droplet",
+  revestimento: "grid",
+  "area-externa": "trees",
+  "área externa": "trees",
+  esquadria: "door-open",
+  eletrica: "zap",
+  "elétrica": "zap",
+  lazer: "waves",
+  estrutura: "blocks",
 };
 
 export async function getProductsByIds(ids: string[]) {
