@@ -21,6 +21,7 @@ import ambassadorsRouter from "./ambassadors";
 import deliveriesRouter from "./deliveries";
 import supportPointsRouter from "./supportPoints";
 import adminRouter from "./admin";
+import veiculosRouter from "./veiculos";
 
 const router: IRouter = Router();
 
@@ -46,5 +47,6 @@ router.use(ambassadorsRouter);
 router.use(deliveriesRouter);
 router.use(supportPointsRouter);
 router.use(adminRouter);
+router.use(veiculosRouter);
 
 export default router;

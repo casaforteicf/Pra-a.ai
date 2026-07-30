@@ -235,6 +235,66 @@ CREATE TABLE IF NOT EXISTS vendor_payouts (
 );
 CREATE INDEX IF NOT EXISTS idx_vendor_payouts_vendor ON vendor_payouts (vendor_id);
 CREATE INDEX IF NOT EXISTS idx_vendor_payouts_status ON vendor_payouts (status);
+
+-- Módulo Veículos do Vendor.ai (tabelas próprias, não produtos_catalogo) —
+-- nunca foi aplicado no banco de produção porque o Republish do Vendor.ai
+-- no Replit está bloqueado. Aplicado aqui pelo mesmo motivo do resto desse
+-- arquivo: banco físico compartilhado, Praça.ai consegue rodar migração.
+-- CREATE TYPE não aceita IF NOT EXISTS — guarda manual via exceção.
+DO $$ BEGIN
+  CREATE TYPE veiculos_combustivel AS ENUM ('flex', 'gasolina', 'diesel', 'eletrico', 'hibrido', 'gnv');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE TYPE veiculos_cambio AS ENUM ('manual', 'automatico', 'cvt');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE TYPE veiculos_status AS ENUM ('disponivel', 'reservado', 'vendido', 'inativo');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE TYPE veiculos_test_drive_status AS ENUM ('agendado', 'confirmado', 'realizado', 'cancelado');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+CREATE TABLE IF NOT EXISTS veiculos_estoque (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  placa text,
+  marca text NOT NULL,
+  modelo text NOT NULL,
+  ano_fabricacao integer,
+  ano_modelo integer,
+  cor text,
+  km integer,
+  combustivel veiculos_combustivel,
+  cambio veiculos_cambio,
+  valor numeric(12,2) NOT NULL,
+  valor_promocional numeric(12,2),
+  descricao text,
+  fotos jsonb,
+  status veiculos_status NOT NULL DEFAULT 'inativo',
+  vistoria_realizada boolean NOT NULL DEFAULT false,
+  vistoria_laudo_url text,
+  destaque boolean NOT NULL DEFAULT false,
+  vendedor_responsavel_id text REFERENCES public.users(id) ON DELETE SET NULL,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS veiculos_test_drives (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  veiculo_id text NOT NULL REFERENCES veiculos_estoque(id) ON DELETE CASCADE,
+  cliente_id text NOT NULL REFERENCES leads(id) ON DELETE RESTRICT,
+  vendedor_id text REFERENCES public.users(id) ON DELETE SET NULL,
+  data_hora timestamp NOT NULL,
+  status veiculos_test_drive_status NOT NULL DEFAULT 'agendado',
+  feedback text,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_veiculos_estoque_tenant ON veiculos_estoque(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_veiculos_estoque_status ON veiculos_estoque(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_veiculos_test_drives_tenant ON veiculos_test_drives(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_veiculos_test_drives_veiculo ON veiculos_test_drives(veiculo_id);
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {
