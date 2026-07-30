@@ -589,6 +589,13 @@ CREATE INDEX IF NOT EXISTS idx_imoveis_propriedades_tenant ON imoveis_propriedad
 CREATE INDEX IF NOT EXISTS idx_imoveis_propriedades_status ON imoveis_propriedades(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_imoveis_visitas_tenant ON imoveis_visitas(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_imoveis_visitas_propriedade ON imoveis_visitas(propriedade_id);
+
+-- Controle por produto de visibilidade/preço no Praça.ai — a loja pode
+-- vender no Praça.ai como um todo (tenants.vende_no_praca_ai) mas ainda
+-- assim tirar produtos específicos da vitrine, ou cobrar diferente lá.
+-- null = herda o comportamento padrão.
+ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS vende_no_praca_ai_produto boolean;
+ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS preco_praca_ai numeric(12,2);
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {

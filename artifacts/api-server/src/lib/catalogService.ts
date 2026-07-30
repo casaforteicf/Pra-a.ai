@@ -11,13 +11,19 @@ export function slugify(text: string): string {
 }
 
 export function mapCatalogRow(row: any) {
-  const precoBase = Number(row.preco_base ?? 0);
+  // Preço específico do Praça.ai (Complemento) — quando o lojista configura
+  // um valor diferente só pra vitrine do Praça.ai, ele sobrepõe TUDO (preço
+  // base e promoção), é o preço final mostrado ao cliente do Praça.ai.
+  const temPrecoPracaAi = row.preco_praca_ai != null;
+  const precoBase = temPrecoPracaAi ? Number(row.preco_praca_ai) : Number(row.preco_base ?? 0);
   const imagens: string[] = Array.isArray(row.imagens) ? row.imagens : [];
   const imageUrl = row.imagem_url || imagens[0] || null;
 
   // Promoção real (Vendor.ai, migration 036) — só considera ativa se
-  // promocao_ativa_ate ainda não passou.
+  // promocao_ativa_ate ainda não passou. Não se aplica quando há preço
+  // específico do Praça.ai (esse já é o valor final, sem desconto por cima).
   const promocaoAtiva =
+    !temPrecoPracaAi &&
     row.preco_promocional != null &&
     row.promocao_ativa_ate != null &&
     new Date(row.promocao_ativa_ate).getTime() > Date.now();
@@ -77,7 +83,7 @@ const BASE_QUERY = `
 
 export async function getProductById(id: string) {
   const result = await vendorPool.query(
-    `${BASE_QUERY} WHERE pc.id = $1 AND t.vende_no_praca_ai = true AND pc.ativo = true`,
+    `${BASE_QUERY} WHERE pc.id = $1 AND t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)`,
     [id],
   );
   if (result.rows.length === 0) return null;
@@ -90,7 +96,7 @@ export async function getRealCategories(limit?: number) {
      FROM produtos_catalogo pc
      JOIN tenants t ON t.id = pc.tenant_id
      LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
-     WHERE t.vende_no_praca_ai = true AND pc.ativo = true
+     WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
      GROUP BY cp.nome
      ORDER BY product_count DESC
      ${limit ? `LIMIT ${Number(limit)}` : ""}`,
@@ -116,7 +122,7 @@ export async function getFeaturedProducts(limit = 6) {
      FROM produtos_catalogo pc
      JOIN tenants t ON t.id = pc.tenant_id
      LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
-     WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND pc.destaque = true
+     WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true) AND pc.destaque = true
      ORDER BY pc.created_at DESC
      LIMIT $1`,
     [limit],
@@ -137,7 +143,7 @@ export async function getPromotedProducts(limit = 8) {
      FROM produtos_catalogo pc
      JOIN tenants t ON t.id = pc.tenant_id
      LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
-     WHERE t.vende_no_praca_ai = true AND pc.ativo = true
+     WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
        AND pc.preco_promocional IS NOT NULL
        AND pc.promocao_ativa_ate IS NOT NULL
        AND pc.promocao_ativa_ate > now()
@@ -154,7 +160,7 @@ export async function getProductsByCategoryName(categoriaNome: string, limit = 4
      FROM produtos_catalogo pc
      JOIN tenants t ON t.id = pc.tenant_id
      LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
-     WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND cp.nome = $1
+     WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true) AND cp.nome = $1
      ORDER BY pc.destaque DESC, pc.created_at DESC
      LIMIT $2`,
     [categoriaNome, limit],
@@ -186,7 +192,7 @@ const ICON_BY_NAME: Record<string, string> = {
 export async function getProductsByIds(ids: string[]) {
   if (ids.length === 0) return [];
   const result = await vendorPool.query(
-    `${BASE_QUERY} WHERE pc.id = ANY($1) AND t.vende_no_praca_ai = true AND pc.ativo = true`,
+    `${BASE_QUERY} WHERE pc.id = ANY($1) AND t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)`,
     [ids],
   );
   return result.rows.map(mapCatalogRow);
