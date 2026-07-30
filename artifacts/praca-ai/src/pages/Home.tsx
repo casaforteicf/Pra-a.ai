@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Search, ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell } from "lucide-react"
+import { Search, ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car } from "lucide-react"
 import { useGetHome, getGetHomeQueryKey } from "@workspace/api-client-react"
 import { Link } from "wouter"
 import { formatMoney } from "@/lib/utils"
@@ -96,6 +96,14 @@ export default function HomePage() {
                   <span className="text-[11px] font-bold text-center leading-tight">{category.name}</span>
                 </Link>
               ))}
+              {/* Veículos não vem do catálogo dinâmico (produtos_catalogo) —
+                  fica numa tabela própria do Vendor.ai, por isso é fixo aqui. */}
+              <Link href="/veiculos" className="flex flex-col items-center gap-2 group">
+                <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-muted group-active:scale-95 transition-transform">
+                  <Car className="w-7 h-7 text-primary" />
+                </div>
+                <span className="text-[11px] font-bold text-center leading-tight">Veículos</span>
+              </Link>
             </div>
           </section>
 
