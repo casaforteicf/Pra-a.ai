@@ -295,6 +295,240 @@ CREATE INDEX IF NOT EXISTS idx_veiculos_estoque_tenant ON veiculos_estoque(tenan
 CREATE INDEX IF NOT EXISTS idx_veiculos_estoque_status ON veiculos_estoque(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_veiculos_test_drives_tenant ON veiculos_test_drives(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_veiculos_test_drives_veiculo ON veiculos_test_drives(veiculo_id);
+
+-- Módulo Farmácia (migration 039 original do Vendor.ai, nunca aplicada em
+-- produção pelo mesmo motivo do módulo Veículos acima).
+DO $$ BEGIN
+  CREATE TYPE farmacia_categoria_produto AS ENUM (
+    'medicamento_generico', 'medicamento_referencia', 'medicamento_similar',
+    'perfumaria', 'higiene_pessoal', 'dermocosmeticos', 'infantil',
+    'ortopedicos', 'suplementos', 'outros'
+  );
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE TYPE farmacia_pedido_status AS ENUM (
+    'aguardando_confirmacao', 'aguardando_receita', 'confirmado',
+    'em_separacao', 'saiu_para_entrega', 'entregue', 'cancelado'
+  );
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE TYPE farmacia_pedido_origem AS ENUM ('whatsapp', 'app', 'balcao');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+CREATE TABLE IF NOT EXISTS farmacia_produtos (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  erp_id text,
+  nome text NOT NULL,
+  principio_ativo text,
+  descricao text,
+  categoria farmacia_categoria_produto,
+  exige_receita boolean NOT NULL DEFAULT false,
+  unidade text NOT NULL DEFAULT 'un',
+  preco_venda numeric(12,2) NOT NULL,
+  preco_promocional numeric(12,2),
+  estoque integer NOT NULL DEFAULT 0,
+  imagem_url text,
+  ativo boolean NOT NULL DEFAULT true,
+  destaque_whatsapp boolean NOT NULL DEFAULT false,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS farmacia_pedidos (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  lead_id text REFERENCES leads(id) ON DELETE SET NULL,
+  origem farmacia_pedido_origem NOT NULL DEFAULT 'whatsapp',
+  status farmacia_pedido_status NOT NULL DEFAULT 'aguardando_confirmacao',
+  endereco_entrega text,
+  tem_item_controlado boolean NOT NULL DEFAULT false,
+  receita_url text,
+  observacoes text,
+  valor_total numeric(12,2) NOT NULL DEFAULT 0,
+  erp_pedido_id text,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS farmacia_pedido_itens (
+  id text PRIMARY KEY,
+  pedido_id text NOT NULL REFERENCES farmacia_pedidos(id) ON DELETE CASCADE,
+  produto_id text,
+  nome_produto text NOT NULL,
+  exige_receita boolean NOT NULL DEFAULT false,
+  quantidade numeric(10,3) NOT NULL,
+  preco_unitario numeric(12,2) NOT NULL,
+  subtotal numeric(12,2) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_farmacia_produtos_tenant ON farmacia_produtos(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_farmacia_pedidos_tenant ON farmacia_pedidos(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_farmacia_pedidos_status ON farmacia_pedidos(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_farmacia_pedido_itens_pedido ON farmacia_pedido_itens(pedido_id);
+
+-- Módulo Serviços (migration 038 original)
+CREATE TABLE IF NOT EXISTS servicos_prestadores (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  nome varchar(255) NOT NULL,
+  email varchar(255),
+  telefone varchar(20),
+  especialidade varchar(20) NOT NULL DEFAULT 'geral',
+  raio_atendimento_km integer DEFAULT 15,
+  comissao_base numeric(5,2) DEFAULT 60,
+  ativo boolean DEFAULT true,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS servicos_tipos (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  nome varchar(255) NOT NULL,
+  descricao text,
+  especialidade varchar(20) NOT NULL DEFAULT 'geral',
+  preco_base numeric(10,2),
+  requer_visita_tecnica boolean DEFAULT true,
+  ativo boolean DEFAULT true,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS servicos_ordens (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  cliente_id text NOT NULL REFERENCES leads(id) ON DELETE RESTRICT,
+  prestador_id text REFERENCES servicos_prestadores(id) ON DELETE SET NULL,
+  tipo_servico_id text NOT NULL REFERENCES servicos_tipos(id) ON DELETE RESTRICT,
+  endereco_atendimento text NOT NULL,
+  status varchar(25) DEFAULT 'orcamento_pendente',
+  data_hora_visita timestamp,
+  valor_orcado numeric(10,2),
+  valor_final numeric(10,2),
+  fotos_antes jsonb,
+  fotos_depois jsonb,
+  observacoes text,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_servicos_prestadores_tenant ON servicos_prestadores(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_servicos_tipos_tenant ON servicos_tipos(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_servicos_ordens_tenant ON servicos_ordens(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_servicos_ordens_prestador ON servicos_ordens(prestador_id);
+CREATE INDEX IF NOT EXISTS idx_servicos_ordens_status ON servicos_ordens(tenant_id, status);
+
+-- Módulo Fretes (migration 041 original)
+DO $$ BEGIN
+  CREATE TYPE fretes_veiculo_tipo AS ENUM ('utilitario', 'van', 'caminhao_toco', 'caminhao_truck', 'carreta');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE TYPE fretes_carga_status AS ENUM (
+    'cotacao_pendente', 'cotado', 'aprovado', 'coletado', 'em_transito',
+    'entregue', 'cancelado'
+  );
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+CREATE TABLE IF NOT EXISTS fretes_veiculos (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  placa text NOT NULL,
+  tipo fretes_veiculo_tipo NOT NULL,
+  capacidade_kg numeric(10,2),
+  capacidade_m3 numeric(10,2),
+  motorista_id text REFERENCES public.users(id) ON DELETE SET NULL,
+  ativo boolean NOT NULL DEFAULT true,
+  created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS fretes_cargas (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  cliente_id text NOT NULL REFERENCES leads(id) ON DELETE RESTRICT,
+  veiculo_id text REFERENCES fretes_veiculos(id) ON DELETE SET NULL,
+  endereco_coleta text NOT NULL,
+  endereco_entrega text NOT NULL,
+  tipo_carga text,
+  peso_kg numeric(10,2),
+  volume_m3 numeric(10,2),
+  valor_cotado numeric(12,2),
+  status fretes_carga_status NOT NULL DEFAULT 'cotacao_pendente',
+  data_coleta_prevista timestamp,
+  data_entrega_prevista timestamp,
+  data_coleta_real timestamp,
+  data_entrega_real timestamp,
+  observacoes text,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fretes_veiculos_tenant ON fretes_veiculos(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_fretes_cargas_tenant ON fretes_cargas(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_fretes_cargas_status ON fretes_cargas(tenant_id, status);
+CREATE INDEX IF NOT EXISTS idx_fretes_cargas_veiculo ON fretes_cargas(veiculo_id);
+
+-- Módulo Restaurante — sem migration numerada original (criado via push
+-- direto em sessão anterior); reconstruído aqui a partir do schema Drizzle
+-- real (lib/db/src/schema/restaurante_cardapio.ts e restaurante_pedidos.ts).
+DO $$ BEGIN
+  CREATE TYPE restaurante_categoria_cardapio AS ENUM (
+    'entrada', 'prato_principal', 'sobremesa', 'bebida', 'combo', 'outros'
+  );
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE TYPE restaurante_pedido_status AS ENUM (
+    'aguardando_confirmacao', 'confirmado', 'em_preparo',
+    'saiu_para_entrega', 'pronto_retirada', 'entregue', 'cancelado'
+  );
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  CREATE TYPE restaurante_pedido_origem AS ENUM ('whatsapp', 'app', 'mesa', 'balcao');
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+
+CREATE TABLE IF NOT EXISTS restaurante_cardapio (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  nome text NOT NULL,
+  descricao text,
+  categoria restaurante_categoria_cardapio,
+  preco numeric(10,2) NOT NULL,
+  tempo_preparo_minutos integer DEFAULT 20,
+  disponivel_almoco boolean NOT NULL DEFAULT true,
+  disponivel_jantar boolean NOT NULL DEFAULT true,
+  imagem_url text,
+  ativo boolean NOT NULL DEFAULT true,
+  destaque_whatsapp boolean NOT NULL DEFAULT false,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS restaurante_pedidos (
+  id text PRIMARY KEY,
+  tenant_id text NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  lead_id text REFERENCES leads(id) ON DELETE SET NULL,
+  origem restaurante_pedido_origem NOT NULL DEFAULT 'whatsapp',
+  status restaurante_pedido_status NOT NULL DEFAULT 'aguardando_confirmacao',
+  numero_mesa integer,
+  endereco_entrega text,
+  observacoes text,
+  valor_total numeric(12,2) NOT NULL DEFAULT 0,
+  tempo_estimado_minutos integer,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS restaurante_pedido_itens (
+  id text PRIMARY KEY,
+  pedido_id text NOT NULL REFERENCES restaurante_pedidos(id) ON DELETE CASCADE,
+  cardapio_item_id text,
+  nome_item text NOT NULL,
+  observacao_item text,
+  quantidade numeric(10,3) NOT NULL,
+  preco_unitario numeric(12,2) NOT NULL,
+  subtotal numeric(12,2) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_restaurante_cardapio_tenant ON restaurante_cardapio(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_restaurante_pedidos_tenant ON restaurante_pedidos(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_restaurante_pedido_itens_pedido ON restaurante_pedido_itens(pedido_id);
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {
