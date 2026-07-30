@@ -213,6 +213,11 @@ ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS controla_estoque boolean 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS asaas_charge_id text;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS asaas_pix_payload text;
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS asaas_pix_qrcode_image text;
+
+-- CPF obrigatório no checkout (logado ou não) — desbloqueia boleto real
+-- além do PIX, e é o dado que a Asaas exige pra cobrança de verdade.
+ALTER TABLE consumers ADD COLUMN IF NOT EXISTS cpf text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS buyer_cpf text;
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {

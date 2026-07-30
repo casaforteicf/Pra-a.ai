@@ -7,6 +7,7 @@ export const ordersTable = pgTable("orders", {
   consumerId: integer("consumer_id").references(() => consumersTable.id, { onDelete: "set null" }),
   guestName: text("guest_name"), // nome de quem comprou sem login — preenchido só quando consumerId é nulo
   guestPhone: text("guest_phone"), // telefone de quem comprou sem login
+  buyerCpf: text("buyer_cpf"), // CPF de quem comprou (logado ou não) — obrigatório no checkout, usado na cobrança Asaas
   status: text("status").notNull().default("confirmed"),
   subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
   shipping: numeric("shipping", { precision: 10, scale: 2 }).notNull().default("0"),

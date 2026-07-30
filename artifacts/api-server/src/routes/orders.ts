@@ -193,7 +193,7 @@ router.post("/orders", async (req, res): Promise<void> => {
 // POST /checkout — read cart, create order, clear cart
 router.post("/checkout", async (req, res): Promise<void> => {
   const consumerId = req.session?.consumerId ?? null;
-  const { deliveryAddress, deliveryOption, paymentMethod, couponCode, cardNumber, cardHolder, cardExpiry, cardCvv, guestName, guestPhone } = req.body;
+  const { deliveryAddress, deliveryOption, paymentMethod, couponCode, cardNumber, cardHolder, cardExpiry, cardCvv, guestName, guestPhone, cpf } = req.body;
 
   // Pedido sem login precisa de nome e telefone de contato — não dá pra
   // criar lead de qualidade nem entregar sem isso.
@@ -206,6 +206,26 @@ router.post("/checkout", async (req, res): Promise<void> => {
       res.status(400).json({ error: "Telefone é obrigatório pra continuar sem login." });
       return;
     }
+  }
+
+  // CPF é obrigatório em todo checkout (logado ou não) — é o que a
+  // cobrança real na Asaas exige. Se o cliente logado já tem CPF salvo
+  // no perfil, não precisa reenviar (usa o salvo); senão, precisa vir
+  // no corpo da requisição e vai ser salvo no perfil pra próxima vez.
+  let cpfDigits = typeof cpf === "string" ? cpf.replace(/\D/g, "") : "";
+  let savedConsumerCpf: string | null = null;
+  if (consumerId) {
+    const [existingConsumer] = await db.select({ cpf: consumersTable.cpf }).from(consumersTable).where(eq(consumersTable.id, consumerId)).limit(1);
+    savedConsumerCpf = existingConsumer?.cpf ?? null;
+  }
+  if (!savedConsumerCpf && cpfDigits.length !== 11) {
+    res.status(400).json({ error: "CPF válido é obrigatório pra continuar." });
+    return;
+  }
+  const buyerCpf = savedConsumerCpf ?? cpfDigits;
+
+  if (consumerId && !savedConsumerCpf) {
+    await db.update(consumersTable).set({ cpf: buyerCpf }).where(eq(consumersTable.id, consumerId));
   }
 
   const isPixPayment = paymentMethod === "pix";
@@ -327,6 +347,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
       consumerId,
       guestName: consumerId ? null : guestName.trim(),
       guestPhone: consumerId ? null : guestPhone.trim(),
+      buyerCpf,
       status: "confirmed",
       subtotal: String(subtotal),
       shipping: String(shipping),
@@ -368,12 +389,14 @@ router.post("/checkout", async (req, res): Promise<void> => {
     }
   }
 
-  // Cobrança real via Asaas — só pra PIX por enquanto (ver lib/asaas.ts:
-  // boleto exige CPF que o checkout não coleta ainda, cartão exige
-  // tratamento de dado sensível que não foi desenhado aqui). Falha aqui
-  // não derruba o pedido (já foi criado) — fica sem QR code de pagamento
-  // real, mas o pedido existe e pode ser cobrado manualmente depois.
-  if (paymentMethod === "pix" && isAsaasConfigured()) {
+  // Cobrança real via Asaas — PIX e boleto agora (CPF passou a ser
+  // obrigatório no checkout, o que desbloqueia boleto). Cartão de crédito
+  // continua simulado (tratamento de dado sensível de cartão é decisão
+  // maior, não desenhada aqui — ver conversa sobre PCI). Falha aqui não
+  // derruba o pedido (já foi criado) — fica sem cobrança real, mas o
+  // pedido existe e pode ser cobrado manualmente depois.
+  const asaasBillingType = paymentMethod === "pix" ? "PIX" : paymentMethod === "boleto" ? "BOLETO" : null;
+  if (asaasBillingType && isAsaasConfigured()) {
     try {
       const buyerName = consumerId ? undefined : guestName.trim();
       const buyerPhone = consumerId ? undefined : guestPhone.trim();
@@ -391,29 +414,31 @@ router.post("/checkout", async (req, res): Promise<void> => {
         name: finalName,
         email: buyerEmail,
         phone: buyerPhone,
+        cpfCnpj: buyerCpf,
       });
 
       const charge = await createCharge({
         customer: customer.id,
-        billingType: "PIX",
+        billingType: asaasBillingType,
         value: total,
-        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]!,
+        dueDate: new Date(Date.now() + (asaasBillingType === "BOLETO" ? 3 : 1) * 24 * 60 * 60 * 1000).toISOString().split("T")[0]!,
         description: `Pedido ${orderNumber} — Praça.ai`,
         externalReference: orderNumber,
       });
 
-      const pixQrCode = await getPixQrCode(charge.id);
+      const updateData: Record<string, unknown> = { asaasChargeId: charge.id };
+      if (asaasBillingType === "PIX") {
+        const pixQrCode = await getPixQrCode(charge.id);
+        updateData.asaasPixPayload = pixQrCode.payload;
+        updateData.asaasPixQrcodeImage = pixQrCode.encodedImage;
+      } else {
+        // Boleto: guarda a URL do próprio Asaas pro cliente imprimir/pagar.
+        updateData.asaasPixPayload = charge.bankSlipUrl ?? charge.invoiceUrl;
+      }
 
-      await db
-        .update(ordersTable)
-        .set({
-          asaasChargeId: charge.id,
-          asaasPixPayload: pixQrCode.payload,
-          asaasPixQrcodeImage: pixQrCode.encodedImage,
-        })
-        .where(eq(ordersTable.id, order.id));
+      await db.update(ordersTable).set(updateData).where(eq(ordersTable.id, order.id));
     } catch (asaasErr) {
-      console.error("[checkout] falha ao criar cobrança Asaas (pedido já confirmado, sem QR code real):", asaasErr);
+      console.error("[checkout] falha ao criar cobrança Asaas (pedido já confirmado, sem cobrança real):", asaasErr);
     }
   }
 
@@ -549,7 +574,14 @@ router.post("/checkout", async (req, res): Promise<void> => {
   }
 
   if (paymentMethod === "boleto") {
-    result.boletoUrl = "https://praca.ai/boleto/mock";
+    // Boleto real: a URL fica salva em asaasPixPayload (mesmo campo
+    // reaproveitado pra guardar o link, já que boleto não tem QR PIX).
+    if (formattedOrder.pixPayload) {
+      result.boletoUrl = formattedOrder.pixPayload;
+    } else {
+      console.warn(`[checkout] pedido ${order.orderNumber} sem cobrança Asaas real — usando boleto simulado`);
+      result.boletoUrl = "https://praca.ai/boleto/mock";
+    }
   }
 
   res.status(201).json(result);

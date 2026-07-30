@@ -7,6 +7,7 @@ export const consumersTable = pgTable("consumers", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   phone: text("phone"),
+  cpf: text("cpf"), // capturado no primeiro checkout (obrigatório pra cobrança real); guardado pra não pedir de novo
   passwordHash: text("password_hash").notNull(),
   saldoMoedas: integer("saldo_moedas").notNull().default(0),
   ultimoCheckinEm: text("ultimo_checkin_em"), // data (YYYY-MM-DD) do último check-in, 1x/dia

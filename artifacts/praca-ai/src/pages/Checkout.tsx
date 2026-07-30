@@ -30,6 +30,7 @@ export default function Checkout() {
   // nesse caso (o pedido precisa de um jeito de contatar o cliente).
   const [guestName, setGuestName] = React.useState('')
   const [guestPhone, setGuestPhone] = React.useState('')
+  const [cpf, setCpf] = React.useState('')
   const isGuest = !user
 
   // Form State
@@ -117,12 +118,24 @@ export default function Checkout() {
       return
     }
 
+    const cpfDigits = cpf.replace(/\D/g, '')
+    if (cpfDigits.length !== 11) {
+      toast({
+        title: "CPF inválido",
+        description: "Preencha um CPF válido pra continuar.",
+        variant: "destructive"
+      })
+      setStep(1)
+      return
+    }
+
     checkoutMutation.mutate({
       data: {
         deliveryAddress: address as any,
         deliveryOption: deliveryOption as any,
         paymentMethod: paymentMethod as any,
         couponCode: appliedCoupon?.code ?? undefined,
+        cpf: cpfDigits,
         ...(isGuest ? { guestName: guestName.trim(), guestPhone: guestPhone.trim() } : {}),
         ...(paymentMethod === 'credit_card' ? {
           cardNumber: cardData.number,
@@ -202,6 +215,11 @@ export default function Checkout() {
                   <Input placeholder="Telefone (com DDD)" value={guestPhone} onChange={e => setGuestPhone(e.target.value)} />
                 </div>
               )}
+
+              <div className="space-y-4 pb-2 border-b mb-2">
+                <p className="text-sm text-muted-foreground">CPF (necessário pra confirmar o pagamento)</p>
+                <Input placeholder="000.000.000-00" value={cpf} onChange={e => setCpf(e.target.value)} maxLength={14} />
+              </div>
 
               <div className="space-y-4">
                 <Input placeholder="CEP" value={address.zipCode} onChange={e => setAddress({...address, zipCode: e.target.value})} />
