@@ -174,4 +174,42 @@ router.patch("/admin/repasses/:vendorId/marcar-pago", async (req, res): Promise<
   res.json({ marcados: updated.length, repasses: updated });
 });
 
+/**
+ * Comissão por loja — edição direta, pra ajustar conforme a demanda (sem
+ * precisar de deploy). Lê/escreve direto em tenants.comissao_praca_ai_
+ * percentual (tabela do Vendor.ai, mesmo banco físico).
+ */
+router.get("/admin/lojas", async (_req, res): Promise<void> => {
+  const { rows } = await vendorPool.query<{ id: string; nome_empresa: string; comissao_praca_ai_percentual: string | null }>(
+    `SELECT id, nome_empresa, comissao_praca_ai_percentual FROM tenants WHERE vende_no_praca_ai = true ORDER BY nome_empresa`,
+  );
+  res.json(rows.map((r) => ({
+    vendorId: r.id,
+    nomeEmpresa: r.nome_empresa,
+    comissaoPercentual: Number(r.comissao_praca_ai_percentual ?? 8),
+  })));
+});
+
+router.patch("/admin/lojas/:vendorId/comissao", async (req, res): Promise<void> => {
+  const vendorId = Array.isArray(req.params.vendorId) ? req.params.vendorId[0] : req.params.vendorId;
+  const { comissaoPercentual } = req.body as { comissaoPercentual?: number };
+
+  if (typeof comissaoPercentual !== "number" || comissaoPercentual < 0 || comissaoPercentual > 100) {
+    res.status(400).json({ error: "Comissão precisa ser um número entre 0 e 100." });
+    return;
+  }
+
+  const { rowCount } = await vendorPool.query(
+    `UPDATE tenants SET comissao_praca_ai_percentual = $1 WHERE id = $2`,
+    [comissaoPercentual, vendorId],
+  );
+
+  if (rowCount === 0) {
+    res.status(404).json({ error: "Loja não encontrada." });
+    return;
+  }
+
+  res.json({ vendorId, comissaoPercentual });
+});
+
 export default router;

@@ -312,6 +312,97 @@ function RepassesTab() {
   );
 }
 
+// ── Comissões por loja ───────────────────────────────────────────────────────
+
+function ComissoesTab() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [edicoes, setEdicoes] = useState<Record<string, string>>({});
+
+  const { data: lojas = [], isLoading } = useQuery<any[]>({
+    queryKey: ["admin-lojas"],
+    queryFn: () => fetch("/api/admin/lojas", { headers: adminHeaders() }).then((r) => r.json()),
+  });
+
+  const salvar = useMutation({
+    mutationFn: ({ vendorId, comissaoPercentual }: { vendorId: string; comissaoPercentual: number }) =>
+      fetch(`/api/admin/lojas/${vendorId}/comissao`, {
+        method: "PATCH",
+        headers: adminHeaders(),
+        body: JSON.stringify({ comissaoPercentual }),
+      }).then((r) => r.json()),
+    onSuccess: (_data, variables) => {
+      qc.invalidateQueries({ queryKey: ["admin-lojas"] });
+      setEdicoes((prev) => {
+        const next = { ...prev };
+        delete next[variables.vendorId];
+        return next;
+      });
+      toast({ title: "Comissão atualizada" });
+    },
+  });
+
+  if (isLoading) return <Loader2 className="h-5 w-5 animate-spin mx-auto mt-8" />;
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Ajuste a comissão de cada loja conforme a demanda. Vale pras próximas vendas — não recalcula repasses já registrados.
+      </p>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Loja</TableHead>
+                <TableHead>Comissão atual</TableHead>
+                <TableHead>Nova comissão</TableHead>
+                <TableHead>Ação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {lojas.length === 0 ? (
+                <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nenhuma loja vendendo no Praça.ai ainda.</TableCell></TableRow>
+              ) : (
+                lojas.map((l: any) => {
+                  const valorEditado = edicoes[l.vendorId] ?? String(l.comissaoPercentual);
+                  const mudou = Number(valorEditado) !== l.comissaoPercentual && valorEditado !== "";
+                  return (
+                    <TableRow key={l.vendorId}>
+                      <TableCell className="font-medium">{l.nomeEmpresa}</TableCell>
+                      <TableCell className="text-muted-foreground">{l.comissaoPercentual}%</TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={100}
+                          step={0.5}
+                          className="w-24"
+                          value={valorEditado}
+                          onChange={(e) => setEdicoes((prev) => ({ ...prev, [l.vendorId]: e.target.value }))}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          disabled={!mudou || salvar.isPending}
+                          onClick={() => salvar.mutate({ vendorId: l.vendorId, comissaoPercentual: Number(valorEditado) })}
+                        >
+                          Salvar
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 // ── Página ─────────────────────────────────────────────────────────────────
 
 function AdminContent() {
@@ -326,6 +417,7 @@ function AdminContent() {
             <TabsTrigger value="embaixadores">Embaixadores</TabsTrigger>
             <TabsTrigger value="disputas">Disputas</TabsTrigger>
             <TabsTrigger value="repasses">Repasses</TabsTrigger>
+            <TabsTrigger value="comissoes">Comissões</TabsTrigger>
           </TabsList>
           <TabsContent value="embaixadores" className="mt-4">
             <EmbaixadoresTab />
@@ -335,6 +427,9 @@ function AdminContent() {
           </TabsContent>
           <TabsContent value="repasses" className="mt-4">
             <RepassesTab />
+          </TabsContent>
+          <TabsContent value="comissoes" className="mt-4">
+            <ComissoesTab />
           </TabsContent>
         </Tabs>
       </div>
