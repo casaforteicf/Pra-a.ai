@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Search, ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car } from "lucide-react"
+import { Search, ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car, Home as HomeIcon } from "lucide-react"
 import { useGetHome, getGetHomeQueryKey } from "@workspace/api-client-react"
 import { Link } from "wouter"
 import { formatMoney } from "@/lib/utils"
@@ -103,6 +103,12 @@ export default function HomePage() {
                   <Car className="w-7 h-7 text-primary" />
                 </div>
                 <span className="text-[11px] font-bold text-center leading-tight">Veículos</span>
+              </Link>
+              <Link href="/imoveis" className="flex flex-col items-center gap-2 group">
+                <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-muted group-active:scale-95 transition-transform">
+                  <HomeIcon className="w-7 h-7 text-primary" />
+                </div>
+                <span className="text-[11px] font-bold text-center leading-tight">Imóveis</span>
               </Link>
             </div>
           </section>

@@ -20,6 +20,8 @@ import MyFavorites from '@/pages/MyFavorites';
 import AdminPanel from '@/pages/AdminPanel';
 import VeiculosListing from '@/pages/VeiculosListing';
 import VeiculoDetail from '@/pages/VeiculoDetail';
+import ImoveisListing from '@/pages/ImoveisListing';
+import ImovelDetail from '@/pages/ImovelDetail';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,6 +48,8 @@ function Router() {
       <Route path="/favorites" component={MyFavorites} />
       <Route path="/veiculos" component={VeiculosListing} />
       <Route path="/veiculos/:id" component={VeiculoDetail} />
+      <Route path="/imoveis" component={ImoveisListing} />
+      <Route path="/imoveis/:id" component={ImovelDetail} />
       <Route component={NotFound} />
     </Switch>
   );
