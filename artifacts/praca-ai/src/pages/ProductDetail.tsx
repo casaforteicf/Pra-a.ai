@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useRoute, useLocation } from "wouter"
-import { ChevronLeft, Heart, Share2, Star, ShieldCheck, MapPin, Store, CheckCircle2 } from "lucide-react"
+import { ChevronLeft, Heart, Share2, Star, ShieldCheck, MapPin, Store, CheckCircle2, Truck } from "lucide-react"
 import { useGetProduct, getGetProductQueryKey, useAddToCart, useListProductReviews, getListProductReviewsQueryKey } from "@workspace/api-client-react"
 import { formatMoney } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/skeleton"
@@ -113,12 +113,32 @@ export default function ProductDetail() {
             )}
           </div>
           <h1 className="text-2xl font-black leading-tight mb-3 text-foreground">{product.name}</h1>
+
+          {product.reviewCount > 0 && (
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className="flex items-center gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Star key={i} className={`w-3.5 h-3.5 ${i < Math.round(product.rating) ? 'fill-amber-400 text-amber-400' : 'fill-muted text-muted'}`} />
+                ))}
+              </div>
+              <span className="text-xs font-bold text-foreground">{product.rating.toFixed(1)}</span>
+              <span className="text-xs text-muted-foreground">({product.reviewCount} avaliações)</span>
+            </div>
+          )}
+
           <div className="flex items-end gap-3">
             <span className="text-3xl font-black text-terracota leading-none">{formatMoney(product.price)}</span>
             {product.originalPrice && (
               <span className="text-sm text-muted-foreground line-through pb-1">{formatMoney(product.originalPrice)}</span>
             )}
           </div>
+
+          {product.freeShipping && (
+            <div className="flex items-center gap-1.5 mt-2 text-sm font-bold text-primary">
+              <Truck className="w-4 h-4" />
+              <span>Frete grátis pra sua região</span>
+            </div>
+          )}
         </div>
 
         {/* Vendor Chip */}
