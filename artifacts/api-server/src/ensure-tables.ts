@@ -194,6 +194,10 @@ CREATE TABLE IF NOT EXISTS session (
   expire timestamp(6) NOT NULL
 );
 CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON session (expire);
+
+-- Captura de nome/telefone pra pedidos feitos sem login (checkout anônimo)
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_name text;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_phone text;
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {

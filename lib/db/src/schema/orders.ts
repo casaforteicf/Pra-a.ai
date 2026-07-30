@@ -5,6 +5,8 @@ export const ordersTable = pgTable("orders", {
   id: serial("id").primaryKey(),
   orderNumber: text("order_number").notNull().unique(),
   consumerId: integer("consumer_id").references(() => consumersTable.id, { onDelete: "set null" }),
+  guestName: text("guest_name"), // nome de quem comprou sem login — preenchido só quando consumerId é nulo
+  guestPhone: text("guest_phone"), // telefone de quem comprou sem login
   status: text("status").notNull().default("confirmed"),
   subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
   shipping: numeric("shipping", { precision: 10, scale: 2 }).notNull().default("0"),

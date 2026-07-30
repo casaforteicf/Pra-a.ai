@@ -189,7 +189,20 @@ router.post("/orders", async (req, res): Promise<void> => {
 // POST /checkout — read cart, create order, clear cart
 router.post("/checkout", async (req, res): Promise<void> => {
   const consumerId = req.session?.consumerId ?? null;
-  const { deliveryAddress, deliveryOption, paymentMethod, couponCode, cardNumber, cardHolder, cardExpiry, cardCvv } = req.body;
+  const { deliveryAddress, deliveryOption, paymentMethod, couponCode, cardNumber, cardHolder, cardExpiry, cardCvv, guestName, guestPhone } = req.body;
+
+  // Pedido sem login precisa de nome e telefone de contato — não dá pra
+  // criar lead de qualidade nem entregar sem isso.
+  if (!consumerId) {
+    if (!guestName || typeof guestName !== "string" || !guestName.trim()) {
+      res.status(400).json({ error: "Nome é obrigatório pra continuar sem login." });
+      return;
+    }
+    if (!guestPhone || typeof guestPhone !== "string" || !guestPhone.trim()) {
+      res.status(400).json({ error: "Telefone é obrigatório pra continuar sem login." });
+      return;
+    }
+  }
 
   const isPixPayment = paymentMethod === "pix";
 
@@ -291,6 +304,8 @@ router.post("/checkout", async (req, res): Promise<void> => {
     .values({
       orderNumber,
       consumerId,
+      guestName: consumerId ? null : guestName.trim(),
+      guestPhone: consumerId ? null : guestPhone.trim(),
       status: "confirmed",
       subtotal: String(subtotal),
       shipping: String(shipping),
@@ -322,16 +337,15 @@ router.post("/checkout", async (req, res): Promise<void> => {
   // Falha na sincronização não deve derrubar o pedido em si (o pagamento já
   // foi confirmado do lado do Praça.ai) — registra o erro e segue.
   try {
-    let consumerInfo = { nome: "Cliente Praça.ai", telefone: null as string | null, email: null as string | null };
+    let consumerInfo = { nome: guestName.trim(), telefone: guestPhone.trim() as string | null, email: null as string | null };
     if (consumerId) {
       const [consumer] = await db.select().from(consumersTable).where(eq(consumersTable.id, consumerId)).limit(1);
       if (consumer) {
         consumerInfo = { nome: consumer.name, telefone: consumer.phone ?? null, email: consumer.email };
       }
     }
-    // Pedido anônimo (sem login) ainda não captura nome/telefone do cliente
-    // no formulário de entrega — gap conhecido, lead fica com dado mínimo
-    // até o checkout coletar isso também pra convidado.
+    // Pedido anônimo (sem login) agora captura nome/telefone no próprio
+    // checkout (obrigatório, validado acima) — lead chega completo.
     const enderecoStr = typeof deliveryAddress === "object"
       ? `${deliveryAddress.street ?? ""}, ${deliveryAddress.number ?? ""}, ${deliveryAddress.neighborhood ?? ""}, ${deliveryAddress.city ?? "Chapecó"} - ${deliveryAddress.state ?? "SC"}`
       : String(deliveryAddress ?? "");

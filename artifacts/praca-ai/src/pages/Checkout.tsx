@@ -2,6 +2,7 @@ import * as React from "react"
 import { useLocation } from "wouter"
 import { ChevronLeft, CreditCard, QrCode, Receipt, Check, ArrowRight, Tag, X } from "lucide-react"
 import { useGetCart, getGetCartQueryKey, useProcessCheckout, useValidateCoupon } from "@workspace/api-client-react"
+import { useAuth } from "@/contexts/AuthContext"
 import { formatMoney } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
@@ -14,6 +15,7 @@ export default function Checkout() {
   const [, setLocation] = useLocation()
   const { toast } = useToast()
   const queryClient = useQueryClient()
+  const { user } = useAuth()
 
   const { data: cart, isLoading } = useGetCart({
     query: { queryKey: getGetCartQueryKey() }
@@ -23,6 +25,12 @@ export default function Checkout() {
   const validateCouponMutation = useValidateCoupon()
 
   const [step, setStep] = React.useState(1)
+
+  // Dados de contato pra quem está comprando sem login — obrigatórios
+  // nesse caso (o pedido precisa de um jeito de contatar o cliente).
+  const [guestName, setGuestName] = React.useState('')
+  const [guestPhone, setGuestPhone] = React.useState('')
+  const isGuest = !user
 
   // Form State
   const [address, setAddress] = React.useState({
@@ -99,12 +107,23 @@ export default function Checkout() {
   const grandTotal = (cart.subtotal ?? 0) + shipping - totalDiscount
 
   const handleSubmit = () => {
+    if (isGuest && (!guestName.trim() || !guestPhone.trim())) {
+      toast({
+        title: "Faltam seus dados",
+        description: "Preencha nome e telefone pra continuar sem login.",
+        variant: "destructive"
+      })
+      setStep(1)
+      return
+    }
+
     checkoutMutation.mutate({
       data: {
         deliveryAddress: address as any,
         deliveryOption: deliveryOption as any,
         paymentMethod: paymentMethod as any,
         couponCode: appliedCoupon?.code ?? undefined,
+        ...(isGuest ? { guestName: guestName.trim(), guestPhone: guestPhone.trim() } : {}),
         ...(paymentMethod === 'credit_card' ? {
           cardNumber: cardData.number,
           cardHolder: cardData.holder,
@@ -175,6 +194,14 @@ export default function Checkout() {
               className="flex flex-col gap-4"
             >
               <h2 className="font-bold text-lg mb-2">Para onde vamos enviar?</h2>
+
+              {isGuest && (
+                <div className="space-y-4 pb-2 border-b mb-2">
+                  <p className="text-sm text-muted-foreground">Seus dados de contato</p>
+                  <Input placeholder="Nome completo" value={guestName} onChange={e => setGuestName(e.target.value)} />
+                  <Input placeholder="Telefone (com DDD)" value={guestPhone} onChange={e => setGuestPhone(e.target.value)} />
+                </div>
+              )}
 
               <div className="space-y-4">
                 <Input placeholder="CEP" value={address.zipCode} onChange={e => setAddress({...address, zipCode: e.target.value})} />
