@@ -30,9 +30,11 @@ export default function ProductDetail() {
   const [selectedSize, setSelectedSize] = React.useState<string | null>(null)
   const [quantity, setQuantity] = React.useState(1)
   const [isLiked, setIsLiked] = React.useState(false)
+  const [selectedImageIndex, setSelectedImageIndex] = React.useState(0)
 
   React.useEffect(() => {
     if (product?.isFavorited) setIsLiked(true)
+    setSelectedImageIndex(0)
   }, [product])
 
   const handleAddToCart = (buyNow = false) => {
@@ -94,13 +96,24 @@ export default function ProductDetail() {
 
       {/* Image Gallery */}
       <div className="w-full aspect-[4/5] bg-muted relative">
-        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-        <div className="absolute bottom-4 inset-x-0 flex justify-center gap-1.5">
-          {product.images?.map((_, i) => (
-            <div key={i} className={`h-1.5 rounded-full transition-all ${i === 0 ? 'w-6 bg-primary' : 'w-1.5 bg-white/60'}`} />
+        <img src={product.images?.[selectedImageIndex] ?? product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+      </div>
+
+      {product.images && product.images.length > 1 && (
+        <div className="flex gap-2 px-5 py-3 overflow-x-auto hide-scrollbar">
+          {product.images.map((img, i) => (
+            <button
+              key={i}
+              onClick={() => setSelectedImageIndex(i)}
+              className={`w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 border-2 transition-colors ${
+                i === selectedImageIndex ? 'border-primary' : 'border-transparent opacity-70'
+              }`}
+            >
+              <img src={img} alt={`${product.name} ${i + 1}`} className="w-full h-full object-cover" />
+            </button>
           ))}
         </div>
-      </div>
+      )}
 
       <div className="p-5 flex flex-col gap-6">
         
