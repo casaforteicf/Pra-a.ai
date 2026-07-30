@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Search, ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car, Home as HomeIcon } from "lucide-react"
+import { Search, ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car, Home as HomeIcon, UtensilsCrossed } from "lucide-react"
 import { useGetHome, getGetHomeQueryKey } from "@workspace/api-client-react"
 import { Link } from "wouter"
 import { formatMoney } from "@/lib/utils"
@@ -109,6 +109,30 @@ export default function HomePage() {
                   <HomeIcon className="w-7 h-7 text-primary" />
                 </div>
                 <span className="text-[11px] font-bold text-center leading-tight">Imóveis</span>
+              </Link>
+              <Link href="/farmacia" className="flex flex-col items-center gap-2 group">
+                <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-muted group-active:scale-95 transition-transform">
+                  <Pill className="w-7 h-7 text-primary" />
+                </div>
+                <span className="text-[11px] font-bold text-center leading-tight">Farmácia</span>
+              </Link>
+              <Link href="/restaurantes" className="flex flex-col items-center gap-2 group">
+                <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-muted group-active:scale-95 transition-transform">
+                  <UtensilsCrossed className="w-7 h-7 text-primary" />
+                </div>
+                <span className="text-[11px] font-bold text-center leading-tight">Restaurantes</span>
+              </Link>
+              <Link href="/servicos" className="flex flex-col items-center gap-2 group">
+                <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-muted group-active:scale-95 transition-transform">
+                  <Wrench className="w-7 h-7 text-primary" />
+                </div>
+                <span className="text-[11px] font-bold text-center leading-tight">Serviços</span>
+              </Link>
+              <Link href="/fretes" className="flex flex-col items-center gap-2 group">
+                <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center border border-muted group-active:scale-95 transition-transform">
+                  <Truck className="w-7 h-7 text-primary" />
+                </div>
+                <span className="text-[11px] font-bold text-center leading-tight">Fretes</span>
               </Link>
             </div>
           </section>

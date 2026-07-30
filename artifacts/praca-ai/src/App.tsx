@@ -22,6 +22,12 @@ import VeiculosListing from '@/pages/VeiculosListing';
 import VeiculoDetail from '@/pages/VeiculoDetail';
 import ImoveisListing from '@/pages/ImoveisListing';
 import ImovelDetail from '@/pages/ImovelDetail';
+import FarmaciaListing from '@/pages/FarmaciaListing';
+import FarmaciaProdutoDetail from '@/pages/FarmaciaProdutoDetail';
+import ServicosPage from '@/pages/ServicosPage';
+import FretesPage from '@/pages/FretesPage';
+import RestaurantesListing from '@/pages/RestaurantesListing';
+import RestauranteCardapio from '@/pages/RestauranteCardapio';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,6 +56,12 @@ function Router() {
       <Route path="/veiculos/:id" component={VeiculoDetail} />
       <Route path="/imoveis" component={ImoveisListing} />
       <Route path="/imoveis/:id" component={ImovelDetail} />
+      <Route path="/farmacia" component={FarmaciaListing} />
+      <Route path="/farmacia/:id" component={FarmaciaProdutoDetail} />
+      <Route path="/servicos" component={ServicosPage} />
+      <Route path="/fretes" component={FretesPage} />
+      <Route path="/restaurantes" component={RestaurantesListing} />
+      <Route path="/restaurantes/:vendorId" component={RestauranteCardapio} />
       <Route component={NotFound} />
     </Switch>
   );
