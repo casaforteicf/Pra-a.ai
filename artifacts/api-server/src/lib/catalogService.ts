@@ -54,7 +54,12 @@ export function mapCatalogRow(row: any) {
     isFavorited: false,
     sizes: null,
     deliveryDays: null, // depende do frete real (seção 9.2)
-    freeShipping: false,
+    // Real agora: mesma regra de frete grátis progressivo já usada no
+    // checkout (tenants.frete_gratis_acima_de), aplicada por produto pra
+    // já sinalizar na vitrine, estilo Mercado Livre.
+    freeShipping: row.frete_gratis_acima_de != null
+      ? (promocaoAtiva ? Number(row.preco_promocional) : precoBase) >= Number(row.frete_gratis_acima_de)
+      : false,
     vendorRating: 0,
     vendorSalesCount: 0,
     vendorDescription: "",
@@ -64,7 +69,7 @@ export function mapCatalogRow(row: any) {
 }
 
 const BASE_QUERY = `
-  SELECT pc.*, cp.nome AS categoria_nome, t.nome_empresa
+  SELECT pc.*, cp.nome AS categoria_nome, t.nome_empresa, t.frete_gratis_acima_de
   FROM produtos_catalogo pc
   JOIN tenants t ON t.id = pc.tenant_id
   LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id

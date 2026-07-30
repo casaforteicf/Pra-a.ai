@@ -7,6 +7,7 @@ import { PageLoader, Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { ProductCard } from "@/components/ProductCard"
 
 export default function HomePage() {
   const { data: homeData, isLoading, isError } = useGetHome({
@@ -151,27 +152,7 @@ export default function HomePage() {
               </div>
               <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar -mx-4 px-4">
                 {homeData.flashDeals.map((product) => (
-                  <Link key={product.id} href={`/product/${product.id}`} className="snap-center shrink-0 w-[140px]">
-                    <Card className="h-full border-none shadow-sm overflow-hidden active:scale-95 transition-transform group">
-                      <div className="relative aspect-square bg-muted">
-                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                        {product.discountPct && (
-                          <div className="absolute top-2 left-2 bg-terracota text-white text-xs font-black px-2 py-1 rounded-lg">
-                            -{product.discountPct}%
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-3">
-                        <h4 className="font-bold text-sm line-clamp-2 leading-tight mb-1">{product.name}</h4>
-                        <div className="flex flex-col">
-                          {product.originalPrice && (
-                            <span className="text-xs text-muted-foreground line-through">{formatMoney(product.originalPrice)}</span>
-                          )}
-                          <span className="font-black text-terracota text-base">{formatMoney(product.price)}</span>
-                        </div>
-                      </div>
-                    </Card>
-                  </Link>
+                  <ProductCard key={product.id} product={product} className="snap-center shrink-0 w-[140px]" />
                 ))}
               </div>
             </section>
@@ -188,18 +169,7 @@ export default function HomePage() {
               </div>
               <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar -mx-4 px-4">
                 {carousel.products.map((product) => (
-                  <Link key={product.id} href={`/product/${product.id}`} className="snap-center shrink-0 w-[140px]">
-                    <Card className="h-full border-none shadow-sm overflow-hidden active:scale-95 transition-transform group">
-                      <div className="relative aspect-square bg-muted">
-                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                      </div>
-                      <div className="p-3">
-                        <p className="text-xs text-muted-foreground font-bold mb-1 truncate">{product.vendorName}</p>
-                        <h4 className="font-bold text-sm line-clamp-2 leading-tight mb-1">{product.name}</h4>
-                        <span className="font-black text-foreground text-base">{formatMoney(product.price)}</span>
-                      </div>
-                    </Card>
-                  </Link>
+                  <ProductCard key={product.id} product={product} className="snap-center shrink-0 w-[140px]" />
                 ))}
               </div>
             </section>

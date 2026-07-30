@@ -82,11 +82,13 @@ export default function ListingPage() {
                     )}
                   </div>
                   <div className="p-3 flex flex-col flex-1">
-                    <div className="flex items-center gap-1 mb-1">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      <span className="text-xs font-bold text-foreground">{product.rating.toFixed(1)}</span>
-                      <span className="text-[10px] text-muted-foreground">({product.reviewCount})</span>
-                    </div>
+                    {product.reviewCount > 0 && (
+                      <div className="flex items-center gap-1 mb-1">
+                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                        <span className="text-xs font-bold text-foreground">{product.rating.toFixed(1)}</span>
+                        <span className="text-[10px] text-muted-foreground">({product.reviewCount})</span>
+                      </div>
+                    )}
                     <h4 className="font-bold text-sm line-clamp-2 leading-tight mb-2 flex-1">{product.name}</h4>
                     <div className="flex flex-col justify-end mt-auto">
                       {product.originalPrice && (
