@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car, Home as HomeIcon, UtensilsCrossed, Paintbrush, Droplet, Grid3x3, Trees, DoorOpen, Zap, Waves, Blocks, Package, ChevronDown, Tag, Headphones, CreditCard, Sparkles, Gamepad2, Camera, Music, Watch, BookOpen, PawPrint } from "lucide-react"
+import { ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car, Home as HomeIcon, UtensilsCrossed, Paintbrush, Droplet, Grid3x3, Trees, DoorOpen, Zap, Waves, Blocks, Package, ChevronDown, Tag, Headphones, CreditCard, Sparkles, Gamepad2, Camera, Music, Watch, BookOpen, PawPrint, Plane } from "lucide-react"
 import { useGetHome, getGetHomeQueryKey } from "@workspace/api-client-react"
 import { Link } from "wouter"
 import { formatMoney } from "@/lib/utils"
@@ -127,6 +127,7 @@ export default function HomePage() {
             <Link href="/servicos" className="hover:text-white">Serviços</Link>
             <Link href="/restaurantes" className="hover:text-white">Restaurantes</Link>
             <Link href="/fretes" className="hover:text-white">Fretes</Link>
+            <Link href="/listing?category=viagens-e-hoteis" className="hover:text-white">Viagens</Link>
           </nav>
         </div>
       </header>
@@ -228,6 +229,12 @@ export default function HomePage() {
                   <Truck className="w-7 h-7 text-primary" />
                 </div>
                 <span className="text-[11px] font-bold text-center leading-tight">Fretes</span>
+              </Link>
+              <Link href="/listing?category=viagens-e-hoteis" className="flex flex-col items-center gap-2 group">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:-translate-y-1 group-active:scale-95">
+                  <Plane className="w-7 h-7 text-primary" />
+                </div>
+                <span className="text-[11px] font-bold text-center leading-tight">Viagens e hotéis</span>
               </Link>
             </div>
           </section>

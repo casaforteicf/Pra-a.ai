@@ -3,55 +3,66 @@ import { Link, useLocation } from "wouter"
 import {
   ArrowRight,
   Baby,
+  BatteryCharging,
+  CalendarDays,
   Bath,
   BedDouble,
   Bike,
   Blocks,
   BookOpen,
   BriefcaseBusiness,
-  Car,
-  Check,
   ChevronLeft,
-  Gamepad2,
-  Gift,
+  Camera,
   GraduationCap,
+  Gift,
+  Gamepad2,
   Heart,
   HeartPulse,
+  Headphones,
+  Home,
+  Hotel,
+  Footprints,
+  Glasses,
+  Gem,
   Menu,
+  MapPin,
   Milk,
   PackageCheck,
   Palette,
   PenLine,
-  Puzzle,
-  Rocket,
+  Plane,
   Scissors,
   Search,
   ShieldCheck,
   Shirt,
   ShoppingCart,
-  SlidersHorizontal,
+  Smartphone,
   Sparkles,
   Star,
   Store,
   Truck,
-  X,
+  Users,
+  Watch,
+  Wifi,
+  Puzzle,
+  Rocket,
 } from "lucide-react"
-import { useQuery } from "@tanstack/react-query"
-import { getListProductsQueryKey, useListProducts, useAddToCart } from "@workspace/api-client-react"
+import { getListProductsQueryKey, useListProducts } from "@workspace/api-client-react"
 import type { ListProductsSort } from "@workspace/api-client-react"
 import { ProductCard } from "@/components/ProductCard"
 import { PageLoader } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
-import { formatMoney, cn } from "@/lib/utils"
-import { useToast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 
 const STATIONERY_SLUG = "arte-papelaria-e-armarinho"
-const VEHICLE_CATEGORY_SLUG = "acessorios-para-veiculos"
 const BABY_SLUG = "bebes"
 const BEAUTY_SLUG = "beleza-e-cuidado-pessoal"
 const TOYS_SLUG = "brinquedos-e-hobbies"
+const FASHION_SLUG = "calcados-roupas-e-bolsas"
+const PHONES_SLUG = "celulares-e-telefones"
+const TRAVEL_SLUG = "viagens-e-hoteis"
 
 const stationeryDepartments = [
   { label: "Escolar", icon: GraduationCap, search: "escolar" },
@@ -93,6 +104,19 @@ const toyDepartments = [
   { label: "Hobbies", icon: Puzzle, search: "hobby" },
 ]
 
+const fashionDepartments = [
+  { label: "Feminino", icon: Sparkles, search: "moda feminina" },
+  { label: "Masculino", icon: Shirt, search: "moda masculina" },
+  { label: "Infantil", icon: Baby, search: "moda infantil" },
+  { label: "Calçados", icon: Footprints, search: "calçados" },
+  { label: "Bolsas", icon: BriefcaseBusiness, search: "bolsa" },
+  { label: "Acessórios", icon: Glasses, search: "acessórios" },
+  { label: "Joias", icon: Gem, search: "joias" },
+  { label: "Relógios", icon: Watch, search: "relógio" },
+]
+
+const phoneBrands = ["Apple", "Samsung", "Motorola", "Xiaomi", "Realme", "Multilaser"]
+
 const sortOptions: Array<{ label: string; value: ListProductsSort }> = [
   { label: "Relevância", value: "relevance" },
   { label: "Menor preço", value: "price_asc" },
@@ -102,192 +126,6 @@ const sortOptions: Array<{ label: string; value: ListProductsSort }> = [
   { label: "Ofertas", value: "offers" },
 ]
 
-// Filtro "selecione seu carro" (tipo Tuning Parts) — só pra categoria de
-// acessórios para veículos. Opções vêm só do que existe cadastrado de
-// verdade, sem base externa de veículos.
-function VehicleFilterBar({ onResults }: { onResults: (products: any[] | null) => void }) {
-  const [marca, setMarca] = React.useState("")
-  const [modelo, setModelo] = React.useState("")
-  const [ano, setAno] = React.useState("")
-
-  const { data: options = [] } = useQuery<{ marca: string; modelo: string }[]>({
-    queryKey: ["vehicle-filter-options"],
-    queryFn: () => fetch("/api/vehicle-filter-options").then(r => r.json()),
-  })
-
-  const marcas = Array.from(new Set(options.map(o => o.marca))).sort()
-  const modelos = Array.from(new Set(options.filter(o => o.marca === marca).map(o => o.modelo))).sort()
-  const anos = Array.from({ length: 30 }, (_, i) => new Date().getFullYear() - i)
-
-  const buscar = async () => {
-    if (!marca || !modelo || !ano) return
-    const res = await fetch(`/api/products/compatibilidade-veicular?marca=${encodeURIComponent(marca)}&modelo=${encodeURIComponent(modelo)}&ano=${ano}`)
-    onResults(res.ok ? await res.json() : [])
-  }
-
-  return (
-    <div className="mx-4 mt-4 rounded-2xl border-2 border-primary/20 bg-primary/5 p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <Car className="w-5 h-5 text-primary" />
-        <h3 className="font-black text-sm">Selecione seu carro pra achar peças compatíveis</h3>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        <select value={marca} onChange={e => { setMarca(e.target.value); setModelo(""); onResults(null) }} className="rounded-xl border px-2 py-2 text-sm bg-background">
-          <option value="">Marca</option>
-          {marcas.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
-        <select value={modelo} onChange={e => { setModelo(e.target.value); onResults(null) }} disabled={!marca} className="rounded-xl border px-2 py-2 text-sm bg-background disabled:opacity-50">
-          <option value="">Modelo</option>
-          {modelos.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
-        <select value={ano} onChange={e => { setAno(e.target.value); onResults(null) }} disabled={!modelo} className="rounded-xl border px-2 py-2 text-sm bg-background disabled:opacity-50">
-          <option value="">Ano</option>
-          {anos.map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
-      </div>
-      <button onClick={buscar} disabled={!marca || !modelo || !ano} className="mt-3 w-full py-2.5 rounded-xl bg-primary text-white font-bold text-sm disabled:opacity-40">
-        Ver peças compatíveis
-      </button>
-    </div>
-  )
-}
-
-interface FiltersData {
-  categories: { nome: string; slug: string; total: number }[]
-  specs: { label: string; values: { value: string; total: number }[] }[]
-}
-
-type SpecFilter = { label: string; value: string }
-
-// Filtro lateral por categoria (múltiplas marcáveis) + por atributo real do
-// produto (ex: Altura, Ângulo de peça) — vem só do que os lojistas
-// cadastraram de verdade em "especificações", não é lista fixa.
-function FilterSidebar({
-  selectedCategories, onToggleCategory,
-  selectedSpecs, onToggleSpec,
-}: {
-  selectedCategories: string[]
-  onToggleCategory: (slug: string) => void
-  selectedSpecs: SpecFilter[]
-  onToggleSpec: (spec: SpecFilter) => void
-}) {
-  const { data } = useQuery<FiltersData>({
-    queryKey: ["products-filters", selectedCategories.join(",")],
-    queryFn: () => fetch(`/api/products/filters?categories=${encodeURIComponent(selectedCategories.join(","))}`).then(r => r.json()),
-  })
-
-  const isSpecSelected = (label: string, value: string) =>
-    selectedSpecs.some(s => s.label === label && s.value === value)
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="font-black text-sm mb-3">Categoria</h3>
-        <div className="space-y-2">
-          {(data?.categories ?? []).map(c => (
-            <label key={c.slug} className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={selectedCategories.includes(c.slug)}
-                onChange={() => onToggleCategory(c.slug)}
-                className="rounded"
-              />
-              <span className="flex-1">{c.nome}</span>
-              <span className="text-xs text-muted-foreground">({c.total})</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {(data?.specs ?? []).map(spec => (
-        <div key={spec.label}>
-          <h3 className="font-black text-sm mb-3">{spec.label}</h3>
-          <div className="space-y-2">
-            {spec.values.map(v => (
-              <label key={v.value} className="flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isSpecSelected(spec.label, v.value)}
-                  onChange={() => onToggleSpec({ label: spec.label, value: v.value })}
-                  className="rounded"
-                />
-                <span className="flex-1">{v.value}</span>
-                <span className="text-xs text-muted-foreground">({v.total})</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// Card com botão "Adicionar ao carrinho" direto na listagem (sem abrir o
-// produto) — usado na listagem genérica (não na vitrine especial de papelaria,
-// que usa o ProductCard compartilhado sem esse botão).
-function ProductCardWithCart({ product }: { product: any }) {
-  const { toast } = useToast()
-  const addToCartMutation = useAddToCart()
-
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    addToCartMutation.mutate(
-      { data: { productId: product.id, quantity: 1, selectedSize: null } },
-      {
-        onSuccess: () => toast({ title: "Adicionado ao carrinho!" }),
-        onError: () => toast({ title: "Não foi possível adicionar", variant: "destructive" }),
-      },
-    )
-  }
-
-  return (
-    <Link href={`/product/${product.id}`}>
-      <Card className="h-full border-none shadow-sm overflow-hidden flex flex-col active:scale-95 transition-transform group">
-        <div className="relative aspect-square bg-muted shrink-0">
-          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-          {product.discountPct && (
-            <div className="absolute top-2 left-2 bg-terracota text-white text-xs font-black px-2 py-1 rounded-lg shadow-sm">
-              -{product.discountPct}%
-            </div>
-          )}
-          {product.freeShipping && (
-            <div className="absolute bottom-2 left-2 bg-primary/90 backdrop-blur-sm text-white text-[10px] font-bold px-2 py-1 rounded-md shadow-sm">
-              Frete Grátis
-            </div>
-          )}
-        </div>
-        <div className="p-3 flex flex-col flex-1">
-          {product.reviewCount > 0 && (
-            <div className="flex items-center gap-1 mb-1">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span className="text-xs font-bold text-foreground">{product.rating.toFixed(1)}</span>
-              <span className="text-[10px] text-muted-foreground">({product.reviewCount})</span>
-            </div>
-          )}
-          <h4 className="font-bold text-sm line-clamp-2 leading-tight mb-2 flex-1">{product.name}</h4>
-          <div className="flex flex-col justify-end mt-auto mb-2">
-            {product.originalPrice && (
-              <span className="text-[11px] text-muted-foreground line-through">{formatMoney(product.originalPrice)}</span>
-            )}
-            <span className="font-black text-foreground text-base leading-none">
-              {formatMoney(product.price)}
-            </span>
-          </div>
-          <button
-            onClick={handleAddToCart}
-            disabled={addToCartMutation.isPending}
-            className="w-full py-2 rounded-xl bg-primary text-white text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-transform disabled:opacity-50"
-          >
-            <ShoppingCart className="w-3.5 h-3.5" />
-            Adicionar ao carrinho
-          </button>
-        </div>
-      </Card>
-    </Link>
-  )
-}
-
 export default function ListingPage() {
   const [, setLocation] = useLocation()
   const searchParams = new URLSearchParams(window.location.search)
@@ -296,184 +134,128 @@ export default function ListingPage() {
   const isBaby = categorySlug === BABY_SLUG
   const isBeauty = categorySlug === BEAUTY_SLUG
   const isToys = categorySlug === TOYS_SLUG
-  const isVehicleCategory = categorySlug === VEHICLE_CATEGORY_SLUG
-
-  // ── Vitrine especial de papelaria (só ativa quando isStationery) ──
+  const isFashion = categorySlug === FASHION_SLUG
+  const isPhones = categorySlug === PHONES_SLUG
+  const isTravel = categorySlug === TRAVEL_SLUG
   const [search, setSearch] = React.useState("")
   const [submittedSearch, setSubmittedSearch] = React.useState("")
   const [sort, setSort] = React.useState<ListProductsSort>("relevance")
-  const stationeryParams = { category: categorySlug, search: submittedSearch || undefined, sort, limit: 40 }
-  const { data: stationeryListData, isLoading: stationeryLoading, isError: stationeryError } = useListProducts(stationeryParams, {
-    query: { queryKey: getListProductsQueryKey(stationeryParams), enabled: isStationery },
-  })
+  const [destination, setDestination] = React.useState("")
+  const [checkIn, setCheckIn] = React.useState("")
+  const [checkOut, setCheckOut] = React.useState("")
+  const [guests, setGuests] = React.useState("2 hóspedes")
 
-  // ── Vitrine especial de bebês (só ativa quando isBaby) ──
-  const babyParams = { category: categorySlug, search: submittedSearch || undefined, sort, limit: 40 }
-  const { data: babyListData, isLoading: babyLoading, isError: babyError } = useListProducts(babyParams, {
-    query: { queryKey: getListProductsQueryKey(babyParams), enabled: isBaby },
-  })
-
-  // ── Vitrine especial de beleza (só ativa quando isBeauty) ──
-  const beautyParams = { category: categorySlug, search: submittedSearch || undefined, sort, limit: 40 }
-  const { data: beautyListData, isLoading: beautyLoading, isError: beautyError } = useListProducts(beautyParams, {
-    query: { queryKey: getListProductsQueryKey(beautyParams), enabled: isBeauty },
-  })
-
-  // ── Vitrine especial de brinquedos (só ativa quando isToys) ──
-  const toysParams = { category: categorySlug, search: submittedSearch || undefined, sort, limit: 40 }
-  const { data: toysListData, isLoading: toysLoading, isError: toysError } = useListProducts(toysParams, {
-    query: { queryKey: getListProductsQueryKey(toysParams), enabled: isToys },
+  const requestParams = { category: categorySlug, search: submittedSearch || undefined, sort, limit: 40 }
+  const { data: listData, isLoading, isError } = useListProducts(requestParams, {
+    query: { queryKey: getListProductsQueryKey(requestParams) },
   })
 
   const submitSearch = (event?: React.FormEvent) => {
     event?.preventDefault()
     setSubmittedSearch(search.trim())
   }
+
   const selectDepartment = (departmentSearch: string) => {
     setSearch(departmentSearch)
     setSubmittedSearch(departmentSearch)
   }
 
-  // ── Listagem genérica com filtro lateral (categoria + atributos) e
-  // "Adicionar ao carrinho" no card — usada por todas as outras categorias ──
-  const [activeSort, setActiveSort] = React.useState('Relevância')
-  const [vehicleResults, setVehicleResults] = React.useState<any[] | null>(null)
-  const [selectedCategories, setSelectedCategories] = React.useState<string[]>(categorySlug ? [categorySlug] : [])
-  const [selectedSpecs, setSelectedSpecs] = React.useState<SpecFilter[]>([])
-  const [showFilters, setShowFilters] = React.useState(false)
-
-  const sortParam = activeSort === 'Menor Preço' ? 'price_asc' : activeSort === 'Ofertas' ? 'offers' : undefined
-
-  const { data: listData, isLoading } = useQuery({
-    queryKey: ["products-listing", selectedCategories.join(","), selectedSpecs, sortParam],
-    queryFn: () => {
-      const params = new URLSearchParams()
-      if (selectedCategories.length > 0) params.set("categories", selectedCategories.join(","))
-      if (selectedSpecs.length > 0) params.set("specs", JSON.stringify(selectedSpecs))
-      if (sortParam) params.set("sort", sortParam)
-      return fetch(`/api/products?${params.toString()}`).then(r => r.json())
-    },
-    enabled: !isStationery && !isBaby && !isBeauty && !isToys,
-  })
-
-  const toggleCategory = (slug: string) => {
-    setSelectedCategories(prev => prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug])
-  }
-  const toggleSpec = (spec: SpecFilter) => {
-    setSelectedSpecs(prev =>
-      prev.some(s => s.label === spec.label && s.value === spec.value)
-        ? prev.filter(s => !(s.label === spec.label && s.value === spec.value))
-        : [...prev, spec],
+  if (!isStationery && !isBaby && !isBeauty && !isToys && !isFashion && !isPhones && !isTravel) {
+    return (
+      <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col bg-background pb-8">
+        <header className="sticky inset-x-0 top-0 z-30 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur-md lg:px-6">
+          <div className="flex items-center gap-3"><button onClick={() => setLocation("/")} className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"><ChevronLeft className="h-6 w-6" /></button><div className="flex-1"><h1 className="text-xl font-black capitalize">{categorySlug ? categorySlug.replaceAll("-", " ") : "Explorar"}</h1>{listData && <p className="text-xs font-bold text-muted-foreground">{listData.total} resultados</p>}</div></div>
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">{sortOptions.map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-4 py-2 text-sm font-bold", sort === option.value ? "border-primary bg-primary text-white" : "bg-white")}>{option.label}</button>)}</div>
+        </header>
+        {isLoading && <PageLoader />}
+        {listData && <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div>}
+      </div>
     )
   }
 
-  const sorts = ['Relevância', 'Menor Preço', 'Mais Vendidos', 'Avaliação', 'Ofertas']
-
-  if (!isStationery && !isBaby && !isBeauty && !isToys) {
-    const displayedProducts = isVehicleCategory && vehicleResults !== null ? vehicleResults : listData?.products
-
+  if (isTravel) {
+    const travelResults = [
+      { city: "Florianópolis, SC", name: "Hotel Beira-Mar", type: "Hotel", rating: "9,1", price: "R$ 389", color: "from-cyan-500 to-blue-700" },
+      { city: "Gramado, RS", name: "Pousada Serra Gaúcha", type: "Pousada", rating: "9,4", price: "R$ 462", color: "from-emerald-500 to-green-800" },
+      { city: "Balneário Camboriú, SC", name: "Apartamento Vista Mar", type: "Apartamento", rating: "8,9", price: "R$ 315", color: "from-sky-400 to-indigo-700" },
+      { city: "Foz do Iguaçu, PR", name: "Resort das Cataratas", type: "Resort", rating: "9,2", price: "R$ 580", color: "from-amber-400 to-orange-700" },
+    ]
+    const visibleTrips = destination ? travelResults.filter((item) => `${item.city} ${item.name}`.toLowerCase().includes(destination.toLowerCase())) : travelResults
     return (
-      <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col bg-background pb-8">
-        <header className="sticky top-0 inset-x-0 z-30 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur-md lg:px-6">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setLocation('/')}
-              className="w-10 h-10 rounded-full bg-muted flex items-center justify-center active:scale-95"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-xl font-black capitalize">{categorySlug ? categorySlug.replaceAll('-', ' ') : 'Explorar'}</h1>
-              {listData && <p className="text-xs text-muted-foreground font-bold">{listData.total} resultados</p>}
-            </div>
-            <button
-              onClick={() => setShowFilters(true)}
-              className="w-10 h-10 rounded-full bg-muted flex items-center justify-center active:scale-95 text-primary lg:hidden"
-            >
-              <SlidersHorizontal className="w-5 h-5" />
-            </button>
-          </div>
-
-          <div className="flex overflow-x-auto gap-2 mt-4 hide-scrollbar -mx-4 px-4 pb-1">
-            {sorts.map(sort => (
-              <button
-                key={sort}
-                onClick={() => setActiveSort(sort)}
-                className={`shrink-0 px-4 py-2 rounded-full text-sm font-bold transition-colors ${
-                  activeSort === sort
-                    ? 'bg-primary text-white'
-                    : 'bg-white border text-foreground'
-                }`}
-              >
-                {sort}
-              </button>
-            ))}
-          </div>
+      <div className="min-h-full w-full bg-[#f4f6f8] pb-12 text-[#183b63]">
+        <header className="bg-[#075aaa] text-white">
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8"><Link href="/" className="flex items-center gap-2 text-2xl font-black"><Plane className="h-7 w-7" /> Praça.ai <span className="text-sm font-semibold text-white/75">Viagens</span></Link><div className="flex items-center gap-4 text-sm font-bold"><button>Cadastre sua hospedagem</button><Link href="/profile" className="rounded-md border border-white px-4 py-2">Entrar</Link></div></div>
         </header>
 
-        {isVehicleCategory && <VehicleFilterBar onResults={setVehicleResults} />}
+        <main>
+          <section className="bg-[#075aaa] pb-20 text-white"><div className="mx-auto max-w-6xl px-4 pt-10 sm:px-6 lg:px-8"><h1 className="text-4xl font-black sm:text-5xl">Encontre sua próxima estadia</h1><p className="mt-2 text-lg text-white/85">Busque hotéis, pousadas, resorts e apartamentos para sua viagem.</p><form onSubmit={(event) => { event.preventDefault(); document.getElementById("resultados-viagem")?.scrollIntoView({ behavior: "smooth" }) }} className="mt-8 grid gap-1 rounded-xl bg-[#f6b900] p-1.5 text-slate-900 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"><label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3"><MapPin className="h-5 w-5 shrink-0" /><input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Para onde você vai?" className="min-w-0 flex-1 bg-transparent outline-none" /></label><label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3"><CalendarDays className="h-5 w-5 shrink-0" /><input type="date" value={checkIn} onChange={(event) => setCheckIn(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label><label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3"><CalendarDays className="h-5 w-5 shrink-0" /><input type="date" value={checkOut} onChange={(event) => setCheckOut(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label><label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3"><Users className="h-5 w-5 shrink-0" /><select value={guests} onChange={(event) => setGuests(event.target.value)} className="min-w-0 flex-1 bg-transparent outline-none"><option>1 hóspede</option><option>2 hóspedes</option><option>3 hóspedes</option><option>4 hóspedes</option><option>Família</option></select></label><Button type="submit" className="h-full bg-[#073b75] px-8 text-white hover:bg-[#052d59]">Pesquisar</Button></form></div></section>
 
-        <div className="flex gap-6 p-4">
-          <aside className="hidden lg:block w-56 shrink-0">
-            <FilterSidebar
-              selectedCategories={selectedCategories}
-              onToggleCategory={toggleCategory}
-              selectedSpecs={selectedSpecs}
-              onToggleSpec={toggleSpec}
-            />
-          </aside>
+          <section className="mx-auto -mt-10 max-w-6xl px-4 sm:px-6 lg:px-8"><div className="rounded-xl bg-white p-5 shadow-lg"><h2 className="text-xl font-black">Explore por tipo de hospedagem</h2><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">{[[Hotel,"Hotéis"],[Home,"Casas e apartamentos"],[Store,"Pousadas"],[Sparkles,"Resorts"]].map(([Icon,label]) => { const TravelIcon = Icon as typeof Hotel; return <button key={label as string} onClick={() => setDestination("")} className="flex items-center gap-3 rounded-lg border p-4 text-left font-bold transition hover:border-[#075aaa] hover:bg-blue-50"><TravelIcon className="h-6 w-6 text-[#075aaa]" />{label as string}</button> })}</div></div></section>
 
-          {showFilters && (
-            <div className="fixed inset-0 z-50 lg:hidden">
-              <div className="absolute inset-0 bg-black/40" onClick={() => setShowFilters(false)} />
-              <div className="absolute right-0 top-0 bottom-0 w-80 max-w-[85vw] bg-background p-4 overflow-y-auto">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-black">Filtrar por</h2>
-                  <button onClick={() => setShowFilters(false)}><X className="w-5 h-5" /></button>
-                </div>
-                <FilterSidebar
-                  selectedCategories={selectedCategories}
-                  onToggleCategory={toggleCategory}
-                  selectedSpecs={selectedSpecs}
-                  onToggleSpec={toggleSpec}
-                />
-                <button
-                  onClick={() => setShowFilters(false)}
-                  className="mt-6 w-full py-3 rounded-xl bg-primary text-white font-bold text-sm flex items-center justify-center gap-2"
-                >
-                  <Check className="w-4 h-4" /> Aplicar
-                </button>
-              </div>
-            </div>
-          )}
+          <section id="resultados-viagem" className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#075aaa]">Hospedagens parceiras</p><h2 className="mt-1 text-3xl font-black">Ofertas para sua próxima viagem</h2><p className="mt-1 text-sm text-muted-foreground">{visibleTrips.length} opções encontradas{destination ? ` para “${destination}”` : ""}</p></div><select className="rounded-lg border bg-white px-4 py-2 text-sm font-bold"><option>Mais recomendados</option><option>Menor preço</option><option>Melhor avaliação</option></select></div>{visibleTrips.length > 0 ? <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{visibleTrips.map((item) => <article key={item.name} className="overflow-hidden rounded-xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"><div className={cn("flex h-44 items-center justify-center bg-gradient-to-br",item.color)}><Hotel className="h-20 w-20 text-white/85" strokeWidth={1.2} /></div><div className="p-4"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-bold text-[#075aaa]">{item.type}</p><h3 className="mt-1 font-black text-slate-900">{item.name}</h3></div><span className="rounded-md bg-[#075aaa] px-2 py-1 text-xs font-black text-white">{item.rating}</span></div><p className="mt-2 flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3.5 w-3.5" />{item.city}</p><div className="mt-4 border-t pt-4 text-right"><p className="text-xs text-slate-500">1 diária para {guests}</p><p className="text-xl font-black text-slate-900">{item.price}</p><Button className="mt-3 w-full bg-[#075aaa] hover:bg-[#064c90]">Ver disponibilidade</Button></div></div></article>)}</div> : <div className="mt-6 rounded-xl border border-dashed bg-white p-12 text-center"><MapPin className="mx-auto h-10 w-10 text-[#075aaa]" /><h3 className="mt-3 text-lg font-black">Nenhuma hospedagem encontrada</h3><p className="mt-1 text-sm text-muted-foreground">Tente buscar outro destino.</p><Button variant="outline" onClick={() => setDestination("")} className="mt-4">Ver todos os destinos</Button></div>}</section>
+        </main>
+      </div>
+    )
+  }
 
-          <div className="flex-1 min-w-0">
-            {isLoading && <PageLoader />}
-
-            {displayedProducts && (
-              <>
-                {isVehicleCategory && vehicleResults !== null && (
-                  <p className="text-xs text-muted-foreground font-bold mb-3">
-                    {vehicleResults.length} peça(s) compatível(is) encontrada(s)
-                  </p>
-                )}
-                <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
-                  {displayedProducts.map((product: any) => (
-                    <ProductCardWithCart key={product.id} product={product} />
-                  ))}
-                </div>
-
-                {!isVehicleCategory && listData?.hasMore && (
-                  <div className="mt-8 flex justify-center">
-                    <button className="px-6 py-3 rounded-xl border-2 border-primary text-primary font-bold text-sm active:bg-primary/5">
-                      Carregar mais
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
+  if (isPhones) {
+    return (
+      <div className="min-h-full w-full bg-[#f5f7fa] pb-12 text-[#173f72]">
+        <header className="bg-[#174b87] text-white">
+          <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-5 sm:px-6 lg:gap-8 lg:px-8">
+            <Link href="/" className="flex items-center gap-2 text-xl font-black"><Smartphone className="h-8 w-8 text-[#ffd128]" /> Praça.ai <span className="hidden text-sm font-semibold text-white/70 sm:inline">Celulares</span></Link>
+            <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque celulares, marcas e acessórios" className="h-12 border-0 bg-white pl-12 pr-12 text-slate-950" /><button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#ffd128] p-2 text-[#174b87]"><Search className="h-4 w-4" /></button></form>
+            <div className="flex items-center gap-3 justify-self-end"><Heart className="hidden h-5 w-5 sm:block" /><Link href="/profile" className="hidden text-sm font-bold sm:block">Minha conta</Link><ShoppingCart className="h-6 w-6" /></div>
           </div>
-        </div>
+          <nav className="bg-white text-[#174b87]"><div className="mx-auto flex max-w-6xl items-center justify-between gap-8 overflow-x-auto px-4 py-4 text-sm font-black sm:px-6 lg:px-8">{phoneBrands.map((brand) => <button key={brand} onClick={() => selectDepartment(brand)} className="shrink-0 hover:text-[#e0a800]">{brand}</button>)}</div></nav>
+        </header>
+
+        <main>
+          <section className="bg-gradient-to-r from-[#dcebf8] to-[#eef6fb]"><div className="mx-auto grid min-h-[320px] max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_0.75fr] lg:px-8"><div><span className="rounded-full bg-[#ffd128] px-3 py-1.5 text-xs font-black uppercase text-[#174b87]">Tecnologia perto de você</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-tight sm:text-6xl">Celulares e smartphones</h1><p className="mt-3 max-w-xl text-[#365f8d]">Encontre aparelhos, acessórios e ofertas das lojas da sua região, com compra segura e entrega local.</p><Button onClick={() => document.getElementById("produtos-celulares")?.scrollIntoView({ behavior: "smooth" })} className="mt-6 bg-[#174b87] hover:bg-[#123c6d]">Ver aparelhos</Button></div><div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-64 w-44 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[2.25rem] border-[10px] border-[#173f72] bg-gradient-to-br from-[#43b5c8] to-[#735eea] shadow-2xl"><Smartphone className="h-24 w-24 -rotate-6 text-white" strokeWidth={1.2} /></div><Wifi className="absolute right-12 top-7 h-12 w-12 text-[#e0a800]" /></div></div></section>
+
+          <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><PhoneBenefit icon={Truck} title="Pronta entrega" text="Receba com rapidez" /><PhoneBenefit icon={ShieldCheck} title="Compra segura" text="Pagamento protegido" /><PhoneBenefit icon={BatteryCharging} title="Novos e seminovos" text="Escolha o ideal" /><PhoneBenefit icon={Headphones} title="Acessórios" text="Complete seu aparelho" /></div></section>
+
+          <section id="produtos-celulares" className="mx-auto grid max-w-6xl gap-5 px-4 sm:px-6 lg:grid-cols-[230px_1fr] lg:px-8">
+            <aside className="h-fit rounded-xl border bg-white p-5 shadow-sm"><h2 className="text-lg font-black">Filtros rápidos</h2><PhoneFilter title="Marca" values={["Apple","Samsung","Motorola","Xiaomi"]} select={selectDepartment} /><PhoneFilter title="Memória" values={["64 GB","128 GB","256 GB","512 GB"]} select={selectDepartment} /><PhoneFilter title="Condição" values={["Novo","Seminovo"]} select={selectDepartment} /><button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="mt-5 w-full rounded-md border py-2 text-sm font-bold">Limpar filtros</button></aside>
+            <div className="rounded-xl bg-white p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#e0a800]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Celulares e smartphones</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-[#174b87] bg-[#174b87] text-white":"bg-white")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os celulares" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum aparelho encontrado":"A loja de celulares está recebendo produtos"} text={submittedSearch?"Tente outra marca, memória ou modelo.":"As lojas parceiras ainda estão publicando seus aparelhos. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div>
+          </section>
+        </main>
+      </div>
+    )
+  }
+
+  if (isFashion) {
+    return (
+      <div className="min-h-full w-full bg-[#f5f5f5] pb-12 text-[#161616]">
+        <div className="bg-black py-2 text-center text-xs font-bold uppercase tracking-[0.14em] text-white">10% de desconto na primeira compra com o cupom <strong>PRIMEIRAPRAÇA</strong></div>
+        <header className="bg-white">
+          <div className="bg-black text-white">
+            <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 sm:px-6 lg:gap-8 lg:px-8">
+              <Link href="/" className="flex items-center gap-2 text-xl font-black tracking-[0.18em]"><span className="flex h-9 w-9 items-center justify-center bg-white text-2xl text-black">P</span> PRAÇA</Link>
+              <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que você procura hoje?" className="h-12 rounded-none border-0 bg-white pl-12 pr-12 text-black" /><button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-black"><ArrowRight className="h-5 w-5" /></button></form>
+              <div className="flex items-center gap-3 justify-self-end"><Link href="/profile" className="hidden text-sm font-bold sm:block">Entrar</Link><Heart className="hidden h-5 w-5 sm:block" /><span className="rounded-full border border-white/30 p-2"><ShoppingCart className="h-5 w-5" /></span></div>
+            </div>
+          </div>
+          <nav className="border-b bg-white"><div className="mx-auto flex max-w-6xl items-center justify-start gap-8 overflow-x-auto px-4 py-3 text-sm font-semibold sm:px-6 lg:px-8">{fashionDepartments.slice(0, 6).map((item) => <button key={item.label} onClick={() => selectDepartment(item.search)} className="shrink-0 hover:text-[#8d214a]">{item.label}</button>)}<button onClick={() => setSort("offers")} className="shrink-0 font-black text-[#8d214a]">Ofertas</button></div></nav>
+        </header>
+
+        <main>
+          <section className="relative overflow-hidden bg-[#e9d8d3]">
+            <div className="absolute -right-12 top-0 h-full w-1/3 bg-[#8d214a]/10" /><div className="absolute right-[12%] top-1/2 h-80 w-56 -translate-y-1/2 rotate-6 rounded-full bg-[#8d214a]/80 blur-[1px]" />
+            <div className="relative mx-auto grid min-h-[420px] max-w-6xl items-center gap-8 px-6 py-12 lg:grid-cols-[1fr_0.85fr] lg:px-8">
+              <div><span className="text-sm font-bold uppercase tracking-[0.28em] text-[#8d214a]">Moda para todos os estilos</span><h1 className="mt-4 max-w-2xl text-5xl font-black leading-[0.95] sm:text-7xl">Vista o que combina com você</h1><p className="mt-5 max-w-xl text-base text-black/65 sm:text-lg">Roupas, calçados, bolsas e acessórios das melhores lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-moda")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 rounded-none bg-black px-8 text-white hover:bg-[#8d214a]">Comprar agora</Button></div>
+              <div className="relative hidden min-h-72 lg:block"><div className="absolute left-1/2 top-1/2 flex h-72 w-72 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-[28px] border-white/50"><Shirt className="h-40 w-40 text-white" strokeWidth={1} /></div><Sparkles className="absolute right-7 top-5 h-14 w-14 text-white" /></div>
+            </div>
+          </section>
+
+          <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"><div className="mb-5 flex items-end justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#8d214a]">Encontre seu estilo</p><h2 className="mt-1 text-2xl font-black">Compre por departamento</h2></div></div><div className="grid grid-cols-4 gap-3 lg:grid-cols-8">{fashionDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 2 === 0 ? "bg-[#f2e3e7] text-[#8d214a]" : "bg-[#eee9e2] text-[#4e4038]")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div></section>
+
+          <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[["Até R$ 49","49"],["Até R$ 99","99"],["Até R$ 149","149"],["Ofertas especiais","oferta"]].map(([label,term], index) => <button key={label} onClick={() => index === 3 ? setSort("offers") : selectDepartment(term)} className="border-2 border-black bg-black px-4 py-4 text-center text-sm font-black uppercase text-white transition hover:bg-[#8d214a]">{label}</button>)}</div></section>
+
+          <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="grid gap-3 sm:grid-cols-3"><FashionPromo title="Moda feminina" text="Novidades para todos os momentos" search="moda feminina" select={selectDepartment} color="bg-[#d9c0b7]" /><FashionPromo title="Moda masculina" text="Essenciais que combinam com você" search="moda masculina" select={selectDepartment} color="bg-[#c8ced0]" /><FashionPromo title="Calçados e acessórios" text="Complete seu visual" search="calçados acessórios" select={selectDepartment} color="bg-[#d8cfbf]" /></div></section>
+
+          <section id="produtos-moda" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="bg-white p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#8d214a]">Vitrine local</p><h2 className="mt-1 text-2xl font-black">Roupas, calçados e acessórios</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-black bg-black text-white":"bg-white")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os produtos" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum produto encontrado":"A vitrine de moda está recebendo produtos"} text={submittedSearch?"Tente outra busca ou confira o catálogo completo.":"As lojas parceiras ainda estão publicando seus itens. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div></section>
+        </main>
       </div>
     )
   }
@@ -489,6 +271,7 @@ export default function ListingPage() {
           </div>
           <nav className="border-t border-black/10"><div className="mx-auto flex max-w-6xl items-center gap-7 overflow-x-auto px-4 py-3 text-xs font-black sm:px-6 lg:px-8"><span className="flex shrink-0 items-center gap-2"><Menu className="h-4 w-4" /> Departamentos</span><button onClick={() => setSubmittedSearch("")} className="shrink-0">Novidades</button><button onClick={() => setSort("offers")} className="shrink-0 text-[#a60070]">Ofertas</button>{toyDepartments.slice(0, 5).map((item) => <button key={item.label} onClick={() => selectDepartment(item.search)} className="shrink-0">{item.label}</button>)}</div></nav>
         </header>
+
         <main>
           <section className="mx-auto max-w-6xl px-4 py-7 sm:px-6 lg:px-8">
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#5a2a91] via-[#7337aa] to-[#8d40ba] p-7 text-white sm:p-10 lg:min-h-[390px]">
@@ -496,9 +279,12 @@ export default function ListingPage() {
               <div className="relative grid items-center gap-8 lg:grid-cols-[1fr_0.8fr]"><div><span className="inline-flex items-center gap-2 rounded-full bg-[#21c1e6] px-3 py-1.5 text-xs font-black text-[#251745]">Diversão para todas as idades</span><h1 className="mt-5 max-w-xl text-4xl font-black leading-[1.02] sm:text-6xl">Um mundo de brincadeiras</h1><p className="mt-4 max-w-xl text-base text-white/85 sm:text-lg">Brinquedos, jogos e hobbies das lojas da sua região para aprender, imaginar e se divertir.</p><Button onClick={() => document.getElementById("produtos-brinquedos")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-[#ffe915] text-[#251745] hover:bg-[#f5dc00]">Ver brinquedos</Button></div><div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[35%_65%_55%_45%] bg-[#ef3c8f] shadow-2xl"><Rocket className="h-32 w-32 -rotate-6 text-white" strokeWidth={1.2} /></div><Blocks className="absolute bottom-3 left-3 h-16 w-16 text-[#ffe915]" /></div></div>
             </div>
           </section>
+
           <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="mb-5 flex items-end justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#6a31a8]">Escolha a diversão</p><h2 className="mt-1 text-2xl font-black">Todos os departamentos</h2></div></div><div className="grid grid-cols-4 gap-3 lg:grid-cols-8">{toyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 4 === 0 ? "bg-yellow-100 text-yellow-700" : index % 4 === 1 ? "bg-pink-100 text-pink-600" : index % 4 === 2 ? "bg-cyan-100 text-cyan-700" : "bg-violet-100 text-violet-700")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div></section>
+
           <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="mb-5 text-center"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#e43286]">Presente por idade</p><h2 className="mt-1 text-2xl font-black">A escolha certa para cada fase</h2></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[["0 a 2 anos","bebê brinquedo","bg-[#c7f0f7]"],["3 a 5 anos","brinquedo infantil","bg-[#ffe4ef]"],["6 a 8 anos","jogo educativo","bg-[#fff4a8]"],["9 anos ou mais","hobby jogo","bg-[#e8dafa]"]].map(([label,term,color]) => <button key={label} onClick={() => selectDepartment(term)} className={cn("rounded-2xl p-5 text-center font-black transition hover:-translate-y-1",color)}><Gift className="mx-auto mb-2 h-7 w-7" />{label}</button>)}</div></section>
-          <section id="produtos-brinquedos" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#6a31a8]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Brinquedos e hobbies</h2>{toysListData && <p className="mt-1 text-sm text-muted-foreground">{toysListData.total} produtos encontrados{submittedSearch ? ` para "${submittedSearch}"` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-[#6a31a8] bg-[#6a31a8] text-white":"bg-white")}>{option.label}</button>)}</div></div>{toysLoading?<div className="py-16"><PageLoader /></div>:toysError?<EmptyCatalog title="Não foi possível carregar os brinquedos" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:toysListData&&toysListData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{toysListData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum brinquedo encontrado":"A loja de brinquedos está recebendo produtos"} text={submittedSearch?"Tente outra busca ou veja o catálogo completo.":"As lojas parceiras ainda estão publicando seus brinquedos. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div></section>
+
+          <section id="produtos-brinquedos" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#6a31a8]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Brinquedos e hobbies</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-[#6a31a8] bg-[#6a31a8] text-white":"bg-white")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os brinquedos" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum brinquedo encontrado":"A loja de brinquedos está recebendo produtos"} text={submittedSearch?"Tente outra busca ou veja o catálogo completo.":"As lojas parceiras ainda estão publicando seus brinquedos. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div></section>
         </main>
       </div>
     )
@@ -525,6 +311,7 @@ export default function ListingPage() {
             </div>
           </nav>
         </header>
+
         <main>
           <section className="relative overflow-hidden bg-gradient-to-r from-[#e9def4] via-[#f2e9fb] to-[#ddd0ee]">
             <div className="absolute -right-16 -top-24 h-96 w-96 rounded-full border-[60px] border-white/25" />
@@ -534,18 +321,21 @@ export default function ListingPage() {
               <div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[38%_62%_45%_55%] bg-gradient-to-br from-[#7e4b9b] to-[#bf86d2] shadow-2xl"><Sparkles className="h-28 w-28 -rotate-6 text-white" strokeWidth={1.2} /></div><Heart className="absolute bottom-5 left-8 h-12 w-12 fill-white/70 text-white/70" /></div>
             </div>
           </section>
+
           <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
             <div className="mb-5 text-center"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#7e4b9b]">Seu ritual, suas escolhas</p><h2 className="mt-1 text-2xl font-black">Explore por categoria</h2></div>
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">{beautyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 2 === 0 ? "bg-[#efe3f5] text-[#7e4b9b]" : "bg-[#f8e6ee] text-[#a34c72]")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div>
           </section>
+
           <section className="mx-auto grid max-w-6xl gap-3 px-4 pb-8 sm:grid-cols-3 sm:px-6 lg:px-8">
             <BeautyPromo icon={Scissors} title="Cabelos incríveis" text="Tratamento, finalização e cor" color="bg-[#eee4f5] text-[#653a80]" search="cabelo" select={selectDepartment} />
             <BeautyPromo icon={Palette} title="Realce sua beleza" text="Maquiagem para todos os estilos" color="bg-[#fae5ec] text-[#9c4568]" search="maquiagem" select={selectDepartment} />
             <BeautyPromo icon={Heart} title="Rotina de skincare" text="Limpeza, hidratação e proteção" color="bg-[#e5f1ef] text-[#39796f]" search="skincare" select={selectDepartment} />
           </section>
+
           <section id="produtos-beleza" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#7e4b9b]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Beleza e cuidados pessoais</h2>{beautyListData && <p className="mt-1 text-sm text-muted-foreground">{beautyListData.total} produtos encontrados{submittedSearch ? ` para "${submittedSearch}"` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#5e287d] bg-[#5e287d] text-white" : "bg-white")}>{option.label}</button>)}</div></div>
-            {beautyLoading ? <div className="py-16"><PageLoader /></div> : beautyError ? <EmptyCatalog title="Não foi possível carregar os produtos" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : beautyListData && beautyListData.products.length > 0 ? <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{beautyListData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyCatalog title={submittedSearch ? "Nenhum produto encontrado" : "A vitrine de beleza está recebendo produtos"} text={submittedSearch ? "Tente outra busca ou confira o catálogo completo." : "As lojas parceiras ainda estão publicando seus itens. Volte em breve para conferir as novidades."} clear={() => { setSearch(""); setSubmittedSearch("") }} />}
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#7e4b9b]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Beleza e cuidados pessoais</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#5e287d] bg-[#5e287d] text-white" : "bg-white")}>{option.label}</button>)}</div></div>
+            {isLoading ? <div className="py-16"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os produtos" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyCatalog title={submittedSearch ? "Nenhum produto encontrado" : "A vitrine de beleza está recebendo produtos"} text={submittedSearch ? "Tente outra busca ou confira o catálogo completo." : "As lojas parceiras ainda estão publicando seus itens. Volte em breve para conferir as novidades."} clear={() => { setSearch(""); setSubmittedSearch("") }} />}
           </div></section>
         </main>
       </div>
@@ -604,8 +394,8 @@ export default function ListingPage() {
 
           <section id="produtos-bebes" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-              <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#49aaa8]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Artigos para bebês</h2>{babyListData && <p className="mt-1 text-sm text-muted-foreground">{babyListData.total} produtos encontrados{submittedSearch ? ` para "${submittedSearch}"` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#49aaa8] bg-[#49aaa8] text-white" : "bg-white")}>{option.label}</button>)}</div></div>
-              {babyLoading ? <div className="py-16"><PageLoader /></div> : babyError ? <EmptyCatalog title="Não foi possível carregar os artigos" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : babyListData && babyListData.products.length > 0 ? <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{babyListData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyCatalog title={submittedSearch ? "Nenhum produto encontrado" : "A loja do bebê está recebendo produtos"} text={submittedSearch ? "Tente outra busca ou confira todo o catálogo." : "As lojas parceiras ainda estão publicando seus artigos. Volte em breve para conferir as novidades."} clear={() => { setSearch(""); setSubmittedSearch("") }} />}
+              <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#49aaa8]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Artigos para bebês</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#49aaa8] bg-[#49aaa8] text-white" : "bg-white")}>{option.label}</button>)}</div></div>
+              {isLoading ? <div className="py-16"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os artigos" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyCatalog title={submittedSearch ? "Nenhum produto encontrado" : "A loja do bebê está recebendo produtos"} text={submittedSearch ? "Tente outra busca ou confira todo o catálogo." : "As lojas parceiras ainda estão publicando seus artigos. Volte em breve para conferir as novidades."} clear={() => { setSearch(""); setSubmittedSearch("") }} />}
             </div>
           </section>
         </main>
@@ -671,9 +461,9 @@ export default function ListingPage() {
 
         <section id="produtos-papelaria" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#2f78a7]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Produtos de papelaria</h2>{stationeryListData && <p className="mt-1 text-sm text-muted-foreground">{stationeryListData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#2f78a7] bg-[#2f78a7] text-white" : "bg-white")}>{option.label}</button>)}</div></div>
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#2f78a7]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Produtos de papelaria</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#2f78a7] bg-[#2f78a7] text-white" : "bg-white")}>{option.label}</button>)}</div></div>
 
-            {stationeryLoading ? <div className="py-16"><PageLoader /></div> : stationeryError ? <EmptyCatalog title="Não foi possível carregar a papelaria" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : stationeryListData && stationeryListData.products.length > 0 ? <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{stationeryListData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyCatalog title={submittedSearch ? "Nenhum produto encontrado" : "A papelaria está recebendo produtos"} text={submittedSearch ? "Tente outro termo ou veja o catálogo completo." : "As lojas parceiras ainda estão publicando seus materiais. Volte em breve para conferir as novidades."} clear={() => { setSearch(""); setSubmittedSearch("") }} />}
+            {isLoading ? <div className="py-16"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar a papelaria" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyCatalog title={submittedSearch ? "Nenhum produto encontrado" : "A papelaria está recebendo produtos"} text={submittedSearch ? "Tente outro termo ou veja o catálogo completo." : "As lojas parceiras ainda estão publicando seus materiais. Volte em breve para conferir as novidades."} clear={() => { setSearch(""); setSubmittedSearch("") }} />}
           </div>
         </section>
       </main>
@@ -691,6 +481,18 @@ function BabyPromo({ icon: Icon, title, text, color, search, select }: { icon: t
 
 function BeautyPromo({ icon: Icon, title, text, color, search, select }: { icon: typeof Sparkles; title: string; text: string; color: string; search: string; select: (search: string) => void }) {
   return <button onClick={() => select(search)} className={cn("flex min-h-36 items-center gap-5 rounded-2xl p-6 text-left transition hover:-translate-y-1", color)}><span className="rounded-full bg-white/70 p-4"><Icon className="h-8 w-8" /></span><div><h3 className="text-lg font-black">{title}</h3><p className="mt-1 text-sm opacity-75">{text}</p></div></button>
+}
+
+function FashionPromo({ title, text, color, search, select }: { title: string; text: string; color: string; search: string; select: (search: string) => void }) {
+  return <button onClick={() => select(search)} className={cn("group relative min-h-48 overflow-hidden p-6 text-left transition hover:-translate-y-1", color)}><div className="absolute -bottom-14 -right-10 flex h-52 w-52 items-center justify-center rounded-full bg-white/35 transition group-hover:scale-105"><Shirt className="h-24 w-24 text-black/45" strokeWidth={1.1} /></div><div className="relative"><p className="text-xs font-black uppercase tracking-[0.18em] text-black/55">Coleção local</p><h3 className="mt-2 max-w-[12rem] text-2xl font-black">{title}</h3><p className="mt-2 max-w-[12rem] text-sm text-black/65">{text}</p><span className="mt-5 inline-flex items-center gap-2 text-sm font-black">Ver produtos <ArrowRight className="h-4 w-4" /></span></div></button>
+}
+
+function PhoneBenefit({ icon: Icon, title, text }: { icon: typeof Smartphone; title: string; text: string }) {
+  return <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm"><span className="rounded-full bg-[#e4eef8] p-3 text-[#174b87]"><Icon className="h-6 w-6" /></span><div><p className="text-sm font-black">{title}</p><p className="text-xs text-muted-foreground">{text}</p></div></div>
+}
+
+function PhoneFilter({ title, values, select }: { title: string; values: string[]; select: (search: string) => void }) {
+  return <div className="mt-5 border-t pt-4"><h3 className="text-xs font-black uppercase tracking-wider text-slate-500">{title}</h3><div className="mt-2 flex flex-wrap gap-2">{values.map((value) => <button key={value} onClick={() => select(value)} className="rounded-full border px-3 py-1.5 text-xs font-bold transition hover:border-[#174b87] hover:bg-[#e4eef8]">{value}</button>)}</div></div>
 }
 
 function EmptyCatalog({ title, text, clear }: { title: string; text: string; clear: () => void }) {
