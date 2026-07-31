@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { vendorPool } from "../lib/vendorDb";
 import { mapCatalogRow, getProductById } from "../lib/catalogService";
-import { getProductRatingSummary, getRatingsForProducts } from "./reviews";
+import { getVendorSalesCount } from "./stores";
+import { getProductRatingSummary, getRatingsForProducts, getVendorRatingSummary } from "./reviews";
 import { db, orderItemsTable, ordersTable } from "@workspace/db";
 import { and, eq, gte, sql } from "drizzle-orm";
 
@@ -145,9 +146,16 @@ router.get("/products/:id", async (req, res): Promise<void> => {
     }
     const ratingSummary = await getProductRatingSummary(id);
     const comprasUltimas24h = await getComprasUltimas24h(id);
+    // Reputação do vendedor (bug real: mapCatalogRow sempre zerava
+    // vendorRating/vendorSalesCount — nunca eram preenchidos de verdade).
+    const vendorRatingSummary = await getVendorRatingSummary(product.vendorId);
+    const vendorSalesCount = await getVendorSalesCount(product.vendorId);
     res.json({
       ...product,
       ...ratingSummary,
+      vendorRating: vendorRatingSummary.rating,
+      vendorReviewCount: vendorRatingSummary.reviewCount,
+      vendorSalesCount,
       comprasUltimas24h: comprasUltimas24h >= MIN_COMPRAS_PARA_EXIBIR ? comprasUltimas24h : null,
     });
   } catch (err) {

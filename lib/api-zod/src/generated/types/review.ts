@@ -16,4 +16,5 @@ export interface Review {
   date: string;
   verified: boolean;
   helpfulCount: number;
+  midiaUrls?: string[];
 }

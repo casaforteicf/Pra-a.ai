@@ -707,6 +707,10 @@ components:
           type: boolean
         helpfulCount:
           type: integer
+        midiaUrls:
+          type: array
+          items:
+            type: string
       required:
         - id
         - authorName

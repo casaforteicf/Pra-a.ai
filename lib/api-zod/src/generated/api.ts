@@ -282,7 +282,8 @@ export const ListProductReviewsResponseItem = zod.object({
   "comment": zod.string(),
   "date": zod.string(),
   "verified": zod.boolean(),
-  "helpfulCount": zod.number()
+  "helpfulCount": zod.number(),
+  "midiaUrls": zod.array(zod.string()).optional()
 })
 export const ListProductReviewsResponse = zod.array(ListProductReviewsResponseItem)
 

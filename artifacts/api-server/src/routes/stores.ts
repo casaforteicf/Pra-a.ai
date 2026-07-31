@@ -19,6 +19,20 @@ function calcularNivel(totalPedidos: number, pctEntregue: number): string {
   return "bronze";
 }
 
+// Total de pedidos distintos já processados por um vendedor no Praça.ai —
+// fatorado aqui pra ser reaproveitado também no bloco de reputação da
+// página de detalhe do produto (routes/products.ts), sem duplicar a query.
+export async function getVendorSalesCount(vendorId: string): Promise<number> {
+  const distinctOrdersForVendor = db
+    .selectDistinct({ orderId: orderItemsTable.orderId })
+    .from(orderItemsTable)
+    .where(eq(orderItemsTable.vendorId, vendorId))
+    .as("distinct_orders");
+
+  const [{ total }] = await db.select({ total: count() }).from(distinctOrdersForVendor);
+  return Number(total ?? 0);
+}
+
 router.get("/lojas/:id", async (req, res): Promise<void> => {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 

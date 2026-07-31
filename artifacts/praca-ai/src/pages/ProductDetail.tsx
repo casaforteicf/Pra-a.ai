@@ -1,6 +1,7 @@
 import * as React from "react"
 import { useRoute, useLocation } from "wouter"
-import { ChevronLeft, Heart, Share2, Star, ShieldCheck, MapPin, Store, CheckCircle2, Truck } from "lucide-react"
+import { ChevronLeft, Heart, Share2, Star, ShieldCheck, MapPin, Store, CheckCircle2, Truck, MessageCircle, Send } from "lucide-react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useGetProduct, getGetProductQueryKey, useAddToCart, useListProductReviews, getListProductReviewsQueryKey } from "@workspace/api-client-react"
 import { formatMoney } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/skeleton"
@@ -8,7 +9,16 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
+import { useAuth } from "@/contexts/AuthContext"
 import { motion } from "framer-motion"
+
+interface ProductQuestion {
+  id: number
+  pergunta: string
+  resposta: string | null
+  respondidoEm: string | null
+  createdAt: string
+}
 
 export default function ProductDetail() {
   const [, params] = useRoute("/product/:id")
@@ -24,6 +34,47 @@ export default function ProductDetail() {
   const { data: reviews } = useListProductReviews(productId, {
     query: { queryKey: getListProductReviewsQueryKey(productId), enabled: !!productId }
   })
+
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  const { data: questions } = useQuery<ProductQuestion[]>({
+    queryKey: ["product-questions", productId],
+    queryFn: () => fetch(`/api/products/${productId}/perguntas`).then(r => r.json()),
+    enabled: !!productId
+  })
+
+  const [questionText, setQuestionText] = React.useState("")
+
+  const askQuestion = useMutation({
+    mutationFn: () =>
+      fetch(`/api/products/${productId}/perguntas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ pergunta: questionText.trim() })
+      }).then(async r => {
+        if (!r.ok) throw new Error((await r.json()).error || "Não foi possível enviar sua pergunta.")
+        return r.json()
+      }),
+    onSuccess: () => {
+      setQuestionText("")
+      queryClient.invalidateQueries({ queryKey: ["product-questions", productId] })
+      toast({ title: "Pergunta enviada!", description: "Assim que for respondida, ela aparece aqui." })
+    },
+    onError: (err: Error) => {
+      toast({ title: "Não foi possível enviar", description: err.message, variant: "destructive" })
+    }
+  })
+
+  const handleAskQuestion = () => {
+    if (!user) {
+      toast({ title: "Faça login para perguntar", description: "Entre na sua conta pra perguntar sobre o produto.", variant: "destructive" })
+      return
+    }
+    if (!questionText.trim()) return
+    askQuestion.mutate()
+  }
 
   const addToCartMutation = useAddToCart()
 
@@ -167,9 +218,15 @@ export default function ProductDetail() {
             <div className="flex flex-col">
               <span className="font-bold text-sm">{product.vendorName}</span>
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                <span className="font-bold text-foreground">{product.vendorRating.toFixed(1)}</span>
-                <span>({product.vendorSalesCount} vendas)</span>
+                {product.vendorSalesCount > 0 ? (
+                  <>
+                    <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                    <span className="font-bold text-foreground">{product.vendorRating.toFixed(1)}</span>
+                    <span>({product.vendorSalesCount} vendas)</span>
+                  </>
+                ) : (
+                  <span>Novo na Praça.ai</span>
+                )}
               </div>
             </div>
           </div>
@@ -216,6 +273,9 @@ export default function ProductDetail() {
             <TabsTrigger value="reviews" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-0 py-3 text-base">
               Avaliações ({product.reviewCount})
             </TabsTrigger>
+            <TabsTrigger value="questions" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:shadow-none data-[state=active]:bg-transparent px-0 py-3 text-base">
+              Perguntas ({questions?.length ?? 0})
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="desc" className="pt-4">
@@ -248,8 +308,65 @@ export default function ProductDetail() {
                     </div>
                   </div>
                   <p className="text-sm text-foreground/80">{review.comment}</p>
+                  {review.midiaUrls && review.midiaUrls.length > 0 && (
+                    <div className="flex gap-2 overflow-x-auto hide-scrollbar pt-1">
+                      {review.midiaUrls.map((url, i) => (
+                        <img
+                          key={i}
+                          src={url}
+                          alt={`Foto da avaliação de ${review.authorName}`}
+                          className="w-20 h-20 rounded-xl object-cover flex-shrink-0 border"
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="questions" className="pt-4">
+            <div className="flex flex-col gap-5">
+              <div className="flex gap-2">
+                <input
+                  value={questionText}
+                  onChange={e => setQuestionText(e.target.value)}
+                  placeholder="Escreva sua pergunta sobre o produto..."
+                  className="flex-1 rounded-xl border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  onKeyDown={e => e.key === "Enter" && handleAskQuestion()}
+                />
+                <Button
+                  size="icon"
+                  className="shrink-0"
+                  onClick={handleAskQuestion}
+                  disabled={askQuestion.isPending || !questionText.trim()}
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {questions && questions.length > 0 ? (
+                <div className="flex flex-col gap-4">
+                  {questions.map(q => (
+                    <div key={q.id} className="flex flex-col gap-2 border-b pb-4 last:border-0">
+                      <div className="flex items-start gap-2">
+                        <MessageCircle className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                        <p className="text-sm font-bold text-foreground">{q.pergunta}</p>
+                      </div>
+                      {q.resposta && (
+                        <div className="flex items-start gap-2 pl-6">
+                          <span className="text-xs font-bold text-primary shrink-0">Loja:</span>
+                          <p className="text-sm text-foreground/80">{q.resposta}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-6">
+                  Nenhuma pergunta ainda. Seja o primeiro a perguntar!
+                </p>
+              )}
             </div>
           </TabsContent>
         </Tabs>
