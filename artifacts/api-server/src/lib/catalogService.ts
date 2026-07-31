@@ -108,6 +108,8 @@ export function mapCatalogRow(row: any) {
       ...(row.marca ? [{ label: "Marca", value: row.marca }] : []),
       ...(Array.isArray(row.especificacoes) ? row.especificacoes : []),
     ],
+    // Filtro "selecione seu carro" (categoria Acessórios para Veículos).
+    compatibilidadeVeicular: Array.isArray(row.compatibilidade_veicular) ? row.compatibilidade_veicular : [],
   };
 }
 
@@ -295,6 +297,43 @@ export async function getRelatedProducts(productId: string, categoriaNome: strin
      ORDER BY pc.destaque DESC, pc.created_at DESC
      LIMIT $3`,
     [productId, categoriaNome, limit],
+  );
+  return result.rows.map(mapCatalogRow);
+}
+
+// Filtro "selecione seu carro" da categoria Acessórios para Veículos —
+// opções vêm só do que existe de verdade em compatibilidade_veicular (sem
+// base externa de veículos), então o filtro nunca mostra marca/modelo sem
+// produto disponível.
+export async function getVehicleFilterOptions(): Promise<{ marca: string; modelo: string }[]> {
+  const result = await vendorPool.query(`
+    SELECT DISTINCT comp->>'marca' AS marca, comp->>'modelo' AS modelo
+    FROM produtos_catalogo pc
+    JOIN tenants t ON t.id = pc.tenant_id
+    JOIN LATERAL jsonb_array_elements(COALESCE(pc.compatibilidade_veicular, '[]'::jsonb)) AS comp ON true
+    WHERE t.vende_no_praca_ai = true AND pc.ativo = true
+      AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
+    ORDER BY marca, modelo
+  `);
+  return result.rows as { marca: string; modelo: string }[];
+}
+
+export async function getProductsByVehicleCompatibility(
+  marca: string,
+  modelo: string,
+  ano: number,
+  limit = 24,
+) {
+  const result = await vendorPool.query(
+    `${BASE_QUERY}
+     JOIN LATERAL jsonb_array_elements(COALESCE(pc.compatibilidade_veicular, '[]'::jsonb)) AS comp ON true
+     WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
+       AND comp->>'marca' = $1 AND comp->>'modelo' = $2
+       AND (comp->>'anoInicio')::int <= $3
+       AND (comp->>'anoFim' IS NULL OR (comp->>'anoFim')::int >= $3)
+     ORDER BY pc.destaque DESC, pc.created_at DESC
+     LIMIT $4`,
+    [marca, modelo, ano, limit],
   );
   return result.rows.map(mapCatalogRow);
 }

@@ -601,6 +601,11 @@ ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS preco_praca_ai numeric(12
 -- da paridade com Mercado Livre: Marca/Modelo/Cor/etc). jsonb com lista de
 -- pares label/value, cabe em qualquer categoria sem coluna fixa por atributo.
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS especificacoes jsonb;
+
+-- Compatibilidade veicular (Complemento Praça.ai — filtro "selecione seu
+-- carro" na categoria Acessórios para Veículos, tipo Tuning Parts). jsonb
+-- com lista de {marca, modelo, anoInicio, anoFim}.
+ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS compatibilidade_veicular jsonb;
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {

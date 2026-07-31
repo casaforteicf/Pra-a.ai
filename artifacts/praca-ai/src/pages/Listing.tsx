@@ -1,12 +1,84 @@
 import * as React from "react"
 import { useLocation } from "wouter"
-import { ChevronLeft, SlidersHorizontal, Star } from "lucide-react"
+import { ChevronLeft, SlidersHorizontal, Star, Car } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
 import { useListProducts, getListProductsQueryKey } from "@workspace/api-client-react"
 import { Link } from "wouter"
 import { formatMoney } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+
+const VEHICLE_CATEGORY_SLUG = "acessorios-para-veiculos"
+
+// Filtro "selecione seu carro" (tipo Tuning Parts) — só pra categoria de
+// acessórios para veículos. Opções vêm só do que existe cadastrado de
+// verdade, sem base externa de veículos.
+function VehicleFilterBar({ onResults }: { onResults: (products: any[] | null) => void }) {
+  const [marca, setMarca] = React.useState("")
+  const [modelo, setModelo] = React.useState("")
+  const [ano, setAno] = React.useState("")
+
+  const { data: options = [] } = useQuery<{ marca: string; modelo: string }[]>({
+    queryKey: ["vehicle-filter-options"],
+    queryFn: () => fetch("/api/vehicle-filter-options").then(r => r.json()),
+  })
+
+  const marcas = Array.from(new Set(options.map(o => o.marca))).sort()
+  const modelos = Array.from(new Set(options.filter(o => o.marca === marca).map(o => o.modelo))).sort()
+
+  const anos = Array.from({ length: 30 }, (_, i) => new Date().getFullYear() - i)
+
+  const buscar = async () => {
+    if (!marca || !modelo || !ano) return
+    const res = await fetch(`/api/products/compatibilidade-veicular?marca=${encodeURIComponent(marca)}&modelo=${encodeURIComponent(modelo)}&ano=${ano}`)
+    onResults(res.ok ? await res.json() : [])
+  }
+
+  return (
+    <div className="mx-4 mt-4 rounded-2xl border-2 border-primary/20 bg-primary/5 p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Car className="w-5 h-5 text-primary" />
+        <h3 className="font-black text-sm">Selecione seu carro pra achar peças compatíveis</h3>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <select
+          value={marca}
+          onChange={e => { setMarca(e.target.value); setModelo(""); onResults(null) }}
+          className="rounded-xl border px-2 py-2 text-sm bg-background"
+        >
+          <option value="">Marca</option>
+          {marcas.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <select
+          value={modelo}
+          onChange={e => { setModelo(e.target.value); onResults(null) }}
+          disabled={!marca}
+          className="rounded-xl border px-2 py-2 text-sm bg-background disabled:opacity-50"
+        >
+          <option value="">Modelo</option>
+          {modelos.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+        <select
+          value={ano}
+          onChange={e => { setAno(e.target.value); onResults(null) }}
+          disabled={!modelo}
+          className="rounded-xl border px-2 py-2 text-sm bg-background disabled:opacity-50"
+        >
+          <option value="">Ano</option>
+          {anos.map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+      </div>
+      <button
+        onClick={buscar}
+        disabled={!marca || !modelo || !ano}
+        className="mt-3 w-full py-2.5 rounded-xl bg-primary text-white font-bold text-sm disabled:opacity-40"
+      >
+        Ver peças compatíveis
+      </button>
+    </div>
+  )
+}
 
 export default function ListingPage() {
   const [, setLocation] = useLocation()
@@ -15,10 +87,14 @@ export default function ListingPage() {
   const categorySlug = searchParams.get('category') || undefined
   
   const [activeSort, setActiveSort] = React.useState('Relevância')
+  const [vehicleResults, setVehicleResults] = React.useState<any[] | null>(null)
 
   const { data: listData, isLoading } = useListProducts({ category: categorySlug }, {
     query: { queryKey: getListProductsQueryKey({ category: categorySlug }) }
   })
+
+  const isVehicleCategory = categorySlug === VEHICLE_CATEGORY_SLUG
+  const displayedProducts = isVehicleCategory && vehicleResults !== null ? vehicleResults : listData?.products
 
   const sorts = ['Relevância', 'Menor Preço', 'Mais Vendidos', 'Avaliação', 'Ofertas']
 
@@ -60,12 +136,19 @@ export default function ListingPage() {
         </div>
       </header>
 
+      {isVehicleCategory && <VehicleFilterBar onResults={setVehicleResults} />}
+
       {isLoading && <PageLoader />}
 
-      {listData && (
+      {displayedProducts && (
         <div className="p-4">
+          {isVehicleCategory && vehicleResults !== null && (
+            <p className="text-xs text-muted-foreground font-bold mb-3">
+              {vehicleResults.length} peça(s) compatível(is) encontrada(s)
+            </p>
+          )}
           <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-            {listData.products.map(product => (
+            {displayedProducts.map(product => (
               <Link key={product.id} href={`/product/${product.id}`}>
                 <Card className="h-full border-none shadow-sm overflow-hidden flex flex-col active:scale-95 transition-transform group">
                   <div className="relative aspect-square bg-muted shrink-0">
@@ -104,7 +187,7 @@ export default function ListingPage() {
             ))}
           </div>
 
-          {listData.hasMore && (
+          {!isVehicleCategory && listData?.hasMore && (
             <div className="mt-8 flex justify-center">
               <button className="px-6 py-3 rounded-xl border-2 border-primary text-primary font-bold text-sm active:bg-primary/5">
                 Carregar mais

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { vendorPool } from "../lib/vendorDb";
-import { mapCatalogRow, getProductById, getRelatedProducts } from "../lib/catalogService";
+import { mapCatalogRow, getProductById, getRelatedProducts, getVehicleFilterOptions, getProductsByVehicleCompatibility } from "../lib/catalogService";
 import { getVendorSalesCount } from "./stores";
 import { getProductRatingSummary, getRatingsForProducts, getVendorRatingSummary } from "./reviews";
 import { db, orderItemsTable, ordersTable } from "@workspace/db";
@@ -23,6 +23,26 @@ async function getComprasUltimas24h(productId: string): Promise<number> {
     .where(and(eq(orderItemsTable.productId, productId), gte(ordersTable.createdAt, desde)));
   return Number(result?.total ?? 0);
 }
+
+// Filtro "selecione seu carro" (categoria Acessórios para Veículos, tipo
+// Tuning Parts). Opções vêm só do que existe de verdade cadastrado —
+// sem base externa de veículos.
+router.get("/vehicle-filter-options", async (_req, res): Promise<void> => {
+  const options = await getVehicleFilterOptions();
+  res.json(options);
+});
+
+router.get("/products/compatibilidade-veicular", async (req, res): Promise<void> => {
+  const { marca, modelo, ano } = req.query as Record<string, string>;
+  const anoNum = Number(ano);
+  if (!marca || !modelo || !ano || Number.isNaN(anoNum)) {
+    res.status(422).json({ error: "marca, modelo e ano são obrigatórios" });
+    return;
+  }
+  const products = await getProductsByVehicleCompatibility(marca, modelo, anoNum);
+  const ratings = await getRatingsForProducts(products.map((p) => p.id));
+  res.json(products.map((p) => ({ ...p, ...(ratings.get(p.id) ?? { rating: 0, reviewCount: 0 }) })));
+});
 
 router.get("/products", async (req, res): Promise<void> => {
   const { category, search, sort, page = "1", limit = "20", precoMin, precoMax, marca, cidade } =
