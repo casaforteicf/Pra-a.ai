@@ -40,9 +40,9 @@ export default function HomePage() {
   })
 
   return (
-    <div className="flex flex-col w-full min-h-full pb-8">
+    <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col pb-8">
       {/* Sticky Header */}
-      <header className="sticky top-0 sm:top-7 inset-x-0 bg-primary z-30 px-4 pt-4 pb-4 sm:pt-6 rounded-b-[24px] shadow-lg shadow-primary/10">
+      <header className="sticky top-0 inset-x-0 z-30 rounded-b-[24px] bg-primary px-4 pb-4 pt-4 shadow-lg shadow-primary/10 lg:px-8 lg:py-5">
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
             <Store className="w-6 h-6 fill-white" />
@@ -106,7 +106,7 @@ export default function HomePage() {
 
           {/* Categories Grid */}
           <section className="px-4">
-            <div className="grid grid-cols-4 gap-y-4 gap-x-2">
+            <div className="grid grid-cols-4 gap-x-2 gap-y-4 md:grid-cols-6 lg:grid-cols-8">
               {homeData.categories.map((category) => {
                 const Icon = CATEGORY_ICON_MAP[(category as any).icon] ?? Package
                 return (
@@ -173,7 +173,7 @@ export default function HomePage() {
               </div>
               <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar -mx-4 px-4">
                 {homeData.flashDeals.map((product) => (
-                  <ProductCard key={product.id} product={product} className="snap-center shrink-0 w-[140px]" />
+                  <ProductCard key={product.id} product={product} className="w-[140px] shrink-0 snap-center md:w-[190px] lg:w-[220px]" />
                 ))}
               </div>
             </section>
@@ -190,7 +190,7 @@ export default function HomePage() {
               </div>
               <div className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar -mx-4 px-4">
                 {carousel.products.map((product) => (
-                  <ProductCard key={product.id} product={product} className="snap-center shrink-0 w-[140px]" />
+                  <ProductCard key={product.id} product={product} className="w-[140px] shrink-0 snap-center md:w-[190px] lg:w-[220px]" />
                 ))}
               </div>
             </section>
