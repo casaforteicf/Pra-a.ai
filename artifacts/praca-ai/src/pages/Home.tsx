@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ProductCard } from "@/components/ProductCard"
+import type { Product } from "@workspace/api-client-react"
 
 // Mapa dos nomes de ícone que o backend calcula (lib/catalogService.ts,
 // ICON_BY_NAME) pros componentes reais do lucide-react. Categoria sem
@@ -46,6 +47,59 @@ export default function HomePage() {
   const { data: homeData, isLoading, isError } = useGetHome({
     query: { queryKey: getGetHomeQueryKey() }
   })
+
+  const [infiniteProducts, setInfiniteProducts] = React.useState<Product[]>([])
+  const [hasMoreProducts, setHasMoreProducts] = React.useState(true)
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false)
+  const productsPageRef = React.useRef(1)
+  const loadingMoreRef = React.useRef(false)
+  const hasMoreRef = React.useRef(true)
+  const loadMoreSentinelRef = React.useRef<HTMLDivElement | null>(null)
+
+  const loadMoreProducts = React.useCallback(async () => {
+    if (loadingMoreRef.current || !hasMoreRef.current) return
+    loadingMoreRef.current = true
+    setIsLoadingMore(true)
+
+    try {
+      const response = await fetch(`/api/products?page=${productsPageRef.current}&limit=20`)
+      if (!response.ok) throw new Error("Falha ao carregar produtos")
+      const data = await response.json() as { products: Product[]; hasMore: boolean }
+
+      setInfiniteProducts((current) => {
+        const knownIds = new Set(current.map((product) => product.id))
+        return [...current, ...data.products.filter((product) => !knownIds.has(product.id))]
+      })
+      productsPageRef.current += 1
+      hasMoreRef.current = data.hasMore
+      setHasMoreProducts(data.hasMore)
+    } catch (error) {
+      console.error("[home] erro ao carregar mais produtos:", error)
+      hasMoreRef.current = false
+      setHasMoreProducts(false)
+    } finally {
+      loadingMoreRef.current = false
+      setIsLoadingMore(false)
+    }
+  }, [])
+
+  React.useEffect(() => {
+    void loadMoreProducts()
+  }, [loadMoreProducts])
+
+  React.useEffect(() => {
+    const sentinel = loadMoreSentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) void loadMoreProducts()
+      },
+      { rootMargin: "500px 0px" },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [loadMoreProducts])
 
   return (
     <div className="flex min-h-full w-full flex-col bg-[#ebebeb] pb-10">
@@ -228,6 +282,37 @@ export default function HomePage() {
               </div>
             </section>
           ))}
+
+          {/* Infinite product discovery */}
+          <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl">
+            <div className="mb-4 flex items-end justify-between gap-4">
+              <div>
+                <h3 className="text-2xl font-black">Todos os produtos</h3>
+                <p className="text-sm text-muted-foreground">Continue rolando para descobrir mais ofertas da sua região.</p>
+              </div>
+              <Link href="/listing" className="hidden shrink-0 text-sm font-bold text-primary sm:flex sm:items-center sm:gap-1">
+                Explorar catálogo <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+              {infiniteProducts.map((product) => (
+                <ProductCard key={product.id} product={product} className="h-full w-full" />
+              ))}
+            </div>
+
+            <div ref={loadMoreSentinelRef} className="flex min-h-24 items-center justify-center py-6" aria-live="polite">
+              {isLoadingMore && (
+                <div className="flex items-center gap-3 text-sm font-semibold text-muted-foreground">
+                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
+                  Carregando mais produtos...
+                </div>
+              )}
+              {!hasMoreProducts && infiniteProducts.length > 0 && (
+                <p className="text-sm text-muted-foreground">Você chegou ao fim do catálogo.</p>
+              )}
+            </div>
+          </section>
           
         </div>
       )}
