@@ -44,8 +44,66 @@ router.get("/products/compatibilidade-veicular", async (req, res): Promise<void>
   res.json(products.map((p) => ({ ...p, ...(ratings.get(p.id) ?? { rating: 0, reviewCount: 0 }) })));
 });
 
+// Facetas pro filtro lateral (categorias marcáveis + atributos tipo
+// altura/ângulo, que vêm das especificações reais já cadastradas — não é
+// lista fixa, só aparece o que os lojistas realmente preencheram).
+router.get("/products/filters", async (req, res): Promise<void> => {
+  const { categories } = req.query as Record<string, string>;
+  const categorySlugs = categories ? categories.split(",").filter(Boolean) : [];
+
+  try {
+    const categoriesResult = await vendorPool.query(`
+      SELECT cp.nome,
+             lower(regexp_replace(unaccent(cp.nome), '[^a-zA-Z0-9]+', '-', 'g')) AS slug,
+             count(*)::int AS total
+      FROM produtos_catalogo pc
+      JOIN tenants t ON t.id = pc.tenant_id
+      JOIN categorias_produto cp ON cp.id = pc.categoria_id
+      WHERE t.vende_no_praca_ai = true AND pc.ativo = true
+        AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
+      GROUP BY cp.nome
+      ORDER BY total DESC
+    `);
+
+    const specsParams: any[] = [];
+    let specsCategoryClause = "";
+    if (categorySlugs.length > 0) {
+      specsParams.push(categorySlugs);
+      specsCategoryClause = `AND lower(regexp_replace(unaccent(cp.nome), '[^a-zA-Z0-9]+', '-', 'g')) = ANY($${specsParams.length})`;
+    }
+    const specsResult = await vendorPool.query(`
+      SELECT spec->>'label' AS label, spec->>'value' AS value, count(*)::int AS total
+      FROM produtos_catalogo pc
+      JOIN tenants t ON t.id = pc.tenant_id
+      LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
+      JOIN LATERAL jsonb_array_elements(COALESCE(pc.especificacoes, '[]'::jsonb)) AS spec ON true
+      WHERE t.vende_no_praca_ai = true AND pc.ativo = true
+        AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
+        ${specsCategoryClause}
+      GROUP BY spec->>'label', spec->>'value'
+      ORDER BY spec->>'label', total DESC
+    `, specsParams);
+
+    const specsByLabel = new Map<string, { value: string; total: number }[]>();
+    for (const row of specsResult.rows) {
+      if (!row.label || !row.value) continue;
+      const arr = specsByLabel.get(row.label) ?? [];
+      arr.push({ value: row.value, total: row.total });
+      specsByLabel.set(row.label, arr);
+    }
+
+    res.json({
+      categories: categoriesResult.rows,
+      specs: Array.from(specsByLabel.entries()).map(([label, values]) => ({ label, values })),
+    });
+  } catch (err) {
+    console.error("[products/filters] erro ao montar facetas:", err);
+    res.status(500).json({ error: "Não foi possível carregar os filtros agora." });
+  }
+});
+
 router.get("/products", async (req, res): Promise<void> => {
-  const { category, search, sort, page = "1", limit = "20", precoMin, precoMax, marca, cidade } =
+  const { category, categories, search, sort, page = "1", limit = "20", precoMin, precoMax, marca, cidade, specs } =
     req.query as Record<string, string>;
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -55,11 +113,31 @@ router.get("/products", async (req, res): Promise<void> => {
   const conditions: string[] = ["t.vende_no_praca_ai = true", "pc.ativo = true"];
   const params: any[] = [];
 
-  if (category) {
-    params.push(category);
+  const categorySlugs = categories ? categories.split(",").filter(Boolean) : (category ? [category] : []);
+  if (categorySlugs.length > 0) {
+    params.push(categorySlugs);
     conditions.push(
-      `lower(regexp_replace(unaccent(cp.nome), '[^a-zA-Z0-9]+', '-', 'g')) = $${params.length}`,
+      `lower(regexp_replace(unaccent(cp.nome), '[^a-zA-Z0-9]+', '-', 'g')) = ANY($${params.length})`,
     );
+  }
+
+  // Filtro por atributo (ex: Altura=19/3 Cm, Ângulo de peça (graus)=90) — vem
+  // das especificações reais cadastradas pelo lojista, não é lista fixa.
+  if (specs) {
+    try {
+      const specPairs = JSON.parse(specs) as { label: string; value: string }[];
+      for (const { label, value } of specPairs) {
+        if (label === "Marca") {
+          params.push(value);
+          conditions.push(`pc.marca = $${params.length}`);
+        } else {
+          params.push(JSON.stringify([{ label, value }]));
+          conditions.push(`pc.especificacoes @> $${params.length}::jsonb`);
+        }
+      }
+    } catch {
+      // specs mal-formado — ignora silenciosamente, sem quebrar a listagem
+    }
   }
 
   if (search) {
