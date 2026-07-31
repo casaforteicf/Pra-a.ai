@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car, Home as HomeIcon, UtensilsCrossed, Paintbrush, Droplet, Grid3x3, Trees, DoorOpen, Zap, Waves, Blocks, Package, ChevronDown, Tag, Headphones, CreditCard } from "lucide-react"
+import { ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car, Home as HomeIcon, UtensilsCrossed, Paintbrush, Droplet, Grid3x3, Trees, DoorOpen, Zap, Waves, Blocks, Package, ChevronDown, Tag, Headphones, CreditCard, Sparkles, Gamepad2, Camera, Music, Watch, BookOpen, PawPrint } from "lucide-react"
 import { useGetHome, getGetHomeQueryKey } from "@workspace/api-client-react"
 import { Link } from "wouter"
 import { formatMoney } from "@/lib/utils"
@@ -32,6 +32,14 @@ const CATEGORY_ICON_MAP: Record<string, typeof Package> = {
   zap: Zap,
   waves: Waves,
   blocks: Blocks,
+  package: Package,
+  sparkles: Sparkles,
+  gamepad: Gamepad2,
+  camera: Camera,
+  music: Music,
+  watch: Watch,
+  book: BookOpen,
+  "paw-print": PawPrint,
 }
 
 export default function HomePage() {
