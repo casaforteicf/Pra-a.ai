@@ -6,10 +6,13 @@ import {
   Bath,
   BedDouble,
   Bike,
+  Blocks,
   BookOpen,
   BriefcaseBusiness,
   ChevronLeft,
   GraduationCap,
+  Gift,
+  Gamepad2,
   Heart,
   HeartPulse,
   Menu,
@@ -26,6 +29,8 @@ import {
   Star,
   Store,
   Truck,
+  Puzzle,
+  Rocket,
 } from "lucide-react"
 import { getListProductsQueryKey, useListProducts } from "@workspace/api-client-react"
 import type { ListProductsSort } from "@workspace/api-client-react"
@@ -39,6 +44,7 @@ import { cn } from "@/lib/utils"
 const STATIONERY_SLUG = "arte-papelaria-e-armarinho"
 const BABY_SLUG = "bebes"
 const BEAUTY_SLUG = "beleza-e-cuidado-pessoal"
+const TOYS_SLUG = "brinquedos-e-hobbies"
 
 const stationeryDepartments = [
   { label: "Escolar", icon: GraduationCap, search: "escolar" },
@@ -69,6 +75,17 @@ const beautyDepartments = [
   { label: "Bem-estar", icon: HeartPulse, search: "bem-estar" },
 ]
 
+const toyDepartments = [
+  { label: "Primeira infância", icon: Baby, search: "bebê brinquedo" },
+  { label: "Bonecas", icon: Heart, search: "boneca" },
+  { label: "Carrinhos", icon: Bike, search: "carrinho brinquedo" },
+  { label: "Jogos", icon: Gamepad2, search: "jogo" },
+  { label: "Montar", icon: Blocks, search: "blocos" },
+  { label: "Educativos", icon: GraduationCap, search: "educativo" },
+  { label: "Ar livre", icon: Rocket, search: "brinquedo ar livre" },
+  { label: "Hobbies", icon: Puzzle, search: "hobby" },
+]
+
 const sortOptions: Array<{ label: string; value: ListProductsSort }> = [
   { label: "Relevância", value: "relevance" },
   { label: "Menor preço", value: "price_asc" },
@@ -85,6 +102,7 @@ export default function ListingPage() {
   const isStationery = categorySlug === STATIONERY_SLUG
   const isBaby = categorySlug === BABY_SLUG
   const isBeauty = categorySlug === BEAUTY_SLUG
+  const isToys = categorySlug === TOYS_SLUG
   const [search, setSearch] = React.useState("")
   const [submittedSearch, setSubmittedSearch] = React.useState("")
   const [sort, setSort] = React.useState<ListProductsSort>("relevance")
@@ -104,7 +122,7 @@ export default function ListingPage() {
     setSubmittedSearch(departmentSearch)
   }
 
-  if (!isStationery && !isBaby && !isBeauty) {
+  if (!isStationery && !isBaby && !isBeauty && !isToys) {
     return (
       <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col bg-background pb-8">
         <header className="sticky inset-x-0 top-0 z-30 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur-md lg:px-6">
@@ -113,6 +131,36 @@ export default function ListingPage() {
         </header>
         {isLoading && <PageLoader />}
         {listData && <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div>}
+      </div>
+    )
+  }
+
+  if (isToys) {
+    return (
+      <div className="min-h-full w-full bg-[#f8f5f5] pb-12 text-[#251745]">
+        <header className="bg-[#ffe915] text-[#251745]">
+          <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 sm:px-6 lg:gap-8 lg:px-8">
+            <Link href="/" className="flex items-center gap-2 text-xl font-black"><Gift className="h-8 w-8 text-[#e43286]" /> Praça.ai <span className="hidden text-sm text-[#604f1c] sm:inline">Brinquedos</span></Link>
+            <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Encontre aqui um mundo de diversão..." className="h-12 rounded-full border-0 bg-white pl-12 pr-12 text-[#251745]" /><button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[#6a31a8] p-2 text-white"><ArrowRight className="h-4 w-4" /></button></form>
+            <div className="flex items-center gap-3 justify-self-end"><Link href="/profile" className="hidden text-sm font-bold sm:block">Acesse sua conta</Link><span className="rounded-full bg-black/10 p-2.5"><ShoppingCart className="h-5 w-5" /></span></div>
+          </div>
+          <nav className="border-t border-black/10"><div className="mx-auto flex max-w-6xl items-center gap-7 overflow-x-auto px-4 py-3 text-xs font-black sm:px-6 lg:px-8"><span className="flex shrink-0 items-center gap-2"><Menu className="h-4 w-4" /> Departamentos</span><button onClick={() => setSubmittedSearch("")} className="shrink-0">Novidades</button><button onClick={() => setSort("offers")} className="shrink-0 text-[#a60070]">Ofertas</button>{toyDepartments.slice(0, 5).map((item) => <button key={item.label} onClick={() => selectDepartment(item.search)} className="shrink-0">{item.label}</button>)}</div></nav>
+        </header>
+
+        <main>
+          <section className="mx-auto max-w-6xl px-4 py-7 sm:px-6 lg:px-8">
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#5a2a91] via-[#7337aa] to-[#8d40ba] p-7 text-white sm:p-10 lg:min-h-[390px]">
+              <div className="absolute -right-20 -top-20 h-80 w-80 rounded-full bg-[#19bfe8]/60" /><div className="absolute -bottom-28 right-1/4 h-64 w-64 rounded-full bg-[#ffdf18]/40" />
+              <div className="relative grid items-center gap-8 lg:grid-cols-[1fr_0.8fr]"><div><span className="inline-flex items-center gap-2 rounded-full bg-[#21c1e6] px-3 py-1.5 text-xs font-black text-[#251745]">Diversão para todas as idades</span><h1 className="mt-5 max-w-xl text-4xl font-black leading-[1.02] sm:text-6xl">Um mundo de brincadeiras</h1><p className="mt-4 max-w-xl text-base text-white/85 sm:text-lg">Brinquedos, jogos e hobbies das lojas da sua região para aprender, imaginar e se divertir.</p><Button onClick={() => document.getElementById("produtos-brinquedos")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-[#ffe915] text-[#251745] hover:bg-[#f5dc00]">Ver brinquedos</Button></div><div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[35%_65%_55%_45%] bg-[#ef3c8f] shadow-2xl"><Rocket className="h-32 w-32 -rotate-6 text-white" strokeWidth={1.2} /></div><Blocks className="absolute bottom-3 left-3 h-16 w-16 text-[#ffe915]" /></div></div>
+            </div>
+          </section>
+
+          <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="mb-5 flex items-end justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#6a31a8]">Escolha a diversão</p><h2 className="mt-1 text-2xl font-black">Todos os departamentos</h2></div></div><div className="grid grid-cols-4 gap-3 lg:grid-cols-8">{toyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 4 === 0 ? "bg-yellow-100 text-yellow-700" : index % 4 === 1 ? "bg-pink-100 text-pink-600" : index % 4 === 2 ? "bg-cyan-100 text-cyan-700" : "bg-violet-100 text-violet-700")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div></section>
+
+          <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="mb-5 text-center"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#e43286]">Presente por idade</p><h2 className="mt-1 text-2xl font-black">A escolha certa para cada fase</h2></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[["0 a 2 anos","bebê brinquedo","bg-[#c7f0f7]"],["3 a 5 anos","brinquedo infantil","bg-[#ffe4ef]"],["6 a 8 anos","jogo educativo","bg-[#fff4a8]"],["9 anos ou mais","hobby jogo","bg-[#e8dafa]"]].map(([label,term,color]) => <button key={label} onClick={() => selectDepartment(term)} className={cn("rounded-2xl p-5 text-center font-black transition hover:-translate-y-1",color)}><Gift className="mx-auto mb-2 h-7 w-7" />{label}</button>)}</div></section>
+
+          <section id="produtos-brinquedos" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#6a31a8]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Brinquedos e hobbies</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-[#6a31a8] bg-[#6a31a8] text-white":"bg-white")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os brinquedos" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum brinquedo encontrado":"A loja de brinquedos está recebendo produtos"} text={submittedSearch?"Tente outra busca ou veja o catálogo completo.":"As lojas parceiras ainda estão publicando seus brinquedos. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div></section>
+        </main>
       </div>
     )
   }
