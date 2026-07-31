@@ -10,6 +10,36 @@ export function slugify(text: string): string {
     .replace(/(^-|-$)/g, "");
 }
 
+// Taxonomia oficial de itens compartilhada com o Vendor.ai. As quantidades
+// nunca ficam fixas aqui: são calculadas a partir dos produtos publicados.
+export const ITEM_CATEGORIES = [
+  "Acessórios para Veículos",
+  "Agro",
+  "Antiguidades e Coleções",
+  "Arte, Papelaria e Armarinho",
+  "Bebês",
+  "Beleza e Cuidado Pessoal",
+  "Brinquedos e Hobbies",
+  "Calçados, Roupas e Bolsas",
+  "Casa, Móveis e Decoração",
+  "Celulares e Telefones",
+  "Construção",
+  "Câmeras e Acessórios",
+  "Eletrodomésticos",
+  "Eletrônicos, Áudio e Vídeo",
+  "Esportes e Fitness",
+  "Ferramentas",
+  "Festas e Lembrancinhas",
+  "Games",
+  "Indústria e Comércio",
+  "Informática",
+  "Instrumentos Musicais",
+  "Joias e Relógios",
+  "Livros, Revistas e Comics",
+  "Pet Shop",
+  "Saúde",
+] as const;
+
 export function mapCatalogRow(row: any) {
   // Preço específico do Praça.ai (Complemento) — quando o lojista configura
   // um valor diferente só pra vitrine do Praça.ai, ele sobrepõe TUDO (preço
@@ -99,14 +129,25 @@ export async function getProductById(id: string) {
 
 export async function getRealCategories(limit?: number) {
   const result = await vendorPool.query(
-    `SELECT cp.nome AS categoria_nome, count(*)::int AS product_count
-     FROM produtos_catalogo pc
-     JOIN tenants t ON t.id = pc.tenant_id
-     LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
-     WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
-     GROUP BY cp.nome
-     ORDER BY product_count DESC
+    `WITH categorias_oficiais AS (
+       SELECT nome, ordem
+       FROM unnest($1::text[]) WITH ORDINALITY AS categoria(nome, ordem)
+     ), contagens AS (
+       SELECT cp.nome, count(*)::int AS product_count
+       FROM produtos_catalogo pc
+       JOIN tenants t ON t.id = pc.tenant_id
+       JOIN categorias_produto cp ON cp.id = pc.categoria_id
+       WHERE t.vende_no_praca_ai = true
+         AND pc.ativo = true
+         AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
+       GROUP BY cp.nome
+     )
+     SELECT categoria.nome AS categoria_nome, COALESCE(contagens.product_count, 0)::int AS product_count
+     FROM categorias_oficiais categoria
+     LEFT JOIN contagens ON lower(contagens.nome) = lower(categoria.nome)
+     ORDER BY categoria.ordem
      ${limit ? `LIMIT ${Number(limit)}` : ""}`,
+    [ITEM_CATEGORIES],
   );
 
   return result.rows
@@ -176,6 +217,31 @@ export async function getProductsByCategoryName(categoriaNome: string, limit = 4
 }
 
 const ICON_BY_NAME: Record<string, string> = {
+  "acessorios-para-veiculos": "car",
+  agro: "trees",
+  "antiguidades-e-colecoes": "package",
+  "arte-papelaria-e-armarinho": "paintbrush",
+  bebes: "package",
+  "beleza-e-cuidado-pessoal": "sparkles",
+  "brinquedos-e-hobbies": "gamepad",
+  "calcados-roupas-e-bolsas": "shirt",
+  "casa-moveis-e-decoracao": "sofa",
+  "celulares-e-telefones": "smartphone",
+  construcao: "blocks",
+  "cameras-e-acessorios": "camera",
+  eletrodomesticos: "zap",
+  "eletronicos-audio-e-video": "smartphone",
+  "esportes-e-fitness": "dumbbell",
+  ferramentas: "wrench",
+  "festas-e-lembrancinhas": "package",
+  games: "gamepad",
+  "industria-e-comercio": "blocks",
+  informatica: "smartphone",
+  "instrumentos-musicais": "music",
+  "joias-e-relogios": "watch",
+  "livros-revistas-e-comics": "book",
+  "pet-shop": "paw-print",
+  saude: "pill",
   moda: "shirt",
   delivery: "bike",
   restaurantes: "bike",
