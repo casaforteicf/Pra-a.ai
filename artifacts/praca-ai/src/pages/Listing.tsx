@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils"
 
 const STATIONERY_SLUG = "arte-papelaria-e-armarinho"
 const BABY_SLUG = "bebes"
+const BEAUTY_SLUG = "beleza-e-cuidado-pessoal"
 
 const stationeryDepartments = [
   { label: "Escolar", icon: GraduationCap, search: "escolar" },
@@ -59,6 +60,15 @@ const babyDepartments = [
   { label: "Brinquedos", icon: Sparkles, search: "brinquedo bebê" },
 ]
 
+const beautyDepartments = [
+  { label: "Cabelos", icon: Scissors, search: "cabelo" },
+  { label: "Perfumaria", icon: Sparkles, search: "perfume" },
+  { label: "Maquiagem", icon: Palette, search: "maquiagem" },
+  { label: "Skincare", icon: Heart, search: "skincare" },
+  { label: "Cuidados pessoais", icon: Bath, search: "cuidados pessoais" },
+  { label: "Bem-estar", icon: HeartPulse, search: "bem-estar" },
+]
+
 const sortOptions: Array<{ label: string; value: ListProductsSort }> = [
   { label: "Relevância", value: "relevance" },
   { label: "Menor preço", value: "price_asc" },
@@ -74,6 +84,7 @@ export default function ListingPage() {
   const categorySlug = searchParams.get("category") || undefined
   const isStationery = categorySlug === STATIONERY_SLUG
   const isBaby = categorySlug === BABY_SLUG
+  const isBeauty = categorySlug === BEAUTY_SLUG
   const [search, setSearch] = React.useState("")
   const [submittedSearch, setSubmittedSearch] = React.useState("")
   const [sort, setSort] = React.useState<ListProductsSort>("relevance")
@@ -93,7 +104,7 @@ export default function ListingPage() {
     setSubmittedSearch(departmentSearch)
   }
 
-  if (!isStationery && !isBaby) {
+  if (!isStationery && !isBaby && !isBeauty) {
     return (
       <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col bg-background pb-8">
         <header className="sticky inset-x-0 top-0 z-30 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur-md lg:px-6">
@@ -102,6 +113,58 @@ export default function ListingPage() {
         </header>
         {isLoading && <PageLoader />}
         {listData && <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div>}
+      </div>
+    )
+  }
+
+  if (isBeauty) {
+    return (
+      <div className="min-h-full w-full bg-[#f6f3f8] pb-12 text-[#241f2d]">
+        <div className="bg-[#241f2d] py-2 text-center text-xs font-black uppercase tracking-[0.18em] text-white">Beleza local, entrega perto de você</div>
+        <header className="bg-[#aaa4b1] text-white">
+          <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 sm:px-6 lg:gap-8 lg:px-8">
+            <Link href="/" className="flex items-center gap-2 text-xl font-black"><Sparkles className="h-7 w-7" /> Praça.ai <span className="hidden text-xs font-semibold text-white/70 sm:inline">Beleza</span></Link>
+            <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que você procura hoje?" className="h-12 border-0 bg-white pl-12 pr-12 text-[#241f2d]" />
+              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#5e287d] p-2"><ArrowRight className="h-4 w-4" /></button>
+            </form>
+            <div className="flex items-center gap-3 justify-self-end"><Link href="/profile" className="hidden text-sm font-bold sm:block">Entrar</Link><span className="rounded-full bg-white/15 p-2.5"><ShoppingCart className="h-5 w-5" /></span></div>
+          </div>
+          <nav className="border-t border-white/15 bg-[#77717e]">
+            <div className="mx-auto flex max-w-6xl items-center gap-7 overflow-x-auto px-4 py-3 text-xs font-black sm:px-6 lg:px-8">
+              <button onClick={() => setSort("offers")} className="shrink-0 text-[#f1d4ff]">Promoções</button>
+              {beautyDepartments.map((item) => <button key={item.label} onClick={() => selectDepartment(item.search)} className="shrink-0 hover:text-[#f1d4ff]">{item.label}</button>)}
+            </div>
+          </nav>
+        </header>
+
+        <main>
+          <section className="relative overflow-hidden bg-gradient-to-r from-[#e9def4] via-[#f2e9fb] to-[#ddd0ee]">
+            <div className="absolute -right-16 -top-24 h-96 w-96 rounded-full border-[60px] border-white/25" />
+            <div className="absolute bottom-0 left-[45%] h-28 w-28 rounded-full bg-[#b783cc]/25 blur-2xl" />
+            <div className="relative mx-auto grid min-h-[390px] max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_0.75fr] lg:px-8">
+              <div><span className="inline-flex rounded-full bg-white/70 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-[#5e287d]">Seu momento de cuidado</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.05] sm:text-6xl">Beleza que combina com você</h1><p className="mt-4 max-w-xl text-base text-[#4d4655] sm:text-lg">Cabelos, perfumaria, maquiagem, skincare e bem-estar das melhores lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-beleza")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-[#5e287d] hover:bg-[#4a1f63]">Descobrir produtos</Button></div>
+              <div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[38%_62%_45%_55%] bg-gradient-to-br from-[#7e4b9b] to-[#bf86d2] shadow-2xl"><Sparkles className="h-28 w-28 -rotate-6 text-white" strokeWidth={1.2} /></div><Heart className="absolute bottom-5 left-8 h-12 w-12 fill-white/70 text-white/70" /></div>
+            </div>
+          </section>
+
+          <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+            <div className="mb-5 text-center"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#7e4b9b]">Seu ritual, suas escolhas</p><h2 className="mt-1 text-2xl font-black">Explore por categoria</h2></div>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">{beautyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 2 === 0 ? "bg-[#efe3f5] text-[#7e4b9b]" : "bg-[#f8e6ee] text-[#a34c72]")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div>
+          </section>
+
+          <section className="mx-auto grid max-w-6xl gap-3 px-4 pb-8 sm:grid-cols-3 sm:px-6 lg:px-8">
+            <BeautyPromo icon={Scissors} title="Cabelos incríveis" text="Tratamento, finalização e cor" color="bg-[#eee4f5] text-[#653a80]" search="cabelo" select={selectDepartment} />
+            <BeautyPromo icon={Palette} title="Realce sua beleza" text="Maquiagem para todos os estilos" color="bg-[#fae5ec] text-[#9c4568]" search="maquiagem" select={selectDepartment} />
+            <BeautyPromo icon={Heart} title="Rotina de skincare" text="Limpeza, hidratação e proteção" color="bg-[#e5f1ef] text-[#39796f]" search="skincare" select={selectDepartment} />
+          </section>
+
+          <section id="produtos-beleza" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#7e4b9b]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Beleza e cuidados pessoais</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#5e287d] bg-[#5e287d] text-white" : "bg-white")}>{option.label}</button>)}</div></div>
+            {isLoading ? <div className="py-16"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os produtos" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyCatalog title={submittedSearch ? "Nenhum produto encontrado" : "A vitrine de beleza está recebendo produtos"} text={submittedSearch ? "Tente outra busca ou confira o catálogo completo." : "As lojas parceiras ainda estão publicando seus itens. Volte em breve para conferir as novidades."} clear={() => { setSearch(""); setSubmittedSearch("") }} />}
+          </div></section>
+        </main>
       </div>
     )
   }
@@ -240,6 +303,10 @@ function PromoTile({ icon: Icon, title, subtitle, color, onClick }: { icon: type
 }
 
 function BabyPromo({ icon: Icon, title, text, color, search, select }: { icon: typeof Baby; title: string; text: string; color: string; search: string; select: (search: string) => void }) {
+  return <button onClick={() => select(search)} className={cn("flex min-h-36 items-center gap-5 rounded-2xl p-6 text-left transition hover:-translate-y-1", color)}><span className="rounded-full bg-white/70 p-4"><Icon className="h-8 w-8" /></span><div><h3 className="text-lg font-black">{title}</h3><p className="mt-1 text-sm opacity-75">{text}</p></div></button>
+}
+
+function BeautyPromo({ icon: Icon, title, text, color, search, select }: { icon: typeof Sparkles; title: string; text: string; color: string; search: string; select: (search: string) => void }) {
   return <button onClick={() => select(search)} className={cn("flex min-h-36 items-center gap-5 rounded-2xl p-6 text-left transition hover:-translate-y-1", color)}><span className="rounded-full bg-white/70 p-4"><Icon className="h-8 w-8" /></span><div><h3 className="text-lg font-black">{title}</h3><p className="mt-1 text-sm opacity-75">{text}</p></div></button>
 }
 
