@@ -629,6 +629,18 @@ components:
           type: integer
         freeShipping:
           type: boolean
+        specs:
+          type: array
+          items:
+            type: object
+            properties:
+              label:
+                type: string
+              value:
+                type: string
+            required:
+              - label
+              - value
       required:
         - id
         - name
@@ -663,6 +675,10 @@ components:
               type: string
             returnPolicy:
               type: string
+            relatedProducts:
+              type: array
+              items:
+                $ref: "#/components/schemas/Product"
           required:
             - vendorRating
             - vendorSalesCount

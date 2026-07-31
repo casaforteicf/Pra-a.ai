@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
+import { ProductCard } from "@/components/ProductCard"
 import { motion } from "framer-motion"
 
 interface ProductQuestion {
@@ -282,6 +283,22 @@ export default function ProductDetail() {
             <p className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap">
               {product.description}
             </p>
+            {product.specs && product.specs.length > 0 && (
+              <div className="mt-5">
+                <h3 className="font-bold text-sm mb-2">Detalhes do produto</h3>
+                <div className="rounded-xl border overflow-hidden">
+                  {product.specs.map((spec, i) => (
+                    <div
+                      key={i}
+                      className={`flex text-sm ${i % 2 === 0 ? 'bg-background' : 'bg-white'} ${i > 0 ? 'border-t' : ''}`}
+                    >
+                      <span className="w-1/3 shrink-0 px-3 py-2.5 text-muted-foreground font-medium">{spec.label}</span>
+                      <span className="flex-1 px-3 py-2.5 text-foreground">{spec.value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </TabsContent>
           
           <TabsContent value="reviews" className="pt-4">
@@ -370,6 +387,18 @@ export default function ProductDetail() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Related Products */}
+        {product.relatedProducts && product.relatedProducts.length > 0 && (
+          <div className="mt-2">
+            <h3 className="font-bold text-base mb-3">Você também pode gostar</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {product.relatedProducts.map(related => (
+                <ProductCard key={related.id} product={related} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Fixed Bottom Action Bar */}

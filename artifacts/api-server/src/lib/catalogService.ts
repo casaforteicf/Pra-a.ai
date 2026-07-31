@@ -71,6 +71,13 @@ export function mapCatalogRow(row: any) {
     vendorDescription: "",
     shippingInfo: "Frete calculado no checkout.",
     returnPolicy: "7 dias para devolução, conforme CDC.",
+    // Tabela de especificações (item 3, paridade com Mercado Livre): Marca
+    // sempre entra primeiro quando preenchida, seguida de qualquer par
+    // label/value cadastrado pelo lojista em especificacoes (jsonb livre).
+    specs: [
+      ...(row.marca ? [{ label: "Marca", value: row.marca }] : []),
+      ...(Array.isArray(row.especificacoes) ? row.especificacoes : []),
+    ],
   };
 }
 
@@ -209,3 +216,20 @@ export async function getProductsByIds(ids: string[]) {
   );
   return result.rows.map(mapCatalogRow);
 }
+
+// Produtos relacionados (item 4, paridade com Mercado Livre) — mesma
+// categoria do produto atual, excluindo ele mesmo. Prioriza produtos em
+// destaque, depois mais recentes. Sem categoria (categoriaId nulo), não dá
+// pra relacionar por afinidade real, então retorna vazio em vez de
+// mostrar produtos aleatórios.
+export async function getRelatedProducts(productId: string, categoriaNome: string | null, limit = 6) {
+  if (!categoriaNome) return [];
+  const result = await vendorPool.query(
+    `${BASE_QUERY} WHERE pc.id != $1 AND cp.nome = $2 AND t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
+     ORDER BY pc.destaque DESC, pc.created_at DESC
+     LIMIT $3`,
+    [productId, categoriaNome, limit],
+  );
+  return result.rows.map(mapCatalogRow);
+}
+

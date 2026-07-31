@@ -14,4 +14,5 @@ export type ProductDetail = Product & ({
   vendorDescription?: string | null;
   shippingInfo: string;
   returnPolicy: string;
+  relatedProducts?: Product[];
 });

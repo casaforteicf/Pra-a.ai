@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { vendorPool } from "../lib/vendorDb";
-import { mapCatalogRow, getProductById } from "../lib/catalogService";
+import { mapCatalogRow, getProductById, getRelatedProducts } from "../lib/catalogService";
 import { getVendorSalesCount } from "./stores";
 import { getProductRatingSummary, getRatingsForProducts, getVendorRatingSummary } from "./reviews";
 import { db, orderItemsTable, ordersTable } from "@workspace/db";
@@ -150,12 +150,19 @@ router.get("/products/:id", async (req, res): Promise<void> => {
     // vendorRating/vendorSalesCount — nunca eram preenchidos de verdade).
     const vendorRatingSummary = await getVendorRatingSummary(product.vendorId);
     const vendorSalesCount = await getVendorSalesCount(product.vendorId);
+    const relatedProductsRaw = await getRelatedProducts(id, product.category);
+    const relatedRatings = await getRatingsForProducts(relatedProductsRaw.map((p) => p.id));
+    const relatedProducts = relatedProductsRaw.map((p) => ({
+      ...p,
+      ...(relatedRatings.get(p.id) ?? { rating: 0, reviewCount: 0 }),
+    }));
     res.json({
       ...product,
       ...ratingSummary,
       vendorRating: vendorRatingSummary.rating,
       vendorReviewCount: vendorRatingSummary.reviewCount,
       vendorSalesCount,
+      relatedProducts,
       comprasUltimas24h: comprasUltimas24h >= MIN_COMPRAS_PARA_EXIBIR ? comprasUltimas24h : null,
     });
   } catch (err) {

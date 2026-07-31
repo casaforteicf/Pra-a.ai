@@ -112,7 +112,11 @@ export const GetHomeResponse = zod.object({
   "isFavorited": zod.boolean(),
   "sizes": zod.array(zod.string()).nullish(),
   "deliveryDays": zod.number(),
-  "freeShipping": zod.boolean()
+  "freeShipping": zod.boolean(),
+  "specs": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+})).optional()
 })),
   "carousels": zod.array(zod.object({
   "category": zod.object({
@@ -143,7 +147,11 @@ export const GetHomeResponse = zod.object({
   "isFavorited": zod.boolean(),
   "sizes": zod.array(zod.string()).nullish(),
   "deliveryDays": zod.number(),
-  "freeShipping": zod.boolean()
+  "freeShipping": zod.boolean(),
+  "specs": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+})).optional()
 }))
 })),
   "flashDeals": zod.array(zod.object({
@@ -167,7 +175,11 @@ export const GetHomeResponse = zod.object({
   "isFavorited": zod.boolean(),
   "sizes": zod.array(zod.string()).nullish(),
   "deliveryDays": zod.number(),
-  "freeShipping": zod.boolean()
+  "freeShipping": zod.boolean(),
+  "specs": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+})).optional()
 }))
 })
 
@@ -221,7 +233,11 @@ export const ListProductsResponse = zod.object({
   "isFavorited": zod.boolean(),
   "sizes": zod.array(zod.string()).nullish(),
   "deliveryDays": zod.number(),
-  "freeShipping": zod.boolean()
+  "freeShipping": zod.boolean(),
+  "specs": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+})).optional()
 })),
   "total": zod.number(),
   "page": zod.number(),
@@ -257,13 +273,44 @@ export const GetProductResponse = zod.object({
   "isFavorited": zod.boolean(),
   "sizes": zod.array(zod.string()).nullish(),
   "deliveryDays": zod.number(),
-  "freeShipping": zod.boolean()
+  "freeShipping": zod.boolean(),
+  "specs": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+})).optional()
 }).and(zod.object({
   "vendorRating": zod.number(),
   "vendorSalesCount": zod.number(),
   "vendorDescription": zod.string().nullish(),
   "shippingInfo": zod.string(),
-  "returnPolicy": zod.string()
+  "returnPolicy": zod.string(),
+  "relatedProducts": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "description": zod.string(),
+  "price": zod.number(),
+  "originalPrice": zod.number().nullish(),
+  "discountPct": zod.number().nullish(),
+  "imageUrl": zod.string(),
+  "images": zod.array(zod.string()),
+  "category": zod.string(),
+  "categorySlug": zod.string(),
+  "vendorId": zod.string(),
+  "vendorName": zod.string(),
+  "vendorLogoUrl": zod.string().nullish(),
+  "rating": zod.number(),
+  "reviewCount": zod.number(),
+  "salesCount": zod.number(),
+  "stock": zod.number(),
+  "isFavorited": zod.boolean(),
+  "sizes": zod.array(zod.string()).nullish(),
+  "deliveryDays": zod.number(),
+  "freeShipping": zod.boolean(),
+  "specs": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+})).optional()
+})).optional()
 }))
 
 
@@ -439,7 +486,11 @@ export const GetCartResponse = zod.object({
   "isFavorited": zod.boolean(),
   "sizes": zod.array(zod.string()).nullish(),
   "deliveryDays": zod.number(),
-  "freeShipping": zod.boolean()
+  "freeShipping": zod.boolean(),
+  "specs": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+})).optional()
 }),
   "quantity": zod.number(),
   "selectedSize": zod.string().nullish()
@@ -484,7 +535,11 @@ export const AddToCartResponse = zod.object({
   "isFavorited": zod.boolean(),
   "sizes": zod.array(zod.string()).nullish(),
   "deliveryDays": zod.number(),
-  "freeShipping": zod.boolean()
+  "freeShipping": zod.boolean(),
+  "specs": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+})).optional()
 }),
   "quantity": zod.number(),
   "selectedSize": zod.string().nullish()
@@ -527,7 +582,11 @@ export const RemoveFromCartResponse = zod.object({
   "isFavorited": zod.boolean(),
   "sizes": zod.array(zod.string()).nullish(),
   "deliveryDays": zod.number(),
-  "freeShipping": zod.boolean()
+  "freeShipping": zod.boolean(),
+  "specs": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+})).optional()
 }),
   "quantity": zod.number(),
   "selectedSize": zod.string().nullish()
@@ -712,7 +771,11 @@ export const ListFavoritesResponseItem = zod.object({
   "isFavorited": zod.boolean(),
   "sizes": zod.array(zod.string()).nullish(),
   "deliveryDays": zod.number(),
-  "freeShipping": zod.boolean()
+  "freeShipping": zod.boolean(),
+  "specs": zod.array(zod.object({
+  "label": zod.string(),
+  "value": zod.string()
+})).optional()
 })
 export const ListFavoritesResponse = zod.array(ListFavoritesResponseItem)
 

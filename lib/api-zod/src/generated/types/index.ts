@@ -41,6 +41,7 @@ export * from './orderStatus';
 export * from './product';
 export * from './productDetail';
 export * from './productListResponse';
+export * from './productSpecsItem';
 export * from './profileUpdate';
 export * from './review';
 export * from './savedAddress';

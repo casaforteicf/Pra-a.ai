@@ -43,6 +43,11 @@ export interface Category {
   productCount: number;
 }
 
+export type ProductSpecsItem = {
+  label: string;
+  value: string;
+};
+
 export interface Product {
   id: string;
   name: string;
@@ -69,6 +74,7 @@ export interface Product {
   sizes?: string[] | null;
   deliveryDays: number;
   freeShipping: boolean;
+  specs?: ProductSpecsItem[];
 }
 
 export type ProductDetail = Product & ({
@@ -78,6 +84,7 @@ export type ProductDetail = Product & ({
   vendorDescription?: string | null;
   shippingInfo: string;
   returnPolicy: string;
+  relatedProducts?: Product[];
 });
 
 export interface ProductListResponse {

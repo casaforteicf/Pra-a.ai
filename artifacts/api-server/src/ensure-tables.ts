@@ -596,6 +596,11 @@ CREATE INDEX IF NOT EXISTS idx_imoveis_visitas_propriedade ON imoveis_visitas(pr
 -- null = herda o comportamento padrão.
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS vende_no_praca_ai_produto boolean;
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS preco_praca_ai numeric(12,2);
+
+-- Tabela de especificações livre do produto (Complemento Praça.ai — item 3
+-- da paridade com Mercado Livre: Marca/Modelo/Cor/etc). jsonb com lista de
+-- pares label/value, cabe em qualquer categoria sem coluna fixa por atributo.
+ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS especificacoes jsonb;
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {

@@ -7,8 +7,8 @@ export interface ProductCardData {
   id: string
   name: string
   price: number
-  originalPrice: number | null
-  discountPct: number | null
+  originalPrice?: number | null
+  discountPct?: number | null
   imageUrl: string | null
   vendorName: string
   rating?: number

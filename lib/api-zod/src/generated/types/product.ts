@@ -5,6 +5,7 @@
  * Praça.ai marketplace API
  * OpenAPI spec version: 0.1.0
  */
+import type { ProductSpecsItem } from './productSpecsItem';
 
 export interface Product {
   id: string;
@@ -32,4 +33,5 @@ export interface Product {
   sizes?: string[] | null;
   deliveryDays: number;
   freeShipping: boolean;
+  specs?: ProductSpecsItem[];
 }
