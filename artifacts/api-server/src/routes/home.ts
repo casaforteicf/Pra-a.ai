@@ -35,7 +35,7 @@ const BANNERS = [
 
 router.get("/home", async (_req, res): Promise<void> => {
   try {
-    const categories = await getRealCategories(8);
+    const categories = await getRealCategories();
     const featuredProducts = await getFeaturedProducts(6);
     const flashDeals = await getPromotedProducts(8);
 
