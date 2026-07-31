@@ -23,9 +23,9 @@ export default function ListingPage() {
   const sorts = ['Relevância', 'Menor Preço', 'Mais Vendidos', 'Avaliação', 'Ofertas']
 
   return (
-    <div className="flex flex-col w-full min-h-full pb-8 bg-background">
+    <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col bg-background pb-8">
       {/* Header */}
-      <header className="sticky top-0 sm:top-7 inset-x-0 bg-background/95 backdrop-blur-md z-30 px-4 pt-4 pb-3 border-b">
+      <header className="sticky top-0 inset-x-0 z-30 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur-md lg:px-6">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => setLocation('/')}
@@ -64,7 +64,7 @@ export default function ListingPage() {
 
       {listData && (
         <div className="p-4">
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
             {listData.products.map(product => (
               <Link key={product.id} href={`/product/${product.id}`}>
                 <Card className="h-full border-none shadow-sm overflow-hidden flex flex-col active:scale-95 transition-transform group">

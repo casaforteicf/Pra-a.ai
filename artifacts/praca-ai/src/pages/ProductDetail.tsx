@@ -122,9 +122,9 @@ export default function ProductDetail() {
   if (!product) return <div className="p-8 text-center text-muted-foreground font-bold">Produto não encontrado.</div>
 
   return (
-    <div className="flex flex-col w-full min-h-full pb-32 bg-white">
+    <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col bg-white pb-32">
       {/* Absolute Header overlay */}
-      <header className="absolute top-0 sm:top-7 inset-x-0 z-30 px-4 pt-4 flex items-center justify-between pointer-events-none">
+      <header className="absolute top-0 inset-x-0 z-30 flex items-center justify-between px-4 pt-4 pointer-events-none">
         <button 
           onClick={() => window.history.back()}
           className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center shadow-sm pointer-events-auto active:scale-95"
@@ -147,7 +147,7 @@ export default function ProductDetail() {
       </header>
 
       {/* Image Gallery */}
-      <div className="w-full aspect-[4/5] bg-muted relative">
+      <div className="relative aspect-[4/5] w-full bg-muted md:mx-auto md:mt-6 md:max-w-2xl md:overflow-hidden md:rounded-3xl lg:aspect-[16/10]">
         <img src={product.images?.[selectedImageIndex] ?? product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
       </div>
 
@@ -167,7 +167,7 @@ export default function ProductDetail() {
         </div>
       )}
 
-      <div className="p-5 flex flex-col gap-6">
+      <div className="flex flex-col gap-6 p-5 md:px-8 lg:px-12">
         
         {/* Title & Price */}
         <div>
@@ -392,7 +392,7 @@ export default function ProductDetail() {
         {product.relatedProducts && product.relatedProducts.length > 0 && (
           <div className="mt-2">
             <h3 className="font-bold text-base mb-3">Você também pode gostar</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
               {product.relatedProducts.map(related => (
                 <ProductCard key={related.id} product={related} />
               ))}
@@ -402,7 +402,7 @@ export default function ProductDetail() {
       </div>
 
       {/* Fixed Bottom Action Bar */}
-      <div className="fixed bottom-[88px] sm:bottom-0 sm:absolute inset-x-0 bg-white border-t p-4 flex gap-3 z-40">
+      <div className="fixed bottom-[88px] inset-x-0 z-40 flex gap-3 border-t bg-white p-4 sm:absolute sm:bottom-0 lg:left-1/2 lg:max-w-6xl lg:-translate-x-1/2">
         <Button 
           variant="outline" 
           size="lg" 

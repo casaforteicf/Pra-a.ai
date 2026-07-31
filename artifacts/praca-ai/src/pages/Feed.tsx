@@ -28,7 +28,7 @@ export default function Feed() {
 
   return (
     <div className="flex flex-col w-full min-h-full bg-muted/30">
-      <header className="sticky top-0 sm:top-7 inset-x-0 bg-background/95 backdrop-blur-md z-30 px-4 pt-4 pb-3 border-b">
+      <header className="sticky top-0 inset-x-0 z-30 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur-md">
         <h1 className="text-2xl font-black text-primary">Comunidade</h1>
       </header>
 
