@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ProductCard } from "@/components/ProductCard"
-import { DailyVarietyCard, YesterdayOfferCard, getDailyVarieties, type Variety } from "@/components/DailyVariety"
+import { DailyVarietyCard, getDailyVarieties, type Variety } from "@/components/DailyVariety"
 import type { Product } from "@workspace/api-client-react"
 
 // Mapa dos nomes de ícone que o backend calcula (lib/catalogService.ts,
@@ -47,6 +47,7 @@ const CATEGORY_ICON_MAP: Record<string, typeof Package> = {
 export default function HomePage() {
   const fallbackVarieties = React.useMemo(() => getDailyVarieties(), [])
   const [dailyVarieties, setDailyVarieties] = React.useState(fallbackVarieties)
+  const [scheduledOfferProducts, setScheduledOfferProducts] = React.useState<Product[]>([])
   const { data: homeData, isLoading, isError } = useGetHome({
     query: { queryKey: getGetHomeQueryKey() }
   })
@@ -81,8 +82,7 @@ export default function HomePage() {
           summary: data.conteudo.resumo || data.conteudo.conteudo,
           steps: Array.isArray(data.conteudo.passos) && data.conteudo.passos.length ? data.conteudo.passos : fallbackVarieties.today.steps,
           colors: colorByType[data.conteudo.tipo] ?? fallbackVarieties.today.colors,
-          actionLabel: "Explorar seleção",
-          actionHref: "/listing",
+          mediaUrl: data.conteudo.imagemUrl || undefined,
         } : fallbackVarieties.today
         const yesterday: Variety = data.oferta ? {
           ...fallbackVarieties.yesterday,
@@ -91,10 +91,16 @@ export default function HomePage() {
           offerHref: `/listing?search=${encodeURIComponent(data.oferta.titulo || "ofertas")}`,
         } : fallbackVarieties.yesterday
         setDailyVarieties({ today, yesterday })
+        setScheduledOfferProducts(Array.isArray(data.oferta?.produtos) ? data.oferta.produtos : [])
       })
       .catch(() => undefined)
     return () => { active = false }
   }, [fallbackVarieties])
+
+  const offerProducts = React.useMemo(() => {
+    const products = [...scheduledOfferProducts, ...(homeData?.flashDeals ?? [])]
+    return products.filter((product, index) => products.findIndex((item) => item.id === product.id) === index)
+  }, [scheduledOfferProducts, homeData?.flashDeals])
 
   const loadMoreProducts = React.useCallback(async () => {
     if (loadingMoreRef.current || !hasMoreRef.current) return
@@ -293,28 +299,23 @@ export default function HomePage() {
             ))}
           </section>
 
-          <DailyVarietyCard variety={dailyVarieties.today} />
-
           {/* Flash Deals */}
-          <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-white p-5 shadow-sm">
+          {offerProducts.length > 0 && <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <h3 className="font-black text-xl">Ofertas do dia</h3>
-                  {homeData.flashDeals && homeData.flashDeals.length > 0 && <Badge variant="terracota">Seleção local</Badge>}
+                  <Badge variant="terracota">Seleção local</Badge>
                 </div>
                 <Link href="/listing" className="text-primary text-sm font-bold flex items-center gap-1">
                   Ver todas <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
-              <YesterdayOfferCard variety={dailyVarieties.yesterday} />
-              {homeData.flashDeals && homeData.flashDeals.length > 0 && (
-                <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 hide-scrollbar">
-                  {homeData.flashDeals.map((product) => (
+              <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 hide-scrollbar">
+                  {offerProducts.map((product) => (
                     <ProductCard key={product.id} product={product} className="w-[140px] shrink-0 snap-center md:w-[190px] lg:w-[220px]" />
                   ))}
-                </div>
-              )}
-          </section>
+              </div>
+          </section>}
 
           {/* Category Carousels */}
           {homeData.carousels.map((carousel) => (
@@ -332,6 +333,8 @@ export default function HomePage() {
               </div>
             </section>
           ))}
+
+          <DailyVarietyCard variety={dailyVarieties.today} />
 
           {/* Infinite product discovery */}
           <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl">
