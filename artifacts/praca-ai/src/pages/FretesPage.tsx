@@ -82,7 +82,7 @@ export default function FretesPage() {
         <Card className="p-4 space-y-3">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Truck className="w-5 h-5" />
-            <p className="text-sm">Peça uma cotação — o transportador te responde com o valor.</p>
+            <p className="text-sm">Escolha o tipo de veículo — a gente atribui automaticamente um transportador disponível, que te responde com o valor.</p>
           </div>
 
           <select
@@ -109,7 +109,7 @@ export default function FretesPage() {
           )}
 
           <Button className="w-full" disabled={!podeEnviar || cotar.isPending} onClick={() => cotar.mutate()}>
-            Pedir Cotação
+            Solicitar Frete
           </Button>
         </Card>
       </div>
