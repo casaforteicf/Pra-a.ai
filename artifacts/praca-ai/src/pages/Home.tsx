@@ -299,6 +299,23 @@ export default function HomePage() {
             ))}
           </section>
 
+          {/* Produtos aparecem cedo no mobile, antes dos blocos editoriais. */}
+          {infiniteProducts.length > 0 && (
+            <section className="mx-auto mt-6 w-[calc(100%-2rem)] max-w-6xl">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-xl font-black">Destaques para você</h3>
+                <Link href="/listing" className="flex items-center gap-1 text-sm font-bold text-primary">
+                  Ver mais <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-6">
+                {infiniteProducts.slice(0, 6).map((product) => (
+                  <ProductCard key={product.id} product={product} compact className="h-full w-full" />
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Flash Deals */}
           {offerProducts.length > 0 && <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
@@ -334,8 +351,6 @@ export default function HomePage() {
             </section>
           ))}
 
-          <DailyVarietyCard variety={dailyVarieties.today} />
-
           {/* Infinite product discovery */}
           <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl">
             <div className="mb-4 flex items-end justify-between gap-4">
@@ -348,9 +363,17 @@ export default function HomePage() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {infiniteProducts.map((product) => (
-                <ProductCard key={product.id} product={product} className="h-full w-full" />
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
+              {infiniteProducts.slice(6, 6 + 4 + (new Date().getDate() % 3) * 2).map((product) => (
+                <ProductCard key={product.id} product={product} compact className="h-full w-full" />
+              ))}
+            </div>
+
+            <DailyVarietyCard variety={dailyVarieties.today} />
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
+              {infiniteProducts.slice(6 + 4 + (new Date().getDate() % 3) * 2).map((product) => (
+                <ProductCard key={product.id} product={product} compact className="h-full w-full" />
               ))}
             </div>
 

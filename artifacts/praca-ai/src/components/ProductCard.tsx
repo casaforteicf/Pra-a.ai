@@ -22,13 +22,13 @@ export interface ProductCardData {
  * simular parcelamento — o checkout não suporta parcelas de verdade hoje,
  * então mostrar "em 10x sem juros" seria prometer algo que não existe.
  */
-export function ProductCard({ product, className }: { product: ProductCardData; className?: string }) {
+export function ProductCard({ product, className, compact = false }: { product: ProductCardData; className?: string; compact?: boolean }) {
   const hasRating = (product.reviewCount ?? 0) > 0
 
   return (
     <Link href={`/product/${product.id}`} className={cn("block", className)}>
       <Card className="h-full border-none shadow-sm overflow-hidden active:scale-95 transition-transform group">
-        <div className="relative aspect-square bg-muted">
+        <div className={cn("relative bg-muted", compact ? "aspect-[1.18/1] sm:aspect-square" : "aspect-square")}>
           <img
             src={product.imageUrl ?? undefined}
             alt={product.name}
@@ -40,9 +40,9 @@ export function ProductCard({ product, className }: { product: ProductCardData; 
             </div>
           )}
         </div>
-        <div className="p-3 space-y-1">
+        <div className={cn("space-y-1", compact ? "p-2 sm:p-3" : "p-3")}>
           <p className="text-[11px] text-muted-foreground font-bold truncate">{product.vendorName}</p>
-          <h4 className="font-bold text-sm line-clamp-2 leading-tight">{product.name}</h4>
+          <h4 className={cn("font-bold line-clamp-2 leading-tight", compact ? "text-[13px] sm:text-sm" : "text-sm")}>{product.name}</h4>
 
           {hasRating && (
             <div className="flex items-center gap-1">
@@ -65,7 +65,7 @@ export function ProductCard({ product, className }: { product: ProductCardData; 
             {product.originalPrice && (
               <span className="text-xs text-muted-foreground line-through">{formatMoney(product.originalPrice)}</span>
             )}
-            <span className="font-black text-foreground text-base">{formatMoney(product.price)}</span>
+            <span className={cn("font-black text-foreground", compact ? "text-sm sm:text-base" : "text-base")}>{formatMoney(product.price)}</span>
           </div>
 
           {product.freeShipping && (

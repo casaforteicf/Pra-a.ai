@@ -55,12 +55,12 @@ export function DailyVarietyCard({ variety }: { variety: Variety }) {
   const next = () => setActiveSlide((current) => (current + 1) % slides.length)
 
   return (
-    <section className="mx-auto mt-10 w-[calc(100%-2rem)] max-w-6xl">
+    <section className="mx-auto my-7 w-full max-w-6xl sm:my-10">
       <div className="mb-3 flex items-center justify-between px-1">
         <h2 className="flex items-center gap-2 text-lg font-black"><Sparkles className="h-5 w-5 text-primary" /> Para descobrir hoje</h2>
         <span className="text-xs font-semibold text-muted-foreground">Uma história nova por dia</span>
       </div>
-      <div className={`relative isolate min-h-[500px] overflow-hidden rounded-2xl bg-gradient-to-br ${variety.colors} text-white shadow-sm sm:min-h-[440px] lg:min-h-[500px]`}>
+      <div className={`relative isolate min-h-[390px] overflow-hidden rounded-2xl bg-gradient-to-br ${variety.colors} text-white shadow-sm sm:min-h-[440px] lg:min-h-[500px]`}>
         {variety.mediaUrl && (isVideo
           ? <video src={variety.mediaUrl} autoPlay muted loop playsInline className="absolute inset-0 h-full w-full object-cover" />
           : <img src={variety.mediaUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />)}
@@ -74,7 +74,7 @@ export function DailyVarietyCard({ variety }: { variety: Variety }) {
           {slides.map((_, index) => <button key={index} type="button" aria-label={`Ir para parte ${index + 1}`} onClick={() => setActiveSlide(index)} className="h-1 flex-1 overflow-hidden rounded-full bg-white/35"><span className={`block h-full bg-white transition-all duration-500 ${index <= activeSlide ? "w-full" : "w-0"}`} /></button>)}
         </div>
 
-        <div className="relative z-20 flex min-h-[500px] flex-col justify-between p-6 pt-12 sm:min-h-[440px] sm:p-9 sm:pt-14 lg:min-h-[500px] lg:p-12 lg:pt-16">
+        <div className="relative z-20 flex min-h-[390px] flex-col justify-between p-5 pt-11 sm:min-h-[440px] sm:p-9 sm:pt-14 lg:min-h-[500px] lg:p-12 lg:pt-16">
           <div className="flex items-start justify-between gap-4">
             <span className="rounded-full bg-black/25 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] backdrop-blur-sm">{variety.kind}</span>
             <button type="button" aria-label={paused ? "Continuar" : "Pausar"} onClick={() => setPaused((value) => !value)} className="rounded-full bg-black/25 p-2.5 backdrop-blur-sm">{paused ? <Play className="h-4 w-4 fill-white" /> : <Pause className="h-4 w-4 fill-white" />}</button>
@@ -82,9 +82,9 @@ export function DailyVarietyCard({ variety }: { variety: Variety }) {
 
           <div className="max-w-3xl">
             <div className="mb-4 flex items-center gap-2 text-xs font-bold text-white/80"><Clock3 className="h-4 w-4" /> {variety.time}</div>
-            <h3 className="text-3xl font-black leading-[1.05] sm:text-5xl lg:text-6xl">{variety.title}</h3>
-            <p key={activeSlide} className="mt-5 max-w-2xl animate-in fade-in slide-in-from-bottom-2 text-lg font-medium leading-relaxed text-white/95 sm:text-xl">{slides[activeSlide]}</p>
-            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.14em] text-white/65">Toque nas laterais para continuar</p>
+            <h3 className="text-[1.75rem] font-black leading-[1.05] sm:text-5xl lg:text-6xl">{variety.title}</h3>
+            <p key={activeSlide} className="mt-4 max-w-2xl animate-in fade-in slide-in-from-bottom-2 text-base font-medium leading-relaxed text-white/95 sm:mt-5 sm:text-xl">{slides[activeSlide]}</p>
+            <p className="mt-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/65 sm:mt-6 sm:text-xs">Toque nas laterais para continuar</p>
           </div>
         </div>
       </div>
