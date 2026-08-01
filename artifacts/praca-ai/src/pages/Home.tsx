@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ProductCard } from "@/components/ProductCard"
+import { DailyVarietyCard, YesterdayOfferCard, getDailyVarieties } from "@/components/DailyVariety"
 import type { Product } from "@workspace/api-client-react"
 
 // Mapa dos nomes de ícone que o backend calcula (lib/catalogService.ts,
@@ -44,6 +45,7 @@ const CATEGORY_ICON_MAP: Record<string, typeof Package> = {
 }
 
 export default function HomePage() {
+  const dailyVarieties = React.useMemo(() => getDailyVarieties(), [])
   const { data: homeData, isLoading, isError } = useGetHome({
     query: { queryKey: getGetHomeQueryKey() }
   })
@@ -253,25 +255,28 @@ export default function HomePage() {
             ))}
           </section>
 
+          <DailyVarietyCard variety={dailyVarieties.today} />
+
           {/* Flash Deals */}
-          {homeData.flashDeals && homeData.flashDeals.length > 0 && (
-            <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-white p-5 shadow-sm">
+          <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-black text-xl">Ofertas Relâmpago</h3>
-                  <Badge variant="terracota" className="animate-pulse">03:45:12</Badge>
+                  <h3 className="font-black text-xl">Ofertas do dia</h3>
+                  {homeData.flashDeals && homeData.flashDeals.length > 0 && <Badge variant="terracota">Seleção local</Badge>}
                 </div>
                 <Link href="/listing" className="text-primary text-sm font-bold flex items-center gap-1">
                   Ver todas <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
-              <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 hide-scrollbar">
-                {homeData.flashDeals.map((product) => (
-                  <ProductCard key={product.id} product={product} className="w-[140px] shrink-0 snap-center md:w-[190px] lg:w-[220px]" />
-                ))}
-              </div>
-            </section>
-          )}
+              <YesterdayOfferCard variety={dailyVarieties.yesterday} />
+              {homeData.flashDeals && homeData.flashDeals.length > 0 && (
+                <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 hide-scrollbar">
+                  {homeData.flashDeals.map((product) => (
+                    <ProductCard key={product.id} product={product} className="w-[140px] shrink-0 snap-center md:w-[190px] lg:w-[220px]" />
+                  ))}
+                </div>
+              )}
+          </section>
 
           {/* Category Carousels */}
           {homeData.carousels.map((carousel) => (
