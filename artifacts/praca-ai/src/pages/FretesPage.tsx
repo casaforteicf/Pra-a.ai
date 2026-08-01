@@ -1,12 +1,13 @@
 import * as React from "react"
 import { useLocation } from "wouter"
-import { ChevronLeft, Truck } from "lucide-react"
+import { ChevronLeft, Truck, MapPin } from "lucide-react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
+import { LocationPickerMap } from "@/components/LocationPickerMap"
 
 const TIPO_VEICULO_LABELS: Record<string, string> = {
   utilitario: "Utilitário", van: "Van", caminhao_toco: "Caminhão toco",
@@ -31,6 +32,10 @@ export default function FretesPage() {
   const [tipoVeiculoDesejado, setTipoVeiculoDesejado] = React.useState("")
   const [enderecoColeta, setEnderecoColeta] = React.useState("")
   const [enderecoEntrega, setEnderecoEntrega] = React.useState("")
+  const [pontoColeta, setPontoColeta] = React.useState<{ lat: number; lng: number } | null>(null)
+  const [pontoEntrega, setPontoEntrega] = React.useState<{ lat: number; lng: number } | null>(null)
+  const [showPickerColeta, setShowPickerColeta] = React.useState(false)
+  const [showPickerEntrega, setShowPickerEntrega] = React.useState(false)
   const [tipoCarga, setTipoCarga] = React.useState("")
   const [pesoKg, setPesoKg] = React.useState("")
   const [comprimentoCm, setComprimentoCm] = React.useState("")
@@ -55,6 +60,10 @@ export default function FretesPage() {
           tipoVeiculoDesejado,
           enderecoColeta,
           enderecoEntrega,
+          enderecoColetaLat: pontoColeta?.lat,
+          enderecoColetaLng: pontoColeta?.lng,
+          enderecoEntregaLat: pontoEntrega?.lat,
+          enderecoEntregaLng: pontoEntrega?.lng,
           tipoCarga: tipoCarga || undefined,
           pesoKg: pesoKg ? Number(pesoKg) : undefined,
           volumeM3,
@@ -67,6 +76,10 @@ export default function FretesPage() {
       toast({ title: "Cotação solicitada!", description: `${data.vendorName} vai te responder com o valor em breve.` })
       setEnderecoColeta("")
       setEnderecoEntrega("")
+      setPontoColeta(null)
+      setPontoEntrega(null)
+      setShowPickerColeta(false)
+      setShowPickerEntrega(false)
       setTipoCarga("")
       setPesoKg("")
       setComprimentoCm("")
@@ -119,8 +132,30 @@ export default function FretesPage() {
               ))}
             </select>
 
-            <Input placeholder="Endereço de coleta" value={enderecoColeta} onChange={(e) => setEnderecoColeta(e.target.value)} />
-            <Input placeholder="Endereço de entrega" value={enderecoEntrega} onChange={(e) => setEnderecoEntrega(e.target.value)} />
+            <div className="space-y-1.5">
+              <Input placeholder="Endereço de coleta" value={enderecoColeta} onChange={(e) => setEnderecoColeta(e.target.value)} />
+              <button
+                type="button"
+                onClick={() => setShowPickerColeta((v) => !v)}
+                className="text-xs text-primary font-medium flex items-center gap-1"
+              >
+                <MapPin className="h-3 w-3" /> {pontoColeta ? "Ponto marcado no mapa ✓" : "Marcar ponto exato no mapa (opcional)"}
+              </button>
+              {showPickerColeta && <LocationPickerMap value={pontoColeta} onChange={setPontoColeta} />}
+            </div>
+
+            <div className="space-y-1.5">
+              <Input placeholder="Endereço de entrega" value={enderecoEntrega} onChange={(e) => setEnderecoEntrega(e.target.value)} />
+              <button
+                type="button"
+                onClick={() => setShowPickerEntrega((v) => !v)}
+                className="text-xs text-primary font-medium flex items-center gap-1"
+              >
+                <MapPin className="h-3 w-3" /> {pontoEntrega ? "Ponto marcado no mapa ✓" : "Marcar ponto exato no mapa (opcional)"}
+              </button>
+              {showPickerEntrega && <LocationPickerMap value={pontoEntrega} onChange={setPontoEntrega} />}
+            </div>
+
             <Input placeholder="O que vai ser transportado (opcional)" value={tipoCarga} onChange={(e) => setTipoCarga(e.target.value)} />
             <Input type="number" placeholder="Peso aproximado em kg (opcional)" value={pesoKg} onChange={(e) => setPesoKg(e.target.value)} />
 
