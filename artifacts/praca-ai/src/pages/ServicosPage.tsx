@@ -15,6 +15,7 @@ interface ServicoTipo {
   id: string
   nome: string
   descricao: string | null
+  categoria: string
   especialidade: string
   precoBase: number | null
   requerVisitaTecnica: boolean
@@ -32,10 +33,11 @@ export default function ServicosPage() {
   const [, setLocation] = useLocation()
   const { toast } = useToast()
   const { user } = useAuth()
+  const [categoria, setCategoria] = React.useState("Todos")
 
   const { data: tipos, isLoading } = useQuery<ServicoTipo[]>({
-    queryKey: ["servicos-tipos"],
-    queryFn: () => fetch("/api/servicos/tipos").then((r) => r.json()),
+    queryKey: ["servicos-tipos", categoria],
+    queryFn: () => fetch(`/api/servicos/tipos${categoria === "Todos" ? "" : `?categoria=${encodeURIComponent(categoria)}`}`).then((r) => r.json()),
   })
 
   const [selecionado, setSelecionado] = React.useState<ServicoTipo | null>(null)
@@ -122,11 +124,16 @@ export default function ServicosPage() {
         </div>
       ) : (
         <div className="p-4 space-y-3">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+            {["Todos", "Casa e construção", "Manutenção e assistência", "Automotivo", "Saúde e beleza", "Serviços profissionais", "Eventos e lazer", "Logística", "Imóveis", "Viagens e hotelaria"].map((item) => (
+              <button key={item} onClick={() => setCategoria(item)} className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold border ${categoria === item ? "bg-primary text-primary-foreground border-primary" : "bg-card"}`}>{item}</button>
+            ))}
+          </div>
           {tipos.map((t) => (
             <Card key={t.id} className="p-4 flex items-center justify-between active:scale-[0.98] transition-transform" onClick={() => setSelecionado(t)}>
               <div>
                 <p className="font-bold text-sm">{t.nome}</p>
-                <p className="text-xs text-muted-foreground">{ESPECIALIDADE_LABEL[t.especialidade] ?? t.especialidade} · {t.vendorName}</p>
+                <p className="text-xs text-muted-foreground">{t.categoria} · {ESPECIALIDADE_LABEL[t.especialidade] ?? t.especialidade} · {t.vendorName}</p>
                 {t.precoBase && <p className="text-sm font-black text-primary mt-1">A partir de {formatMoney(t.precoBase)}</p>}
               </div>
             </Card>

@@ -5,6 +5,7 @@ export function mapServicoTipoRow(row: any) {
     id: row.id,
     nome: row.nome,
     descricao: row.descricao,
+    categoria: row.categoria || "Outros",
     especialidade: row.especialidade,
     precoBase: row.preco_base != null ? Number(row.preco_base) : null,
     requerVisitaTecnica: Boolean(row.requer_visita_tecnica),
@@ -18,16 +19,21 @@ const BASE_QUERY = `
   FROM servicos_tipos st
   JOIN tenants t ON t.id = st.tenant_id
   WHERE st.ativo = true
+    AND st.vende_no_praca_ai = true
     AND t.vende_no_praca_ai = true
 `;
 
-export async function listServicosTipos(filters: { especialidade?: string } = {}) {
+export async function listServicosTipos(filters: { especialidade?: string; categoria?: string } = {}) {
   const conditions: string[] = [];
   const params: unknown[] = [];
 
   if (filters.especialidade) {
     params.push(filters.especialidade);
     conditions.push(`st.especialidade = $${params.length}`);
+  }
+  if (filters.categoria) {
+    params.push(filters.categoria);
+    conditions.push(`st.categoria = $${params.length}`);
   }
 
   const query = `${BASE_QUERY} ${conditions.length ? "AND " + conditions.join(" AND ") : ""} ORDER BY st.nome ASC`;

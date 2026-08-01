@@ -25,6 +25,23 @@ CREATE TABLE IF NOT EXISTS carts (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS consumer_addresses (
+  id serial PRIMARY KEY,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
+  label text NOT NULL,
+  street text NOT NULL,
+  number text NOT NULL,
+  complement text,
+  neighborhood text NOT NULL,
+  city text NOT NULL,
+  state text NOT NULL,
+  zip_code text NOT NULL,
+  is_default boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_consumer_addresses_consumer ON consumer_addresses (consumer_id);
+
 CREATE TABLE IF NOT EXISTS cart_items (
   id serial PRIMARY KEY,
   cart_id integer NOT NULL REFERENCES carts(id) ON DELETE CASCADE,

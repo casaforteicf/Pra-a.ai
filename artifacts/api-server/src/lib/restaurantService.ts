@@ -21,6 +21,7 @@ const BASE_QUERY = `
   FROM restaurante_cardapio rc
   JOIN tenants t ON t.id = rc.tenant_id
   WHERE rc.ativo = true
+    AND rc.vende_no_praca_ai = true
     AND t.vende_no_praca_ai = true
 `;
 
@@ -53,7 +54,7 @@ export async function listRestaurantes() {
     `SELECT DISTINCT t.id, t.nome_empresa
      FROM restaurante_cardapio rc
      JOIN tenants t ON t.id = rc.tenant_id
-     WHERE rc.ativo = true AND t.vende_no_praca_ai = true
+     WHERE rc.ativo = true AND rc.vende_no_praca_ai = true AND t.vende_no_praca_ai = true
      ORDER BY t.nome_empresa ASC`,
   );
   return result.rows.map((r) => ({ vendorId: r.id, vendorName: r.nome_empresa }));

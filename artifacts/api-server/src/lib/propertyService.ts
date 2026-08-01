@@ -39,6 +39,7 @@ const BASE_QUERY = `
   FROM imoveis_propriedades ip
   JOIN tenants t ON t.id = ip.tenant_id
   WHERE ip.status = 'disponivel'
+    AND ip.vende_no_praca_ai = true
     AND t.vende_no_praca_ai = true
 `;
 

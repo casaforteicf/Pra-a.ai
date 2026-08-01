@@ -27,6 +27,7 @@ const BASE_QUERY = `
   JOIN tenants t ON t.id = fp.tenant_id
   WHERE fp.ativo = true
     AND fp.estoque > 0
+    AND fp.vende_no_praca_ai = true
     AND t.vende_no_praca_ai = true
 `;
 
