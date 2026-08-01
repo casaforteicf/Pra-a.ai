@@ -2,6 +2,7 @@ import * as React from "react"
 import { Link, useLocation } from "wouter"
 import {
   ArrowRight,
+  Armchair,
   Baby,
   BatteryCharging,
   CalendarDays,
@@ -11,8 +12,10 @@ import {
   Blocks,
   BookOpen,
   BriefcaseBusiness,
+  Car,
   ChevronLeft,
   Camera,
+  CircleDot,
   GraduationCap,
   Gift,
   Gamepad2,
@@ -21,6 +24,7 @@ import {
   Headphones,
   Home,
   Hotel,
+  Lightbulb,
   Footprints,
   Glasses,
   Gem,
@@ -31,6 +35,7 @@ import {
   Palette,
   PenLine,
   Plane,
+  Radio,
   Scissors,
   Search,
   ShieldCheck,
@@ -44,6 +49,7 @@ import {
   Users,
   Watch,
   Wifi,
+  Wrench,
   Puzzle,
   Rocket,
 } from "lucide-react"
@@ -63,6 +69,18 @@ const TOYS_SLUG = "brinquedos-e-hobbies"
 const FASHION_SLUG = "calcados-roupas-e-bolsas"
 const PHONES_SLUG = "celulares-e-telefones"
 const TRAVEL_SLUG = "viagens-e-hoteis"
+const AUTO_ACCESSORIES_SLUG = "acessorios-para-veiculos"
+
+const autoDepartments = [
+  { label: "Exterior", icon: Car, search: "friso calha exterior" },
+  { label: "Interior", icon: Armchair, search: "tapete capa interior" },
+  { label: "Som e multimídia", icon: Radio, search: "som multimídia" },
+  { label: "Iluminação", icon: Lightbulb, search: "lâmpada farol led" },
+  { label: "Segurança", icon: ShieldCheck, search: "segurança automotiva" },
+  { label: "Rodas e pneus", icon: CircleDot, search: "roda pneu" },
+  { label: "Manutenção", icon: Wrench, search: "manutenção automotiva" },
+  { label: "Limpeza", icon: Sparkles, search: "limpeza automotiva" },
+]
 
 const stationeryDepartments = [
   { label: "Escolar", icon: GraduationCap, search: "escolar" },
@@ -137,6 +155,7 @@ export default function ListingPage() {
   const isFashion = categorySlug === FASHION_SLUG
   const isPhones = categorySlug === PHONES_SLUG
   const isTravel = categorySlug === TRAVEL_SLUG
+  const isAutoAccessories = categorySlug === AUTO_ACCESSORIES_SLUG
   const [search, setSearch] = React.useState("")
   const [submittedSearch, setSubmittedSearch] = React.useState("")
   const [sort, setSort] = React.useState<ListProductsSort>("relevance")
@@ -158,6 +177,48 @@ export default function ListingPage() {
   const selectDepartment = (departmentSearch: string) => {
     setSearch(departmentSearch)
     setSubmittedSearch(departmentSearch)
+  }
+
+  if (isAutoAccessories) {
+    return (
+      <div className="min-h-full w-full bg-[#f3f4f3] pb-12 text-[#202723]">
+        <header className="bg-[#17211c] text-white">
+          <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between gap-3">
+              <button onClick={() => setLocation("/")} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10" aria-label="Voltar"><ChevronLeft className="h-6 w-6" /></button>
+              <Link href="/" className="flex items-center gap-2 text-xl font-black"><Car className="h-7 w-7 text-[#72d98f]" /> Praça.ai <span className="hidden text-sm font-semibold text-white/65 sm:inline">Auto</span></Link>
+              <Link href="/cart" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/10" aria-label="Carrinho"><ShoppingCart className="h-5 w-5" /></Link>
+            </div>
+            <form onSubmit={submitSearch} className="relative mt-4">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque acessórios, marca ou modelo" className="h-12 border-0 bg-white pl-12 pr-14 text-base text-slate-950" />
+              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#1f7a45] p-2 text-white" aria-label="Buscar"><Search className="h-4 w-4" /></button>
+            </form>
+          </div>
+          <div className="border-t border-white/10 bg-[#1f7a45]"><div className="mx-auto flex max-w-7xl justify-center gap-5 overflow-x-auto px-4 py-2.5 text-[11px] font-bold sm:gap-10 sm:text-xs"><span className="flex shrink-0 items-center gap-1.5"><ShieldCheck className="h-4 w-4" />Compra segura</span><span className="flex shrink-0 items-center gap-1.5"><PackageCheck className="h-4 w-4" />Compatibilidade verificada</span><span className="flex shrink-0 items-center gap-1.5"><Truck className="h-4 w-4" />Entrega local</span></div></div>
+        </header>
+
+        <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+          <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#26332c] to-[#101713] p-5 text-white shadow-sm sm:p-8">
+            <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#72d98f]">Acessórios para veículos</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Deixe seu carro do seu jeito</h1><p className="mt-2 max-w-xl text-sm text-white/70 sm:text-base">Encontre itens para proteger, equipar e cuidar do veículo nas lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-auto")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-[#72d98f] font-black text-[#132019] hover:bg-[#8be7a4]">Ver acessórios</Button></div>
+              <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-white/10 bg-white/5 md:flex"><Car className="h-24 w-24 text-[#72d98f]" strokeWidth={1.2} /></div>
+            </div>
+          </section>
+
+          <section className="mt-5 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+            <div className="flex items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#1f7a45]">Encontre mais rápido</p><h2 className="mt-1 text-xl font-black">O que você procura?</h2></div><button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="text-xs font-bold text-[#1f7a45]">Ver tudo</button></div>
+            <div className="mt-4 grid grid-cols-4 gap-x-2 gap-y-5 sm:grid-cols-8">{autoDepartments.map(({ label, icon: Icon, search: departmentSearch }) => <button key={label} onClick={() => selectDepartment(departmentSearch)} className="group flex min-w-0 flex-col items-center gap-2 text-center"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e8f3ec] text-[#1f7a45] transition group-hover:bg-[#1f7a45] group-hover:text-white sm:h-14 sm:w-14"><Icon className="h-6 w-6" /></span><span className="text-[10px] font-bold leading-tight sm:text-xs">{label}</span></button>)}</div>
+          </section>
+
+          <section id="produtos-auto" className="mt-5 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#1f7a45]">Vitrine automotiva</p><h2 className="mt-1 text-2xl font-black">Acessórios para seu veículo</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} {listData.total === 1 ? "produto encontrado" : "produtos encontrados"}{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div></div>
+            <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-2">{sortOptions.slice(0, 5).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#1f7a45] bg-[#1f7a45] text-white" : "bg-white")}>{option.label}</button>)}</div>
+            {isLoading ? <div className="py-14"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os acessórios" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} compact />)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-[#bdd8c6] bg-[#f4faf6] px-5 py-10 text-center"><span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white text-[#1f7a45] shadow-sm"><Car className="h-8 w-8" /></span><h3 className="mt-4 text-lg font-black">{submittedSearch ? "Nenhum acessório encontrado" : "Novos acessórios chegando"}</h3><p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{submittedSearch ? "Tente buscar por outro nome, marca ou escolha uma das categorias acima." : "As lojas parceiras ainda estão publicando o catálogo automotivo. Enquanto isso, explore os demais produtos disponíveis na Praça.ai."}</p><div className="mt-5 flex flex-wrap justify-center gap-2"><Button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="bg-[#1f7a45] hover:bg-[#19663a]">Limpar busca</Button><Button variant="outline" onClick={() => setLocation("/listing")}>Explorar a Praça.ai</Button></div></div>}
+          </section>
+        </main>
+      </div>
+    )
   }
 
   if (!isStationery && !isBaby && !isBeauty && !isToys && !isFashion && !isPhones && !isTravel) {
