@@ -27,6 +27,7 @@ import farmaciaRouter from "./farmacia";
 import servicosRouter from "./servicos";
 import fretesRouter from "./fretes";
 import restauranteRouter from "./restaurante";
+import variedadesRouter from "./variedades";
 
 const router: IRouter = Router();
 
@@ -58,5 +59,6 @@ router.use(farmaciaRouter);
 router.use(servicosRouter);
 router.use(fretesRouter);
 router.use(restauranteRouter);
+router.use(variedadesRouter);
 
 export default router;
