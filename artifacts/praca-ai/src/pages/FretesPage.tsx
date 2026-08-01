@@ -8,9 +8,9 @@ import { Card } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 
-interface Prestador {
-  vendorId: string
-  vendorName: string
+const TIPO_VEICULO_LABELS: Record<string, string> = {
+  utilitario: "Utilitário", van: "Van", caminhao_toco: "Caminhão toco",
+  caminhao_truck: "Caminhão truck", carreta: "Carreta",
 }
 
 export default function FretesPage() {
@@ -18,12 +18,15 @@ export default function FretesPage() {
   const { toast } = useToast()
   const { user } = useAuth()
 
-  const { data: prestadores } = useQuery<Prestador[]>({
-    queryKey: ["fretes-prestadores"],
-    queryFn: () => fetch("/api/fretes/prestadores").then((r) => r.json()),
+  // Escolhe só o TIPO de veículo — nunca uma empresa específica; o sistema
+  // escolhe automaticamente quem atende, igual ao fluxo de aceite do
+  // transportador (estilo Uber).
+  const { data: tiposVeiculo } = useQuery<string[]>({
+    queryKey: ["fretes-tipos-veiculo"],
+    queryFn: () => fetch("/api/fretes/tipos-veiculo").then((r) => r.json()),
   })
 
-  const [vendorId, setVendorId] = React.useState("")
+  const [tipoVeiculoDesejado, setTipoVeiculoDesejado] = React.useState("")
   const [enderecoColeta, setEnderecoColeta] = React.useState("")
   const [enderecoEntrega, setEnderecoEntrega] = React.useState("")
   const [tipoCarga, setTipoCarga] = React.useState("")
@@ -39,7 +42,7 @@ export default function FretesPage() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          vendorId,
+          tipoVeiculoDesejado,
           enderecoColeta,
           enderecoEntrega,
           tipoCarga: tipoCarga || undefined,
@@ -62,7 +65,7 @@ export default function FretesPage() {
     },
   })
 
-  const podeEnviar = vendorId && enderecoColeta.trim() && enderecoEntrega.trim() && (!isGuest || (guestName.trim() && guestPhone.trim()))
+  const podeEnviar = tipoVeiculoDesejado && enderecoColeta.trim() && enderecoEntrega.trim() && (!isGuest || (guestName.trim() && guestPhone.trim()))
 
   return (
     <div className="flex flex-col w-full min-h-full pb-8 bg-background">
@@ -84,12 +87,12 @@ export default function FretesPage() {
 
           <select
             className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-            value={vendorId}
-            onChange={(e) => setVendorId(e.target.value)}
+            value={tipoVeiculoDesejado}
+            onChange={(e) => setTipoVeiculoDesejado(e.target.value)}
           >
-            <option value="">Escolha o transportador</option>
-            {prestadores?.map((p) => (
-              <option key={p.vendorId} value={p.vendorId}>{p.vendorName}</option>
+            <option value="">Que tipo de veículo você precisa?</option>
+            {tiposVeiculo?.map((tipo) => (
+              <option key={tipo} value={tipo}>{TIPO_VEICULO_LABELS[tipo] ?? tipo}</option>
             ))}
           </select>
 
