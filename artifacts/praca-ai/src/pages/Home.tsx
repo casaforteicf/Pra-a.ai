@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ProductCard } from "@/components/ProductCard"
-import { DailyVarietyCard, YesterdayOfferCard, getDailyVarieties } from "@/components/DailyVariety"
+import { DailyVarietyCard, YesterdayOfferCard, getDailyVarieties, type Variety } from "@/components/DailyVariety"
 import type { Product } from "@workspace/api-client-react"
 
 // Mapa dos nomes de ícone que o backend calcula (lib/catalogService.ts,
@@ -45,7 +45,8 @@ const CATEGORY_ICON_MAP: Record<string, typeof Package> = {
 }
 
 export default function HomePage() {
-  const dailyVarieties = React.useMemo(() => getDailyVarieties(), [])
+  const fallbackVarieties = React.useMemo(() => getDailyVarieties(), [])
+  const [dailyVarieties, setDailyVarieties] = React.useState(fallbackVarieties)
   const { data: homeData, isLoading, isError } = useGetHome({
     query: { queryKey: getGetHomeQueryKey() }
   })
@@ -57,6 +58,43 @@ export default function HomePage() {
   const loadingMoreRef = React.useRef(false)
   const hasMoreRef = React.useRef(true)
   const loadMoreSentinelRef = React.useRef<HTMLDivElement | null>(null)
+
+  React.useEffect(() => {
+    let active = true
+    fetch("/api/variedades")
+      .then((response) => {
+        if (!response.ok) throw new Error("Variedades indisponíveis")
+        return response.json()
+      })
+      .then((data: { conteudo?: any; oferta?: any }) => {
+        if (!active) return
+        const colorByType: Record<string, string> = {
+          receita: "from-amber-600 via-orange-500 to-rose-500",
+          lugar: "from-emerald-700 via-teal-600 to-sky-500",
+          dica: "from-violet-700 via-fuchsia-600 to-rose-500",
+          historia: "from-slate-800 via-indigo-700 to-blue-500",
+        }
+        const today: Variety = data.conteudo ? {
+          ...fallbackVarieties.today,
+          kind: ({ receita: "Receita do dia", lugar: "Lugar para conhecer", dica: "Ideia para o dia a dia", historia: "História local" } as Record<string, string>)[data.conteudo.tipo] ?? "Variedade do dia",
+          title: data.conteudo.titulo,
+          summary: data.conteudo.resumo || data.conteudo.conteudo,
+          steps: Array.isArray(data.conteudo.passos) && data.conteudo.passos.length ? data.conteudo.passos : fallbackVarieties.today.steps,
+          colors: colorByType[data.conteudo.tipo] ?? fallbackVarieties.today.colors,
+          actionLabel: "Explorar seleção",
+          actionHref: "/listing",
+        } : fallbackVarieties.today
+        const yesterday: Variety = data.oferta ? {
+          ...fallbackVarieties.yesterday,
+          offerTitle: data.oferta.titulo || fallbackVarieties.yesterday.offerTitle,
+          offerSummary: data.oferta.resumo || fallbackVarieties.yesterday.offerSummary,
+          offerHref: `/listing?search=${encodeURIComponent(data.oferta.titulo || "ofertas")}`,
+        } : fallbackVarieties.yesterday
+        setDailyVarieties({ today, yesterday })
+      })
+      .catch(() => undefined)
+    return () => { active = false }
+  }, [fallbackVarieties])
 
   const loadMoreProducts = React.useCallback(async () => {
     if (loadingMoreRef.current || !hasMoreRef.current) return
