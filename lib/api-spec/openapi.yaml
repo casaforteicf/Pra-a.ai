@@ -497,6 +497,57 @@ paths:
               schema:
                 $ref: "#/components/schemas/UserProfile"
 
+  /profile/addresses:
+    post:
+      operationId: createProfileAddress
+      tags: [profile]
+      summary: Add a delivery address to the authenticated profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileAddressInput"
+      responses:
+        "201":
+          description: Address created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedAddress"
+
+  /profile/addresses/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+    patch:
+      operationId: updateProfileAddress
+      tags: [profile]
+      summary: Update an authenticated consumer address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileAddressInput"
+      responses:
+        "200":
+          description: Address updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedAddress"
+    delete:
+      operationId: deleteProfileAddress
+      tags: [profile]
+      summary: Remove an authenticated consumer address
+      responses:
+        "204":
+          description: Address removed
+
 components:
   schemas:
     ConsumerRegisterInput:
@@ -1133,6 +1184,36 @@ components:
         - zipCode
         - isDefault
 
+    ProfileAddressInput:
+      type: object
+      properties:
+        label:
+          type: string
+        street:
+          type: string
+        number:
+          type: string
+        complement:
+          type: ["string", "null"]
+        neighborhood:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zipCode:
+          type: string
+        isDefault:
+          type: boolean
+      required:
+        - label
+        - street
+        - number
+        - neighborhood
+        - city
+        - state
+        - zipCode
+
     ProfileUpdate:
       type: object
       properties:
@@ -1141,6 +1222,8 @@ components:
         phone:
           type: ["string", "null"]
         avatarUrl:
+          type: ["string", "null"]
+        cpf:
           type: ["string", "null"]
 
     Banner:

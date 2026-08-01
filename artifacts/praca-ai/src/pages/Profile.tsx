@@ -102,8 +102,7 @@ export default function Profile() {
             icon={<Tag className="text-amber-500" />}
             title="Meus Cupons"
             subtitle="Descontos disponíveis"
-            badge="2"
-            onClick={() => {}}
+            onClick={() => (user ? setLocation("/account/coupons") : setLocation("/login"))}
           />
         </div>
 
@@ -111,11 +110,13 @@ export default function Profile() {
           Ajustes
         </h3>
         <div className="bg-background rounded-2xl shadow-sm border p-2 flex flex-col">
-          <MenuRow icon={<MapPin className="text-slate-500" />} title="Endereços" onClick={() => {}} />
+          <MenuRow icon={<User className="text-slate-500" />} title="Meus Dados" onClick={() => (user ? setLocation("/account/profile") : setLocation("/login"))} />
           <div className="h-px bg-muted mx-4" />
-          <MenuRow icon={<Settings className="text-slate-500" />} title="Configurações do App" onClick={() => {}} />
+          <MenuRow icon={<MapPin className="text-slate-500" />} title="Endereços" onClick={() => (user ? setLocation("/account/addresses") : setLocation("/login"))} />
           <div className="h-px bg-muted mx-4" />
-          <MenuRow icon={<HelpCircle className="text-slate-500" />} title="Ajuda & Suporte" onClick={() => {}} />
+          <MenuRow icon={<Settings className="text-slate-500" />} title="Configurações do App" onClick={() => (user ? setLocation("/account/settings") : setLocation("/login"))} />
+          <div className="h-px bg-muted mx-4" />
+          <MenuRow icon={<HelpCircle className="text-slate-500" />} title="Ajuda & Suporte" onClick={() => (user ? setLocation("/account/support") : setLocation("/login"))} />
         </div>
 
         {user && (

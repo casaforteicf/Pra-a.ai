@@ -40,6 +40,7 @@ const BASE_QUERY = `
   JOIN tenants t ON t.id = ve.tenant_id
   WHERE ve.status = 'disponivel'
     AND ve.vistoria_realizada = true
+    AND ve.vende_no_praca_ai = true
     AND t.vende_no_praca_ai = true
 `;
 

@@ -8,8 +8,8 @@ import { vendorPool } from "../lib/vendorDb";
 const router: IRouter = Router();
 
 router.get("/servicos/tipos", async (req, res): Promise<void> => {
-  const { especialidade } = req.query as { especialidade?: string };
-  const tipos = await listServicosTipos({ especialidade });
+  const { especialidade, categoria } = req.query as { especialidade?: string; categoria?: string };
+  const tipos = await listServicosTipos({ especialidade, categoria });
   res.json(tipos);
 });
 
