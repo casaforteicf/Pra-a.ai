@@ -20,10 +20,12 @@ export default function FretesPage() {
 
   // Escolhe só o TIPO de veículo — nunca uma empresa específica; o sistema
   // escolhe automaticamente quem atende, igual ao fluxo de aceite do
-  // transportador (estilo Uber).
+  // transportador (estilo Uber). Login obrigatório: sem fluxo de guest aqui
+  // (diferente de outras telas do Praça.ai) — nome/telefone vêm da conta.
   const { data: tiposVeiculo } = useQuery<string[]>({
     queryKey: ["fretes-tipos-veiculo"],
     queryFn: () => fetch("/api/fretes/tipos-veiculo").then((r) => r.json()),
+    enabled: !!user,
   })
 
   const [tipoVeiculoDesejado, setTipoVeiculoDesejado] = React.useState("")
@@ -31,9 +33,17 @@ export default function FretesPage() {
   const [enderecoEntrega, setEnderecoEntrega] = React.useState("")
   const [tipoCarga, setTipoCarga] = React.useState("")
   const [pesoKg, setPesoKg] = React.useState("")
-  const [guestName, setGuestName] = React.useState("")
-  const [guestPhone, setGuestPhone] = React.useState("")
-  const isGuest = !user
+  const [comprimentoCm, setComprimentoCm] = React.useState("")
+  const [larguraCm, setLarguraCm] = React.useState("")
+  const [alturaCm, setAlturaCm] = React.useState("")
+
+  // Volume calculado automaticamente a partir das 3 dimensões (cm³ → m³) —
+  // cliente nunca digita m³ direto.
+  const volumeM3 = React.useMemo(() => {
+    const c = Number(comprimentoCm), l = Number(larguraCm), a = Number(alturaCm)
+    if (!c || !l || !a) return undefined
+    return (c * l * a) / 1_000_000
+  }, [comprimentoCm, larguraCm, alturaCm])
 
   const cotar = useMutation({
     mutationFn: () =>
@@ -47,7 +57,7 @@ export default function FretesPage() {
           enderecoEntrega,
           tipoCarga: tipoCarga || undefined,
           pesoKg: pesoKg ? Number(pesoKg) : undefined,
-          ...(isGuest ? { guestName, guestPhone } : {}),
+          volumeM3,
         }),
       }).then(async (r) => {
         if (!r.ok) throw new Error((await r.json()).error ?? "Falha ao pedir cotação")
@@ -59,13 +69,16 @@ export default function FretesPage() {
       setEnderecoEntrega("")
       setTipoCarga("")
       setPesoKg("")
+      setComprimentoCm("")
+      setLarguraCm("")
+      setAlturaCm("")
     },
     onError: (err: any) => {
       toast({ title: "Não foi possível pedir a cotação", description: err.message, variant: "destructive" })
     },
   })
 
-  const podeEnviar = tipoVeiculoDesejado && enderecoColeta.trim() && enderecoEntrega.trim() && (!isGuest || (guestName.trim() && guestPhone.trim()))
+  const podeEnviar = tipoVeiculoDesejado && enderecoColeta.trim() && enderecoEntrega.trim()
 
   return (
     <div className="flex flex-col w-full min-h-full pb-8 bg-background">
@@ -79,39 +92,55 @@ export default function FretesPage() {
       </header>
 
       <div className="p-4 space-y-4">
-        <Card className="p-4 space-y-3">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Truck className="w-5 h-5" />
-            <p className="text-sm">Escolha o tipo de veículo — a gente atribui automaticamente um transportador disponível, que te responde com o valor.</p>
+        {!user ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Truck className="w-16 h-16 text-muted-foreground mb-4" />
+            <h2 className="text-xl font-black mb-2">Entre para pedir um frete</h2>
+            <p className="text-muted-foreground text-sm mb-6">
+              Faça login pra solicitar — seu nome e telefone já ficam vinculados à sua conta.
+            </p>
+            <Button onClick={() => setLocation("/login")}>Entrar</Button>
           </div>
+        ) : (
+          <Card className="p-4 space-y-3">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Truck className="w-5 h-5" />
+              <p className="text-sm">Escolha o tipo de veículo — a gente atribui automaticamente um transportador disponível, que te responde com o valor.</p>
+            </div>
 
-          <select
-            className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-            value={tipoVeiculoDesejado}
-            onChange={(e) => setTipoVeiculoDesejado(e.target.value)}
-          >
-            <option value="">Que tipo de veículo você precisa?</option>
-            {tiposVeiculo?.map((tipo) => (
-              <option key={tipo} value={tipo}>{TIPO_VEICULO_LABELS[tipo] ?? tipo}</option>
-            ))}
-          </select>
+            <select
+              className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
+              value={tipoVeiculoDesejado}
+              onChange={(e) => setTipoVeiculoDesejado(e.target.value)}
+            >
+              <option value="">Que tipo de veículo você precisa?</option>
+              {tiposVeiculo?.map((tipo) => (
+                <option key={tipo} value={tipo}>{TIPO_VEICULO_LABELS[tipo] ?? tipo}</option>
+              ))}
+            </select>
 
-          <Input placeholder="Endereço de coleta" value={enderecoColeta} onChange={(e) => setEnderecoColeta(e.target.value)} />
-          <Input placeholder="Endereço de entrega" value={enderecoEntrega} onChange={(e) => setEnderecoEntrega(e.target.value)} />
-          <Input placeholder="O que vai ser transportado (opcional)" value={tipoCarga} onChange={(e) => setTipoCarga(e.target.value)} />
-          <Input type="number" placeholder="Peso aproximado em kg (opcional)" value={pesoKg} onChange={(e) => setPesoKg(e.target.value)} />
+            <Input placeholder="Endereço de coleta" value={enderecoColeta} onChange={(e) => setEnderecoColeta(e.target.value)} />
+            <Input placeholder="Endereço de entrega" value={enderecoEntrega} onChange={(e) => setEnderecoEntrega(e.target.value)} />
+            <Input placeholder="O que vai ser transportado (opcional)" value={tipoCarga} onChange={(e) => setTipoCarga(e.target.value)} />
+            <Input type="number" placeholder="Peso aproximado em kg (opcional)" value={pesoKg} onChange={(e) => setPesoKg(e.target.value)} />
 
-          {isGuest && (
-            <>
-              <Input placeholder="Seu nome" value={guestName} onChange={(e) => setGuestName(e.target.value)} />
-              <Input placeholder="Telefone (com DDD)" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} />
-            </>
-          )}
+            <div className="space-y-1.5">
+              <p className="text-xs text-muted-foreground">Dimensões da carga em cm (opcional)</p>
+              <div className="grid grid-cols-3 gap-2">
+                <Input type="number" placeholder="Compr." value={comprimentoCm} onChange={(e) => setComprimentoCm(e.target.value)} />
+                <Input type="number" placeholder="Larg." value={larguraCm} onChange={(e) => setLarguraCm(e.target.value)} />
+                <Input type="number" placeholder="Alt." value={alturaCm} onChange={(e) => setAlturaCm(e.target.value)} />
+              </div>
+              {volumeM3 !== undefined && (
+                <p className="text-xs text-muted-foreground">≈ {volumeM3.toFixed(3)} m³</p>
+              )}
+            </div>
 
-          <Button className="w-full" disabled={!podeEnviar || cotar.isPending} onClick={() => cotar.mutate()}>
-            Solicitar Frete
-          </Button>
-        </Card>
+            <Button className="w-full" disabled={!podeEnviar || cotar.isPending} onClick={() => cotar.mutate()}>
+              Solicitar Frete
+            </Button>
+          </Card>
+        )}
       </div>
     </div>
   )
