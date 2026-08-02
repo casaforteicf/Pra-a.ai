@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet"
+import { useEffect, useState } from "react"
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from "react-leaflet"
 import L from "leaflet"
 import "leaflet/dist/leaflet.css"
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png"
@@ -29,6 +29,14 @@ function ClickCapture({ onPick }: { onPick: (lat: number, lng: number) => void }
   return null
 }
 
+function RecenterMap({ point }: { point: { lat: number; lng: number } | null }) {
+  const map = useMap()
+  useEffect(() => {
+    if (point) map.setView([point.lat, point.lng], 16)
+  }, [map, point])
+  return null
+}
+
 interface LocationPickerMapProps {
   value: { lat: number; lng: number } | null
   onChange: (point: { lat: number; lng: number } | null) => void
@@ -51,6 +59,7 @@ export function LocationPickerMap({ value, onChange, height = 220 }: LocationPic
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <ClickCapture onPick={(lat, lng) => onChange({ lat, lng })} />
+          <RecenterMap point={value} />
           {value && <Marker position={[value.lat, value.lng]} icon={defaultIcon} />}
         </MapContainer>
       </div>
