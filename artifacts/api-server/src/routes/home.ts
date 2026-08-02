@@ -41,7 +41,10 @@ router.get("/home", async (_req, res): Promise<void> => {
     const featuredProducts = await getFeaturedProducts(6);
     const flashDeals = await getPromotedProducts(8);
     const stories = await getActiveStoriesGrouped();
-    const variedadesHoje = await getVariedadesDeHoje();
+    const variedadesHoje = await getVariedadesDeHoje().catch((err) => {
+      console.warn("[home] variedadesHoje indisponível (migration ainda não rodou?):", err);
+      return [];
+    });
 
     // Monta carrosséis a partir das 3 categorias com mais produto real,
     // em vez de categoria fixa mockada — se a base de produto crescer/mudar,
