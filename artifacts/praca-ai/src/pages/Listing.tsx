@@ -52,6 +52,9 @@ import {
   Wrench,
   Puzzle,
   Rocket,
+  Bus,
+  ArrowLeftRight,
+  Clock,
 } from "lucide-react"
 import { getListProductsQueryKey, useListProducts } from "@workspace/api-client-react"
 import type { ListProductsSort } from "@workspace/api-client-react"
@@ -163,6 +166,11 @@ export default function ListingPage() {
   const [checkIn, setCheckIn] = React.useState("")
   const [checkOut, setCheckOut] = React.useState("")
   const [guests, setGuests] = React.useState("2 hóspedes")
+  const [travelMode, setTravelMode] = React.useState<"hospedagem" | "aereo" | "rodoviario">("hospedagem")
+  const [origin, setOrigin] = React.useState("")
+  const [departureDate, setDepartureDate] = React.useState("")
+  const [returnDate, setReturnDate] = React.useState("")
+  const [passengers, setPassengers] = React.useState("1 passageiro")
 
   const requestParams = { category: categorySlug, search: submittedSearch || undefined, sort, limit: 40 }
   const { data: listData, isLoading, isError } = useListProducts(requestParams, {
@@ -241,19 +249,289 @@ export default function ListingPage() {
       { city: "Balneário Camboriú, SC", name: "Apartamento Vista Mar", type: "Apartamento", rating: "8,9", price: "R$ 315", color: "from-sky-400 to-indigo-700" },
       { city: "Foz do Iguaçu, PR", name: "Resort das Cataratas", type: "Resort", rating: "9,2", price: "R$ 580", color: "from-amber-400 to-orange-700" },
     ]
-    const visibleTrips = destination ? travelResults.filter((item) => `${item.city} ${item.name}`.toLowerCase().includes(destination.toLowerCase())) : travelResults
+    const flightResults = [
+      { company: "Azul", route: "Chapecó → Guarulhos", duration: "1h 45min", stops: "Voo direto", price: "R$ 412", color: "from-blue-500 to-blue-800" },
+      { company: "Gol", route: "Chapecó → Congonhas", duration: "2h 10min", stops: "1 conexão", price: "R$ 358", color: "from-orange-500 to-red-700" },
+      { company: "Latam", route: "Chapecó → Brasília", duration: "2h 30min", stops: "1 conexão", price: "R$ 499", color: "from-rose-500 to-pink-800" },
+      { company: "Azul", route: "Chapecó → Florianópolis", duration: "55min", stops: "Voo direto", price: "R$ 289", color: "from-indigo-500 to-blue-900" },
+    ]
+    const busResults = [
+      { company: "Catarinense", route: "Chapecó → Florianópolis", duration: "6h 30min", stops: "Leito", price: "R$ 149", color: "from-teal-500 to-emerald-800" },
+      { company: "Reunidas", route: "Chapecó → Curitiba", duration: "8h 00min", stops: "Semi-leito", price: "R$ 179", color: "from-lime-500 to-green-800" },
+      { company: "Eucatur", route: "Chapecó → Porto Alegre", duration: "9h 15min", stops: "Leito", price: "R$ 199", color: "from-cyan-500 to-teal-800" },
+      { company: "Catarinense", route: "Chapecó → Curitiba", duration: "7h 45min", stops: "Convencional", price: "R$ 119", color: "from-sky-500 to-blue-800" },
+    ]
+
+    const visibleTrips = destination
+      ? travelResults.filter((item) => `${item.city} ${item.name}`.toLowerCase().includes(destination.toLowerCase()))
+      : travelResults
+    const visibleFlights = origin || destination
+      ? flightResults.filter((item) => item.route.toLowerCase().includes(origin.toLowerCase()) && item.route.toLowerCase().includes(destination.toLowerCase()))
+      : flightResults
+    const visibleBuses = origin || destination
+      ? busResults.filter((item) => item.route.toLowerCase().includes(origin.toLowerCase()) && item.route.toLowerCase().includes(destination.toLowerCase()))
+      : busResults
+
+    const TABS: { key: typeof travelMode; label: string; icon: typeof Hotel }[] = [
+      { key: "hospedagem", label: "Hospedagem", icon: Hotel },
+      { key: "aereo", label: "Passagens Aéreas", icon: Plane },
+      { key: "rodoviario", label: "Passagens Rodoviárias", icon: Bus },
+    ]
+
     return (
       <div className="min-h-full w-full bg-[#f4f6f8] pb-12 text-[#183b63]">
         <header className="bg-[#075aaa] text-white">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8"><Link href="/" className="flex items-center gap-2 text-2xl font-black"><Plane className="h-7 w-7" /> Praça.ai <span className="text-sm font-semibold text-white/75">Viagens</span></Link><div className="flex items-center gap-4 text-sm font-bold"><button>Cadastre sua hospedagem</button><Link href="/profile" className="rounded-md border border-white px-4 py-2">Entrar</Link></div></div>
+          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
+            <Link href="/" className="flex items-center gap-2 text-2xl font-black">
+              <Plane className="h-7 w-7" /> Praça.ai <span className="text-sm font-semibold text-white/75">Viagens</span>
+            </Link>
+            <div className="flex items-center gap-4 text-sm font-bold">
+              <button>Cadastre sua hospedagem</button>
+              <Link href="/profile" className="rounded-md border border-white px-4 py-2">Entrar</Link>
+            </div>
+          </div>
         </header>
 
         <main>
-          <section className="bg-[#075aaa] pb-20 text-white"><div className="mx-auto max-w-6xl px-4 pt-10 sm:px-6 lg:px-8"><h1 className="text-4xl font-black sm:text-5xl">Encontre sua próxima estadia</h1><p className="mt-2 text-lg text-white/85">Busque hotéis, pousadas, resorts e apartamentos para sua viagem.</p><form onSubmit={(event) => { event.preventDefault(); document.getElementById("resultados-viagem")?.scrollIntoView({ behavior: "smooth" }) }} className="mt-8 grid gap-1 rounded-xl bg-[#f6b900] p-1.5 text-slate-900 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"><label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3"><MapPin className="h-5 w-5 shrink-0" /><input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Para onde você vai?" className="min-w-0 flex-1 bg-transparent outline-none" /></label><label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3"><CalendarDays className="h-5 w-5 shrink-0" /><input type="date" value={checkIn} onChange={(event) => setCheckIn(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label><label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3"><CalendarDays className="h-5 w-5 shrink-0" /><input type="date" value={checkOut} onChange={(event) => setCheckOut(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" /></label><label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3"><Users className="h-5 w-5 shrink-0" /><select value={guests} onChange={(event) => setGuests(event.target.value)} className="min-w-0 flex-1 bg-transparent outline-none"><option>1 hóspede</option><option>2 hóspedes</option><option>3 hóspedes</option><option>4 hóspedes</option><option>Família</option></select></label><Button type="submit" className="h-full bg-[#073b75] px-8 text-white hover:bg-[#052d59]">Pesquisar</Button></form></div></section>
+          <section className="bg-[#075aaa] pb-20 text-white">
+            <div className="mx-auto max-w-6xl px-4 pt-10 sm:px-6 lg:px-8">
+              <h1 className="text-4xl font-black sm:text-5xl">
+                {travelMode === "hospedagem" ? "Encontre sua próxima estadia" : travelMode === "aereo" ? "Encontre sua próxima passagem aérea" : "Encontre sua próxima passagem rodoviária"}
+              </h1>
+              <p className="mt-2 text-lg text-white/85">
+                {travelMode === "hospedagem" ? "Busque hotéis, pousadas, resorts e apartamentos para sua viagem." : travelMode === "aereo" ? "Compare voos de várias companhias pra sua próxima viagem." : "Compare passagens de ônibus de várias viações."}
+              </p>
 
-          <section className="mx-auto -mt-10 max-w-6xl px-4 sm:px-6 lg:px-8"><div className="rounded-xl bg-white p-5 shadow-lg"><h2 className="text-xl font-black">Explore por tipo de hospedagem</h2><div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">{[[Hotel,"Hotéis"],[Home,"Casas e apartamentos"],[Store,"Pousadas"],[Sparkles,"Resorts"]].map(([Icon,label]) => { const TravelIcon = Icon as typeof Hotel; return <button key={label as string} onClick={() => setDestination("")} className="flex items-center gap-3 rounded-lg border p-4 text-left font-bold transition hover:border-[#075aaa] hover:bg-blue-50"><TravelIcon className="h-6 w-6 text-[#075aaa]" />{label as string}</button> })}</div></div></section>
+              {/* Abas de modo */}
+              <div className="mt-6 flex gap-2">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setTravelMode(tab.key)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition",
+                      travelMode === tab.key ? "bg-white text-[#075aaa]" : "bg-white/15 text-white hover:bg-white/25",
+                    )}
+                  >
+                    <tab.icon className="h-4 w-4" /> {tab.label}
+                  </button>
+                ))}
+              </div>
 
-          <section id="resultados-viagem" className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#075aaa]">Hospedagens parceiras</p><h2 className="mt-1 text-3xl font-black">Ofertas para sua próxima viagem</h2><p className="mt-1 text-sm text-muted-foreground">{visibleTrips.length} opções encontradas{destination ? ` para “${destination}”` : ""}</p></div><select className="rounded-lg border bg-white px-4 py-2 text-sm font-bold"><option>Mais recomendados</option><option>Menor preço</option><option>Melhor avaliação</option></select></div>{visibleTrips.length > 0 ? <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{visibleTrips.map((item) => <article key={item.name} className="overflow-hidden rounded-xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"><div className={cn("flex h-44 items-center justify-center bg-gradient-to-br",item.color)}><Hotel className="h-20 w-20 text-white/85" strokeWidth={1.2} /></div><div className="p-4"><div className="flex items-start justify-between gap-2"><div><p className="text-xs font-bold text-[#075aaa]">{item.type}</p><h3 className="mt-1 font-black text-slate-900">{item.name}</h3></div><span className="rounded-md bg-[#075aaa] px-2 py-1 text-xs font-black text-white">{item.rating}</span></div><p className="mt-2 flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3.5 w-3.5" />{item.city}</p><div className="mt-4 border-t pt-4 text-right"><p className="text-xs text-slate-500">1 diária para {guests}</p><p className="text-xl font-black text-slate-900">{item.price}</p><Button className="mt-3 w-full bg-[#075aaa] hover:bg-[#064c90]">Ver disponibilidade</Button></div></div></article>)}</div> : <div className="mt-6 rounded-xl border border-dashed bg-white p-12 text-center"><MapPin className="mx-auto h-10 w-10 text-[#075aaa]" /><h3 className="mt-3 text-lg font-black">Nenhuma hospedagem encontrada</h3><p className="mt-1 text-sm text-muted-foreground">Tente buscar outro destino.</p><Button variant="outline" onClick={() => setDestination("")} className="mt-4">Ver todos os destinos</Button></div>}</section>
+              {travelMode === "hospedagem" && (
+                <form
+                  onSubmit={(event) => { event.preventDefault(); document.getElementById("resultados-viagem")?.scrollIntoView({ behavior: "smooth" }) }}
+                  className="mt-4 grid gap-1 rounded-xl bg-[#f6b900] p-1.5 text-slate-900 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"
+                >
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <MapPin className="h-5 w-5 shrink-0" />
+                    <input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Para onde você vai?" className="min-w-0 flex-1 bg-transparent outline-none" />
+                  </label>
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <CalendarDays className="h-5 w-5 shrink-0" />
+                    <input type="date" value={checkIn} onChange={(event) => setCheckIn(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+                  </label>
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <CalendarDays className="h-5 w-5 shrink-0" />
+                    <input type="date" value={checkOut} onChange={(event) => setCheckOut(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+                  </label>
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <Users className="h-5 w-5 shrink-0" />
+                    <select value={guests} onChange={(event) => setGuests(event.target.value)} className="min-w-0 flex-1 bg-transparent outline-none">
+                      <option>1 hóspede</option><option>2 hóspedes</option><option>3 hóspedes</option><option>4 hóspedes</option><option>Família</option>
+                    </select>
+                  </label>
+                  <Button type="submit" className="h-full bg-[#073b75] px-8 text-white hover:bg-[#052d59]">Pesquisar</Button>
+                </form>
+              )}
+
+              {travelMode === "aereo" && (
+                <form
+                  onSubmit={(event) => { event.preventDefault(); document.getElementById("resultados-viagem")?.scrollIntoView({ behavior: "smooth" }) }}
+                  className="mt-4 grid gap-1 rounded-xl bg-[#f6b900] p-1.5 text-slate-900 lg:grid-cols-[1fr_auto_1fr_1fr_1fr_1fr_auto]"
+                >
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <Plane className="h-5 w-5 shrink-0 -rotate-45" />
+                    <input value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder="De onde você sai?" className="min-w-0 flex-1 bg-transparent outline-none" />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { const o = origin; setOrigin(destination); setDestination(o) }}
+                    className="hidden items-center justify-center rounded-lg bg-white px-2 text-[#075aaa] lg:flex"
+                    aria-label="Trocar origem e destino"
+                  >
+                    <ArrowLeftRight className="h-4 w-4" />
+                  </button>
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <MapPin className="h-5 w-5 shrink-0" />
+                    <input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Pra onde você vai?" className="min-w-0 flex-1 bg-transparent outline-none" />
+                  </label>
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <CalendarDays className="h-5 w-5 shrink-0" />
+                    <input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+                  </label>
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <CalendarDays className="h-5 w-5 shrink-0" />
+                    <input type="date" value={returnDate} onChange={(event) => setReturnDate(event.target.value)} placeholder="Volta (opcional)" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+                  </label>
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <Users className="h-5 w-5 shrink-0" />
+                    <select value={passengers} onChange={(event) => setPassengers(event.target.value)} className="min-w-0 flex-1 bg-transparent outline-none">
+                      <option>1 passageiro</option><option>2 passageiros</option><option>3 passageiros</option><option>4 passageiros</option>
+                    </select>
+                  </label>
+                  <Button type="submit" className="h-full bg-[#073b75] px-8 text-white hover:bg-[#052d59]">Buscar voos</Button>
+                </form>
+              )}
+
+              {travelMode === "rodoviario" && (
+                <form
+                  onSubmit={(event) => { event.preventDefault(); document.getElementById("resultados-viagem")?.scrollIntoView({ behavior: "smooth" }) }}
+                  className="mt-4 grid gap-1 rounded-xl bg-[#f6b900] p-1.5 text-slate-900 lg:grid-cols-[1fr_auto_1fr_1fr_1fr_auto]"
+                >
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <Bus className="h-5 w-5 shrink-0" />
+                    <input value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder="De onde você sai?" className="min-w-0 flex-1 bg-transparent outline-none" />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { const o = origin; setOrigin(destination); setDestination(o) }}
+                    className="hidden items-center justify-center rounded-lg bg-white px-2 text-[#075aaa] lg:flex"
+                    aria-label="Trocar origem e destino"
+                  >
+                    <ArrowLeftRight className="h-4 w-4" />
+                  </button>
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <MapPin className="h-5 w-5 shrink-0" />
+                    <input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Pra onde você vai?" className="min-w-0 flex-1 bg-transparent outline-none" />
+                  </label>
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <CalendarDays className="h-5 w-5 shrink-0" />
+                    <input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+                  </label>
+                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                    <Users className="h-5 w-5 shrink-0" />
+                    <select value={passengers} onChange={(event) => setPassengers(event.target.value)} className="min-w-0 flex-1 bg-transparent outline-none">
+                      <option>1 passageiro</option><option>2 passageiros</option><option>3 passageiros</option><option>4 passageiros</option>
+                    </select>
+                  </label>
+                  <Button type="submit" className="h-full bg-[#073b75] px-8 text-white hover:bg-[#052d59]">Buscar ônibus</Button>
+                </form>
+              )}
+            </div>
+          </section>
+
+          {travelMode === "hospedagem" && (
+            <section className="mx-auto -mt-10 max-w-6xl px-4 sm:px-6 lg:px-8">
+              <div className="rounded-xl bg-white p-5 shadow-lg">
+                <h2 className="text-xl font-black">Explore por tipo de hospedagem</h2>
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {[[Hotel, "Hotéis"], [Home, "Casas e apartamentos"], [Store, "Pousadas"], [Sparkles, "Resorts"]].map(([Icon, label]) => {
+                    const TravelIcon = Icon as typeof Hotel
+                    return (
+                      <button key={label as string} onClick={() => setDestination("")} className="flex items-center gap-3 rounded-lg border p-4 text-left font-bold transition hover:border-[#075aaa] hover:bg-blue-50">
+                        <TravelIcon className="h-6 w-6 text-[#075aaa]" />{label as string}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {travelMode === "hospedagem" && (
+            <section id="resultados-viagem" className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#075aaa]">Hospedagens parceiras</p>
+                  <h2 className="mt-1 text-3xl font-black">Ofertas para sua próxima viagem</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{visibleTrips.length} opções encontradas{destination ? ` para "${destination}"` : ""}</p>
+                </div>
+                <select className="rounded-lg border bg-white px-4 py-2 text-sm font-bold">
+                  <option>Mais recomendados</option><option>Menor preço</option><option>Melhor avaliação</option>
+                </select>
+              </div>
+              {visibleTrips.length > 0 ? (
+                <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                  {visibleTrips.map((item) => (
+                    <article key={item.name} className="overflow-hidden rounded-xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                      <div className={cn("flex h-44 items-center justify-center bg-gradient-to-br", item.color)}><Hotel className="h-20 w-20 text-white/85" strokeWidth={1.2} /></div>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <div><p className="text-xs font-bold text-[#075aaa]">{item.type}</p><h3 className="mt-1 font-black text-slate-900">{item.name}</h3></div>
+                          <span className="rounded-md bg-[#075aaa] px-2 py-1 text-xs font-black text-white">{item.rating}</span>
+                        </div>
+                        <p className="mt-2 flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3.5 w-3.5" />{item.city}</p>
+                        <div className="mt-4 border-t pt-4 text-right">
+                          <p className="text-xs text-slate-500">1 diária para {guests}</p>
+                          <p className="text-xl font-black text-slate-900">{item.price}</p>
+                          <Button className="mt-3 w-full bg-[#075aaa] hover:bg-[#064c90]">Ver disponibilidade</Button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-xl border border-dashed bg-white p-12 text-center">
+                  <MapPin className="mx-auto h-10 w-10 text-[#075aaa]" />
+                  <h3 className="mt-3 text-lg font-black">Nenhuma hospedagem encontrada</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Tente buscar outro destino.</p>
+                  <Button variant="outline" onClick={() => setDestination("")} className="mt-4">Ver todos os destinos</Button>
+                </div>
+              )}
+            </section>
+          )}
+
+          {(travelMode === "aereo" || travelMode === "rodoviario") && (
+            <section id="resultados-viagem" className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-[#075aaa]">{travelMode === "aereo" ? "Voos disponíveis" : "Ônibus disponíveis"}</p>
+                  <h2 className="mt-1 text-3xl font-black">{travelMode === "aereo" ? "Passagens aéreas" : "Passagens rodoviárias"}</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {(travelMode === "aereo" ? visibleFlights.length : visibleBuses.length)} opções encontradas
+                    {origin || destination ? ` para "${origin || "?"} → ${destination || "?"}"` : ""}
+                  </p>
+                </div>
+                <select className="rounded-lg border bg-white px-4 py-2 text-sm font-bold">
+                  <option>Mais recomendados</option><option>Menor preço</option><option>Mais rápido</option>
+                </select>
+              </div>
+
+              {(travelMode === "aereo" ? visibleFlights : visibleBuses).length > 0 ? (
+                <div className="mt-6 flex flex-col gap-4">
+                  {(travelMode === "aereo" ? visibleFlights : visibleBuses).map((item) => (
+                    <article key={`${item.company}-${item.route}`} className="flex flex-col items-stretch gap-4 rounded-xl bg-white p-4 shadow-sm transition hover:shadow-lg sm:flex-row sm:items-center">
+                      <div className={cn("flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white", item.color)}>
+                        {travelMode === "aereo" ? <Plane className="h-8 w-8" /> : <Bus className="h-8 w-8" />}
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs font-bold text-[#075aaa]">{item.company}</p>
+                        <h3 className="mt-0.5 font-black text-slate-900">{item.route}</h3>
+                        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                          <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{item.duration}</span>
+                          <span>{item.stops}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500">a partir de</p>
+                        <p className="text-xl font-black text-slate-900">{item.price}</p>
+                        <Button className="mt-2 bg-[#075aaa] hover:bg-[#064c90]">{travelMode === "aereo" ? "Ver assentos" : "Ver poltronas"}</Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-6 rounded-xl border border-dashed bg-white p-12 text-center">
+                  {travelMode === "aereo" ? <Plane className="mx-auto h-10 w-10 text-[#075aaa]" /> : <Bus className="mx-auto h-10 w-10 text-[#075aaa]" />}
+                  <h3 className="mt-3 text-lg font-black">Nenhuma {travelMode === "aereo" ? "passagem aérea" : "passagem rodoviária"} encontrada</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">Tente buscar outra origem ou destino.</p>
+                  <Button variant="outline" onClick={() => { setOrigin(""); setDestination("") }} className="mt-4">Ver todas as opções</Button>
+                </div>
+              )}
+            </section>
+          )}
         </main>
       </div>
     )
