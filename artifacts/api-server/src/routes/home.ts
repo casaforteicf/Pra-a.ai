@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { getRealCategories, getFeaturedProducts, getProductsByCategoryName, getPromotedProducts } from "../lib/catalogService";
 import { getRatingsForProducts } from "./reviews";
+import { getActiveStoriesGrouped, registerStoryView } from "../lib/storiesService";
 
 const router: IRouter = Router();
 
@@ -38,6 +39,7 @@ router.get("/home", async (_req, res): Promise<void> => {
     const categories = await getRealCategories();
     const featuredProducts = await getFeaturedProducts(6);
     const flashDeals = await getPromotedProducts(8);
+    const stories = await getActiveStoriesGrouped();
 
     // Monta carrosséis a partir das 3 categorias com mais produto real,
     // em vez de categoria fixa mockada — se a base de produto crescer/mudar,
@@ -64,6 +66,7 @@ router.get("/home", async (_req, res): Promise<void> => {
     res.json({
       banners: BANNERS,
       categories,
+      stories,
       featuredProducts: withRating(featuredProducts),
       carousels: carousels.map((c) => ({ ...c, products: withRating(c.products) })).filter((c) => c.products.length > 0),
       flashDeals: withRating(flashDeals),
@@ -71,6 +74,17 @@ router.get("/home", async (_req, res): Promise<void> => {
   } catch (err) {
     console.error("[home] erro ao montar home real:", err);
     res.status(500).json({ error: "Não foi possível carregar a página inicial agora." });
+  }
+});
+
+// Marca visualização — dispara quando o story abre em tela cheia no
+// visualizador, não quando só aparece a bolinha na fileira.
+router.post("/home/stories/:id/visualizar", async (req, res): Promise<void> => {
+  try {
+    await registerStoryView(req.params.id);
+    res.status(204).end();
+  } catch {
+    res.status(500).json({ error: "Falha ao registrar visualização" });
   }
 });
 

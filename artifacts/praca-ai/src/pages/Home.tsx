@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ProductCard } from "@/components/ProductCard"
 import { DailyVarietyCard, getDailyVarieties, type Variety } from "@/components/DailyVariety"
+import { StoriesRow } from "@/components/StoriesRow"
 import type { Product } from "@workspace/api-client-react"
 
 // Mapa dos nomes de ícone que o backend calcula (lib/catalogService.ts,
@@ -200,7 +201,9 @@ export default function HomePage() {
 
       {homeData && (
         <div className="flex flex-col">
-          
+
+          <StoriesRow groups={(homeData as any).stories ?? []} />
+
           {/* Banners */}
           <section className="bg-primary/10">
             <div className="mx-auto flex max-w-[1440px] snap-x snap-mandatory gap-0 overflow-x-auto hide-scrollbar">
