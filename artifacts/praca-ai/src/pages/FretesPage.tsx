@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useLocation } from "wouter"
-import { ChevronLeft, Truck, MapPin } from "lucide-react"
+import { Check, ChevronLeft, Clock3, Truck, MapPin } from "lucide-react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +13,14 @@ const TIPO_VEICULO_LABELS: Record<string, string> = {
   utilitario: "Utilitário", van: "Van", caminhao_toco: "Caminhão toco",
   caminhao_truck: "Caminhão truck", carreta: "Carreta",
 }
+
+const TIPOS_VEICULO = [
+  { id: "utilitario", label: "Utilitário", detail: "Volumes pequenos · até 500 kg" },
+  { id: "van", label: "Van", detail: "Cargas médias · até 1,5 t" },
+  { id: "caminhao_toco", label: "Caminhão toco", detail: "Mudanças e cargas · até 6 t" },
+  { id: "caminhao_truck", label: "Caminhão truck", detail: "Cargas grandes · até 14 t" },
+  { id: "carreta", label: "Carreta", detail: "Longa distância · até 27 t" },
+] as const
 
 export default function FretesPage() {
   const [, setLocation] = useLocation()
@@ -121,16 +129,44 @@ export default function FretesPage() {
               <p className="text-sm">Escolha o tipo de veículo — a gente atribui automaticamente um transportador disponível, que te responde com o valor.</p>
             </div>
 
-            <select
-              className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
-              value={tipoVeiculoDesejado}
-              onChange={(e) => setTipoVeiculoDesejado(e.target.value)}
-            >
-              <option value="">Que tipo de veículo você precisa?</option>
-              {tiposVeiculo?.map((tipo) => (
-                <option key={tipo} value={tipo}>{TIPO_VEICULO_LABELS[tipo] ?? tipo}</option>
-              ))}
-            </select>
+            <fieldset className="space-y-2">
+              <legend className="mb-2 text-sm font-black">Que tipo de veículo você precisa?</legend>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {TIPOS_VEICULO.map((tipo) => {
+                  const selected = tipoVeiculoDesejado === tipo.id
+                  const disponivel = tiposVeiculo?.includes(tipo.id) ?? false
+                  return (
+                    <button
+                      key={tipo.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setTipoVeiculoDesejado(tipo.id)}
+                      className={`flex min-h-[72px] items-center gap-3 rounded-xl border p-3 text-left transition active:scale-[0.98] ${selected ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border bg-background"}`}
+                    >
+                      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${selected ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>
+                        <Truck className="h-5 w-5" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-sm font-black">{tipo.label}</span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">{tipo.detail}</span>
+                        <span className={`mt-1 flex items-center gap-1 text-[10px] font-bold ${disponivel ? "text-emerald-700" : "text-amber-700"}`}>
+                          {disponivel ? <Check className="h-3 w-3" /> : <Clock3 className="h-3 w-3" />}
+                          {disponivel ? "Disponível agora" : "Disponibilidade sob consulta"}
+                        </span>
+                      </span>
+                      <span className={`h-5 w-5 shrink-0 rounded-full border-2 p-0.5 ${selected ? "border-primary" : "border-muted-foreground/40"}`}>
+                        {selected && <span className="block h-full w-full rounded-full bg-primary" />}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              {tipoVeiculoDesejado && (
+                <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  Selecionado: <strong className="text-foreground">{TIPO_VEICULO_LABELS[tipoVeiculoDesejado]}</strong>. A plataforma procura automaticamente o transportador adequado.
+                </p>
+              )}
+            </fieldset>
 
             <div className="space-y-1.5">
               <Input placeholder="Endereço de coleta" value={enderecoColeta} onChange={(e) => setEnderecoColeta(e.target.value)} />
