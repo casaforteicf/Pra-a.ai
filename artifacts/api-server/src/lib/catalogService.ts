@@ -15,7 +15,6 @@ export function slugify(text: string): string {
 export const ITEM_CATEGORIES = [
   "Acessórios para Veículos",
   "Agro",
-  "Antiguidades e Coleções",
   "Arte, Papelaria e Armarinho",
   "Bebês",
   "Beleza e Cuidado Pessoal",
@@ -221,7 +220,6 @@ export async function getProductsByCategoryName(categoriaNome: string, limit = 4
 const ICON_BY_NAME: Record<string, string> = {
   "acessorios-para-veiculos": "car",
   agro: "trees",
-  "antiguidades-e-colecoes": "package",
   "arte-papelaria-e-armarinho": "paintbrush",
   bebes: "package",
   "beleza-e-cuidado-pessoal": "sparkles",
