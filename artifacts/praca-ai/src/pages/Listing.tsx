@@ -163,6 +163,15 @@ export default function ListingPage() {
   const [submittedSearch, setSubmittedSearch] = React.useState("")
   const [sort, setSort] = React.useState<ListProductsSort>("relevance")
   const [destination, setDestination] = React.useState("")
+  const [viagensHoje, setViagensHoje] = React.useState<any[]>([])
+  React.useEffect(() => {
+    let active = true
+    fetch("/api/variedades-dia/hoje?categoria=viagens")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => { if (active) setViagensHoje(Array.isArray(data) ? data : []) })
+      .catch(() => undefined)
+    return () => { active = false }
+  }, [])
   const [checkIn, setCheckIn] = React.useState("")
   const [checkOut, setCheckOut] = React.useState("")
   const [guests, setGuests] = React.useState("2 hóspedes")
@@ -421,6 +430,28 @@ export default function ListingPage() {
               )}
             </div>
           </section>
+
+          {viagensHoje.length > 0 && (
+            <section className="mx-auto -mt-6 max-w-6xl px-4 sm:px-6 lg:px-8">
+              {viagensHoje.map((item) => (
+                <div key={item.id} className="rounded-xl bg-white p-5 shadow-lg">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#075aaa]/10 px-3 py-1 text-xs font-bold text-[#075aaa]">
+                    Publicado hoje por {item.tenantName}
+                  </span>
+                  <h3 className="mt-2 text-xl font-black text-slate-900">{item.titulo}</h3>
+                  {item.conteudoTexto && <p className="mt-1 text-sm text-slate-600">{item.conteudoTexto}</p>}
+                  {item.videoUrl && <video src={item.videoUrl} className="mt-3 w-full max-w-md rounded-lg" controls />}
+                  {item.promocaoTipo && (
+                    <p className="mt-3 text-sm font-bold text-emerald-700">
+                      {item.promocaoTipo === "produto"
+                        ? `Promoção: ${item.promocaoProdutoNome ?? "produto"} com ${item.promocaoDescontoPercentual}% off`
+                        : `Promoção: ${item.promocaoTexto}`}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </section>
+          )}
 
           {travelMode === "hospedagem" && (
             <section className="mx-auto -mt-10 max-w-6xl px-4 sm:px-6 lg:px-8">

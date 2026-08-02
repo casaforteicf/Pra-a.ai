@@ -8,8 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { ProductCard } from "@/components/ProductCard"
-import { DailyVarietyCard, getDailyVarieties, type Variety } from "@/components/DailyVariety"
 import { StoriesRow } from "@/components/StoriesRow"
+import { VariedadesDiaSection } from "@/components/VariedadesDiaSection"
 import type { Product } from "@workspace/api-client-react"
 
 // Mapa dos nomes de ícone que o backend calcula (lib/catalogService.ts,
@@ -46,9 +46,6 @@ const CATEGORY_ICON_MAP: Record<string, typeof Package> = {
 }
 
 export default function HomePage() {
-  const fallbackVarieties = React.useMemo(() => getDailyVarieties(), [])
-  const [dailyVarieties, setDailyVarieties] = React.useState(fallbackVarieties)
-  const [scheduledOfferProducts, setScheduledOfferProducts] = React.useState<Product[]>([])
   const { data: homeData, isLoading, isError } = useGetHome({
     query: { queryKey: getGetHomeQueryKey() }
   })
@@ -61,47 +58,10 @@ export default function HomePage() {
   const hasMoreRef = React.useRef(true)
   const loadMoreSentinelRef = React.useRef<HTMLDivElement | null>(null)
 
-  React.useEffect(() => {
-    let active = true
-    fetch("/api/variedades")
-      .then((response) => {
-        if (!response.ok) throw new Error("Variedades indisponíveis")
-        return response.json()
-      })
-      .then((data: { conteudo?: any; oferta?: any }) => {
-        if (!active) return
-        const colorByType: Record<string, string> = {
-          receita: "from-amber-600 via-orange-500 to-rose-500",
-          lugar: "from-emerald-700 via-teal-600 to-sky-500",
-          dica: "from-violet-700 via-fuchsia-600 to-rose-500",
-          historia: "from-slate-800 via-indigo-700 to-blue-500",
-        }
-        const today: Variety = data.conteudo ? {
-          ...fallbackVarieties.today,
-          kind: ({ receita: "Receita do dia", lugar: "Lugar para conhecer", dica: "Ideia para o dia a dia", historia: "História local" } as Record<string, string>)[data.conteudo.tipo] ?? "Variedade do dia",
-          title: data.conteudo.titulo,
-          summary: data.conteudo.resumo || data.conteudo.conteudo,
-          steps: Array.isArray(data.conteudo.passos) && data.conteudo.passos.length ? data.conteudo.passos : fallbackVarieties.today.steps,
-          colors: colorByType[data.conteudo.tipo] ?? fallbackVarieties.today.colors,
-          mediaUrl: data.conteudo.imagemUrl || undefined,
-        } : fallbackVarieties.today
-        const yesterday: Variety = data.oferta ? {
-          ...fallbackVarieties.yesterday,
-          offerTitle: data.oferta.titulo || fallbackVarieties.yesterday.offerTitle,
-          offerSummary: data.oferta.resumo || fallbackVarieties.yesterday.offerSummary,
-          offerHref: `/listing?search=${encodeURIComponent(data.oferta.titulo || "ofertas")}`,
-        } : fallbackVarieties.yesterday
-        setDailyVarieties({ today, yesterday })
-        setScheduledOfferProducts(Array.isArray(data.oferta?.produtos) ? data.oferta.produtos : [])
-      })
-      .catch(() => undefined)
-    return () => { active = false }
-  }, [fallbackVarieties])
-
   const offerProducts = React.useMemo(() => {
-    const products = [...scheduledOfferProducts, ...(homeData?.flashDeals ?? [])]
+    const products = [...(homeData?.flashDeals ?? [])]
     return products.filter((product, index) => products.findIndex((item) => item.id === product.id) === index)
-  }, [scheduledOfferProducts, homeData?.flashDeals])
+  }, [homeData?.flashDeals])
 
   const loadMoreProducts = React.useCallback(async () => {
     if (loadingMoreRef.current || !hasMoreRef.current) return
@@ -390,7 +350,7 @@ export default function HomePage() {
               ))}
             </div>
 
-            <DailyVarietyCard variety={dailyVarieties.today} />
+            <VariedadesDiaSection variedades={(homeData as any)?.variedadesHoje ?? []} />
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
               {infiniteProducts.slice(6 + 4 + (new Date().getDate() % 3) * 2).map((product) => (

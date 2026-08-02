@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { getRealCategories, getFeaturedProducts, getProductsByCategoryName, getPromotedProducts } from "../lib/catalogService";
 import { getRatingsForProducts } from "./reviews";
 import { getActiveStoriesGrouped, registerStoryView } from "../lib/storiesService";
+import { getVariedadesDeHoje } from "../lib/variedadesDiaService";
 
 const router: IRouter = Router();
 
@@ -40,6 +41,7 @@ router.get("/home", async (_req, res): Promise<void> => {
     const featuredProducts = await getFeaturedProducts(6);
     const flashDeals = await getPromotedProducts(8);
     const stories = await getActiveStoriesGrouped();
+    const variedadesHoje = await getVariedadesDeHoje();
 
     // Monta carrosséis a partir das 3 categorias com mais produto real,
     // em vez de categoria fixa mockada — se a base de produto crescer/mudar,
@@ -67,6 +69,7 @@ router.get("/home", async (_req, res): Promise<void> => {
       banners: BANNERS,
       categories,
       stories,
+      variedadesHoje,
       featuredProducts: withRating(featuredProducts),
       carousels: carousels.map((c) => ({ ...c, products: withRating(c.products) })).filter((c) => c.products.length > 0),
       flashDeals: withRating(flashDeals),
@@ -85,6 +88,19 @@ router.post("/home/stories/:id/visualizar", async (req, res): Promise<void> => {
     res.status(204).end();
   } catch {
     res.status(500).json({ error: "Falha ao registrar visualização" });
+  }
+});
+
+// Usado por telas de categoria especifica (ex: Viagens) pra mostrar o
+// conteudo real de hoje daquela categoria, sem precisar buscar a home
+// inteira.
+router.get("/variedades-dia/hoje", async (req, res): Promise<void> => {
+  try {
+    const categoria = typeof req.query.categoria === "string" ? req.query.categoria : undefined;
+    const todas = await getVariedadesDeHoje();
+    res.json(categoria ? todas.filter((v) => v.categoria === categoria) : todas);
+  } catch {
+    res.status(500).json({ error: "Falha ao buscar variedades" });
   }
 });
 
