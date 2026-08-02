@@ -175,9 +175,27 @@ export default function HomePage() {
             <Link href="/restaurantes" className="hover:text-white">Restaurantes</Link>
             <Link href="/fretes" className="hover:text-white">Fretes</Link>
             <Link href="/listing?category=viagens-e-hoteis" className="hover:text-white">Viagens</Link>
+            <a
+              href="https://appvendorai.com/cadastro-praca"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-auto flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-primary hover:bg-white/90"
+            >
+              <Store className="h-4 w-4" /> Cadastre sua loja grátis
+            </a>
           </nav>
         </div>
       </header>
+
+      {/* CTA cadastro de vendedor — visível também no mobile, onde o nav de cima fica escondido */}
+      <a
+        href="https://appvendorai.com/cadastro-praca"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-center gap-2 bg-terracota px-4 py-2 text-center text-sm font-bold text-white lg:hidden"
+      >
+        <Store className="h-4 w-4 shrink-0" /> Tem uma loja? Cadastre-se grátis no Praça.ai
+      </a>
 
       {/* Trust Strip */}
       <div className="hidden items-center justify-center gap-10 border-b bg-white px-4 py-2.5 text-xs font-bold text-primary md:flex">
