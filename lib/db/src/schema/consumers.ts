@@ -11,6 +11,7 @@ export const consumersTable = pgTable("consumers", {
   passwordHash: text("password_hash").notNull(),
   saldoMoedas: integer("saldo_moedas").notNull().default(0),
   ultimoCheckinEm: text("ultimo_checkin_em"), // data (YYYY-MM-DD) do último check-in, 1x/dia
+  dataNascimento: text("data_nascimento"), // YYYY-MM-DD, opcional — pra oportunidade de aniversário
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

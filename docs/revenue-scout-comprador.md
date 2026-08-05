@@ -14,50 +14,55 @@ real, mas **não vão encontrar ninguém ainda** — é o comportamento
 correto, não um bug, mesmo padrão do Revenue Scout do Vendor.ai pra um
 tenant recém-criado.
 
-## O que está implementado (6 mecanismos, dado real)
+## O que está implementado (22 mecanismos, dado real)
 
 | Mecanismo | Situações do documento | Precisa de histórico? |
 |---|---|---|
-| `carrinho_abandonado` | #23-24 | Não — funciona desde o 1º carrinho |
-| `estoque_baixo` | #28 | Não, mas só onde `estoque_quantidade` é preenchido (Veículos, Varejo com grade, Farmácia, Pacotes) |
-| `recompra_programada` | #1-8 | Sim — 2+ compras do mesmo produto |
+| `carrinho_abandonado` | #23-24 | Não |
+| `estoque_baixo` | #28 | Não, só onde `estoque_quantidade` é preenchido |
+| `favorito_preco_caiu` | #27 | Não — precisa só de 1 favorito com preço salvo |
+| `navegacao_intensa` | #25 | Não — precisa só de views recentes |
+| `busca_sem_resultado` | #26 | Não |
+| `cupom_expirando` | #31 | Não — precisa de cupom atribuído a alguém |
+| `promocao_relampago` | #29-30 | Não — precisa de campanha cadastrada |
+| `aniversario` | #50-51 | Não — precisa de data de nascimento cadastrada |
+| `recompra_programada` | #1-8 | Sim |
 | `reativacao_inativo` | #46-48 | Sim |
 | `milestone_compras` | #52 | Sim |
-| `pos_compra_avaliacao` | #59-60 | Sim (precisa de pedido entregue) |
+| `pos_compra_avaliacao` | #59-60 | Sim |
+| `cross_sell` | #9-16 | Sim (config: pares de produto) |
+| `upsell` / `produto_nova_versao` | #17-22, #61 | Sim (config: produtoSucessorId no catálogo) |
+| `sazonalidade_evento` | #32-37 | Sim (13 meses de histórico) |
+| `nps_baixo` | #54 | Não — precisa de resposta de NPS |
+| `pontos_expirando` | #39 | Não — precisa de coin_transactions com validade |
+| `beneficio_nao_usado` | #40 | Não — precisa de benefício atribuído |
+| `adesao_assinatura` | #38 | Sim |
+| `assinatura_cancelada` | #68 | Sim (precisa de assinatura cancelada) |
+| `gatilho_externo` (só horário de almoço) | #64 | Sim |
+| `auto_presente` | #62 | Sim |
 
-## O que NÃO foi construído, e por quê (schema que falta)
+Todos os 16 que faltavam schema (ver seção anterior desta versão do
+documento) agora têm tabela e lógica reais — nada com dado simulado.
 
-Não implementei nada com dado simulado ou lógica capenga. Cada um
-desses precisa de uma peça de schema/produto que genuinamente não
-existe hoje:
+## O que continua de fora, e por quê (agora são só 3)
 
-- **navegação intensa (#25), busca sem resultado (#26), conteúdo de
-  aquecimento (#55-58)** — precisam de log de navegação/busca por
-  consumidor. Não existe rastreio de page-view nem de termo buscado.
-- **favorito com preço caindo (#27)** — `favorites` não guarda o preço
-  no momento em que o produto foi favoritado, só o vínculo.
-- **cupom expirando (#31), promoção relâmpago (#29-30)** — cupons hoje
-  são uma constante fixa no código (`couponService.ts`), não atribuídos
-  a um consumidor específico com data de expiração individual. Não
-  existe entidade de "campanha com prazo" nenhuma.
-- **aniversário (#50-51)** — `consumers` não tem data de nascimento.
-- **pontos expirando (#39)** — o sistema de moedas (`coins`) é saldo
-  simples, sem conceito de expiração.
-- **assinatura/reposição automática (#38, #41), benefício de fidelidade
-  não usado (#40)** — não existem como produto no Praça.ai hoje.
-- **serviços financeiros (#42-45)** — crédito, empréstimo, seguro:
-  Praça.ai não oferece nenhum produto financeiro. Pré-requisito de
-  negócio, não só técnico.
-- **produto com nova versão (#61)** — catálogo não tem conceito de
-  "versão"/sucessor de um produto.
-- **gatilhos externos (#63-68)** — geolocalização por IP, clima,
-  integração com loja física: dependem de dado externo que o Praça.ai
-  não coleta.
-
-Existentes mas não implementados por escopo (dado já existe, é só
-questão de escrever a query, mais rápido de completar depois):
-**cross_sell (#9-16), upsell (#17-22), sazonalidade_evento (#32-37),
-nps_baixo (#54), auto_presente (#62)**.
+- **Serviços financeiros (#42-45)** — crédito pré-aprovado, empréstimo,
+  seguro. Não construí infraestrutura pra isso porque é uma **decisão
+  de negócio antes de ser decisão técnica**: significa Praça.ai
+  emprestar/segurar dinheiro de verdade, com implicação regulatória
+  (licença financeira, CDC, etc.) que ninguém decidiu ainda. Adicionar
+  uma tabela não resolve isso.
+- **Gatilhos por geolocalização/clima (#63, #65, #66 parcial)** —
+  "mudança de cidade" e "frio se aproximando" precisam de API externa
+  de verdade (geolocalização por IP, previsão do tempo) que não tenho
+  acesso/chave configurada. `horário de almoço` (#64) e `aumento de
+  renda` (#66, via ticket médio subindo) SÃO gatilhos externos que não
+  precisam de API — esses dois foram implementados.
+- **Pet completando 1 ano (#67)** — precisaria de um cadastro de pet
+  (espécie, data de nascimento) que não existe no Praça.ai — é uma
+  entidade nova, decisão de produto se vale a pena pro marketplace
+  genérico (diferente do Vendor.ai, que já tem isso specific pra Pet
+  Shop).
 
 ## O maior gap de todos: não existe canal de envio genérico
 

@@ -7,6 +7,9 @@ export const coinTransactionsTable = pgTable("coin_transactions", {
   tipo: text("tipo").notNull(), // "ganho" | "resgate"
   quantidade: integer("quantidade").notNull(),
   motivo: text("motivo").notNull(), // "checkin" | "compra" | "avaliacao" | "avaliacao_com_midia" | "resgate_cupom"
+  // Validade — só preenchido em transações de "ganho". Sem isso não dá
+  // pra avisar "seus pontos vão expirar" (#39), moeda seria saldo eterno.
+  expiraEm: timestamp("expira_em", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -41,6 +41,7 @@ export const scoutPraTipoValues = [
   "produto_nova_versao",
   "auto_presente",
   "gatilho_externo",
+  "assinatura_cancelada",
 ] as const;
 export type ScoutPraTipo = (typeof scoutPraTipoValues)[number];
 

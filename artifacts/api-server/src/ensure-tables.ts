@@ -664,6 +664,84 @@ CREATE TABLE IF NOT EXISTS scout_pra_envios_log (
   enviado_em timestamp with time zone NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_scout_pra_envios_log_consumer_data ON scout_pra_envios_log(consumer_id, enviado_em);
+
+-- Extras do Revenue Scout comprador — 16 situações que faltavam schema
+-- (favorito+preço, aniversário, pontos expirando, navegação, busca,
+-- cupom por consumidor, campanha com prazo, benefício, assinatura, NPS).
+ALTER TABLE favorites ADD COLUMN IF NOT EXISTS preco_no_favorito numeric(10,2);
+ALTER TABLE consumers ADD COLUMN IF NOT EXISTS data_nascimento text;
+ALTER TABLE coin_transactions ADD COLUMN IF NOT EXISTS expira_em timestamp with time zone;
+
+CREATE TABLE IF NOT EXISTS product_views (
+  id serial PRIMARY KEY,
+  consumer_id integer REFERENCES consumers(id) ON DELETE CASCADE,
+  product_id text NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_product_views_consumer_product ON product_views(consumer_id, product_id, created_at);
+
+CREATE TABLE IF NOT EXISTS search_logs (
+  id serial PRIMARY KEY,
+  consumer_id integer REFERENCES consumers(id) ON DELETE CASCADE,
+  termo text NOT NULL,
+  teve_resultado boolean NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_search_logs_sem_resultado ON search_logs(consumer_id, created_at) WHERE teve_resultado = false;
+
+CREATE TABLE IF NOT EXISTS consumer_coupons (
+  id serial PRIMARY KEY,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
+  codigo text NOT NULL,
+  valor_desconto numeric(10,2),
+  percentual_desconto numeric(5,2),
+  expira_em timestamp with time zone NOT NULL,
+  usado_em timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_consumer_coupons_pendente ON consumer_coupons(consumer_id, expira_em) WHERE usado_em IS NULL;
+
+CREATE TABLE IF NOT EXISTS campanhas (
+  id serial PRIMARY KEY,
+  nome text NOT NULL,
+  tipo text NOT NULL,
+  valor numeric(10,2),
+  categoria_alvo text,
+  inicio_em timestamp with time zone NOT NULL,
+  fim_em timestamp with time zone NOT NULL,
+  ativo boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS consumer_beneficios (
+  id serial PRIMARY KEY,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
+  tipo text NOT NULL,
+  descricao text NOT NULL,
+  usado_em timestamp with time zone,
+  expira_em timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS assinaturas (
+  id serial PRIMARY KEY,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
+  product_id text NOT NULL,
+  frequencia_dias integer NOT NULL,
+  status text NOT NULL DEFAULT 'ativa',
+  proxima_entrega_em timestamp with time zone,
+  cancelada_em timestamp with time zone,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS nps_respostas (
+  id serial PRIMARY KEY,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
+  order_id integer,
+  nota integer NOT NULL,
+  comentario text,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {

@@ -18,6 +18,15 @@ import {
   scoutPraRegrasTable,
   scoutPraOportunidadesTable,
   scoutPraEnviosLogTable,
+  favoritesTable,
+  productViewsTable,
+  searchLogsTable,
+  consumerCouponsTable,
+  campanhasTable,
+  consumerBeneficiosTable,
+  assinaturasTable,
+  npsRespostasTable,
+  consumersTable,
   type ScoutPraRegra,
 } from "@workspace/db";
 import { vendorPool } from "./vendorDb";
@@ -115,7 +124,7 @@ async function runCarrinhoAbandonado(regra: ScoutPraRegra, log: Logger): Promise
     const itens = await db.select().from(cartItemsTable).where(eq(cartItemsTable.cartId, carrinho.id));
     if (itens.length === 0) continue;
 
-    const valorTotal = itens.reduce((soma, i) => soma + Number(i.productPrice) * i.quantity, 0);
+    const valorTotal = itens.reduce((soma: number, i: typeof itens[number]) => soma + Number(i.productPrice) * i.quantity, 0);
     const primeiroItem = itens[0]!;
     const mensagem = preencherTemplate(regra.mensagemTemplate, { produto: primeiroItem.productName, valor: valorTotal.toFixed(2) });
 
@@ -288,6 +297,394 @@ async function runPosCompraAvaliacao(regra: ScoutPraRegra, log: Logger): Promise
   return criadas;
 }
 
+// 7. Favorito com preço caindo (#27)
+async function runFavoritoPrecoCaiu(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const percentualMinimo = Number(regra.condicoes["percentualMinimoQueda"] ?? 10);
+  const favoritosComPreco = await db.select().from(favoritesTable).where(sql`${favoritesTable.precoNoFavorito} IS NOT NULL`);
+  if (favoritosComPreco.length === 0) return 0;
+
+  const ids = favoritosComPreco.map((f: typeof favoritosComPreco[number]) => f.productId);
+  const { rows: precosAtuais } = await vendorPool.query<{ id: string; nome: string; preco_base: string }>(
+    `SELECT id, nome, preco_base FROM produtos_catalogo WHERE id = ANY($1)`,
+    [ids],
+  );
+  const precoPorId = new Map(precosAtuais.map((p) => [p.id, p]));
+
+  let criadas = 0;
+  for (const fav of favoritosComPreco) {
+    const atual = precoPorId.get(fav.productId);
+    if (!atual || !fav.precoNoFavorito) continue;
+    const precoAntigo = Number(fav.precoNoFavorito);
+    const precoNovo = Number(atual.preco_base);
+    const quedaPercentual = ((precoAntigo - precoNovo) / precoAntigo) * 100;
+    if (quedaPercentual < percentualMinimo) continue;
+
+    const mensagem = preencherTemplate(regra.mensagemTemplate, { produto: atual.nome, percentual: quedaPercentual.toFixed(0) });
+    await criarOportunidade({
+      regra,
+      consumerId: fav.consumerId,
+      descricao: `${atual.nome} favoritado caiu ${quedaPercentual.toFixed(0)}% (R$ ${precoAntigo.toFixed(2)} para R$ ${precoNovo.toFixed(2)})`,
+      mensagem,
+      produtoId: fav.productId,
+      score: Math.min(60 + quedaPercentual, 95),
+      log,
+    });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 8. Aniversário (#50-51)
+async function runAniversario(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const hoje = new Date();
+  const mesDia = `${String(hoje.getMonth() + 1).padStart(2, "0")}-${String(hoje.getDate()).padStart(2, "0")}`;
+
+  const aniversariantes = await db
+    .select({ id: consumersTable.id, name: consumersTable.name })
+    .from(consumersTable)
+    .where(sql`${consumersTable.dataNascimento} IS NOT NULL AND to_char(${consumersTable.dataNascimento}::date, 'MM-DD') = ${mesDia}`);
+
+  let criadas = 0;
+  for (const consumidor of aniversariantes) {
+    const mensagem = preencherTemplate(regra.mensagemTemplate, { nome: consumidor.name });
+    await criarOportunidade({ regra, consumerId: consumidor.id, descricao: `Aniversario de ${consumidor.name} hoje`, mensagem, score: 80, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 9. Pontos expirando (#39)
+async function runPontosExpirando(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const diasAntes = Number(regra.condicoes["diasAntesVencimento"] ?? 30);
+  const limite = new Date(Date.now() + diasAntes * DAY_MS);
+
+  const expirando = await db.execute(sql`
+    SELECT consumer_id, sum(quantidade)::int AS pontos_expirando
+    FROM coin_transactions
+    WHERE tipo = 'ganho' AND expira_em IS NOT NULL AND expira_em <= ${limite} AND expira_em > now()
+    GROUP BY consumer_id
+  `);
+
+  let criadas = 0;
+  for (const linha of expirando.rows as unknown as { consumer_id: number; pontos_expirando: number }[]) {
+    const mensagem = preencherTemplate(regra.mensagemTemplate, { pontos: linha.pontos_expirando });
+    await criarOportunidade({ regra, consumerId: linha.consumer_id, descricao: `${linha.pontos_expirando} pontos expirando em ate ${diasAntes} dias`, mensagem, score: 65, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 10. Cross-sell pos-compra (#9-16) — pares configurados em
+// condicoes.pares [{origemId, sugeridoId}]
+async function runCrossSell(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const pares = (regra.condicoes["pares"] as Array<{ origemId: string; sugeridoId: string }> | undefined) ?? [];
+  const diasApos = Number(regra.condicoes["diasApos"] ?? 1);
+  if (pares.length === 0) return 0;
+
+  let criadas = 0;
+  for (const par of pares) {
+    const compradores = await db.execute(sql`
+      SELECT DISTINCT o.consumer_id
+      FROM orders o JOIN order_items oi ON oi.order_id = o.id
+      WHERE oi.product_id = ${par.origemId} AND o.consumer_id IS NOT NULL
+        AND o.created_at <= now() - (${diasApos} || ' days')::interval
+        AND NOT EXISTS (
+          SELECT 1 FROM order_items oi2 JOIN orders o2 ON o2.id = oi2.order_id
+          WHERE o2.consumer_id = o.consumer_id AND oi2.product_id = ${par.sugeridoId}
+        )
+    `);
+    const { rows: produtoSugerido } = await vendorPool.query<{ nome: string }>(`SELECT nome FROM produtos_catalogo WHERE id = $1`, [par.sugeridoId]);
+    const nomeSugerido = produtoSugerido[0]?.nome ?? "produto complementar";
+
+    for (const linha of compradores.rows as unknown as { consumer_id: number }[]) {
+      const mensagem = preencherTemplate(regra.mensagemTemplate, { produto: nomeSugerido });
+      await criarOportunidade({ regra, consumerId: linha.consumer_id, descricao: `Comprou item de origem, sugerir ${nomeSugerido}`, mensagem, produtoId: par.sugeridoId, score: 70, log });
+      criadas += 1;
+    }
+  }
+  return criadas;
+}
+
+// 11. Upsell (#17-22) e 12. Produto com nova versao (#61) — mesma query
+// (usa produtoSucessorId no catalogo), mensagens diferentes por regra
+async function runUpsell(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const diasApos = Number(regra.condicoes["diasApos"] ?? 7);
+  const { rows: comSucessor } = await vendorPool.query<{ id: string; nome: string; produto_sucessor_id: string; sucessor_nome: string }>(`
+    SELECT p.id, p.nome, p.produto_sucessor_id, s.nome AS sucessor_nome
+    FROM produtos_catalogo p JOIN produtos_catalogo s ON s.id = p.produto_sucessor_id
+    WHERE p.produto_sucessor_id IS NOT NULL AND s.ativo = true
+  `);
+
+  let criadas = 0;
+  for (const produto of comSucessor) {
+    const compradores = await db.execute(sql`
+      SELECT DISTINCT o.consumer_id FROM orders o JOIN order_items oi ON oi.order_id = o.id
+      WHERE oi.product_id = ${produto.id} AND o.consumer_id IS NOT NULL
+        AND o.created_at <= now() - (${diasApos} || ' days')::interval
+    `);
+    for (const linha of compradores.rows as unknown as { consumer_id: number }[]) {
+      const mensagem = preencherTemplate(regra.mensagemTemplate, { produtoAtual: produto.nome, produtoNovo: produto.sucessor_nome });
+      await criarOportunidade({ regra, consumerId: linha.consumer_id, descricao: `${produto.nome} tem versao nova: ${produto.sucessor_nome}`, mensagem, produtoId: produto.produto_sucessor_id, score: 65, log });
+      criadas += 1;
+    }
+  }
+  return criadas;
+}
+const runProdutoNovaVersao = runUpsell;
+
+// 13. Sazonalidade/evento (#32-37) — 1x/ano a partir do mes configurado
+async function runSazonalidadeEvento(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const mesGatilho = Number(regra.condicoes["mesGatilho"] ?? new Date().getMonth() + 1);
+  if (new Date().getMonth() + 1 !== mesGatilho) return 0;
+  const categoria = regra.condicoes["categoria"] as string | undefined;
+  if (!categoria) return 0;
+
+  const { rows: produtosCategoria } = await vendorPool.query<{ id: string }>(
+    `SELECT pc.id FROM produtos_catalogo pc JOIN categorias_produto cp ON cp.id = pc.categoria_id WHERE cp.nome = $1`,
+    [categoria],
+  );
+  const produtoIds = produtosCategoria.map((p) => p.id);
+  if (produtoIds.length === 0) return 0;
+
+  const compradoresAnoPassado = await db.execute(sql`
+    SELECT DISTINCT o.consumer_id FROM orders o JOIN order_items oi ON oi.order_id = o.id
+    WHERE oi.product_id = ANY(${produtoIds}) AND o.consumer_id IS NOT NULL
+      AND o.created_at BETWEEN now() - interval '13 months' AND now() - interval '10 months'
+      AND NOT EXISTS (
+        SELECT 1 FROM order_items oi2 JOIN orders o2 ON o2.id = oi2.order_id
+        WHERE o2.consumer_id = o.consumer_id AND oi2.product_id = ANY(${produtoIds}) AND o2.created_at > now() - interval '10 months'
+      )
+  `);
+
+  let criadas = 0;
+  for (const linha of compradoresAnoPassado.rows as unknown as { consumer_id: number }[]) {
+    const mensagem = preencherTemplate(regra.mensagemTemplate, { categoria });
+    await criarOportunidade({ regra, consumerId: linha.consumer_id, descricao: `Comprou ${categoria} na temporada passada, ainda nao voltou`, mensagem, score: 68, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 14. NPS baixo (#54)
+async function runNpsBaixo(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const notaMaxima = Number(regra.condicoes["notaMaxima"] ?? 6);
+  const diasJanela = Number(regra.condicoes["diasJanela"] ?? 3);
+  const limite = new Date(Date.now() - diasJanela * DAY_MS);
+
+  const respostas = await db.select().from(npsRespostasTable)
+    .where(and(sql`${npsRespostasTable.nota} <= ${notaMaxima}`, gte(npsRespostasTable.createdAt, limite)));
+
+  let criadas = 0;
+  for (const resposta of respostas) {
+    const mensagem = preencherTemplate(regra.mensagemTemplate, { nota: resposta.nota });
+    await criarOportunidade({ regra, consumerId: resposta.consumerId, descricao: `NPS ${resposta.nota} — risco de churn`, mensagem, score: 75, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 15. Navegacao intensa (#25)
+async function runNavegacaoIntensa(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const minimoVisualizacoes = Number(regra.condicoes["minimoVisualizacoes"] ?? 3);
+  const diasJanela = Number(regra.condicoes["diasJanela"] ?? 2);
+  const limite = new Date(Date.now() - diasJanela * DAY_MS);
+
+  const intensos = await db
+    .select({ consumerId: productViewsTable.consumerId, productId: productViewsTable.productId, total: sql<number>`count(*)` })
+    .from(productViewsTable)
+    .where(and(gte(productViewsTable.createdAt, limite), sql`${productViewsTable.consumerId} IS NOT NULL`))
+    .groupBy(productViewsTable.consumerId, productViewsTable.productId)
+    .having(sql`count(*) >= ${minimoVisualizacoes}`);
+
+  let criadas = 0;
+  for (const linha of intensos) {
+    if (!linha.consumerId) continue;
+    const { rows } = await vendorPool.query<{ nome: string }>(`SELECT nome FROM produtos_catalogo WHERE id = $1`, [linha.productId]);
+    const nome = rows[0]?.nome ?? "produto";
+    const mensagem = preencherTemplate(regra.mensagemTemplate, { produto: nome });
+    await criarOportunidade({ regra, consumerId: linha.consumerId, descricao: `Visualizou ${nome} ${linha.total}x em ${diasJanela} dias`, mensagem, produtoId: linha.productId, score: 72, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 16. Busca sem resultado (#26)
+async function runBuscaSemResultado(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const diasJanela = Number(regra.condicoes["diasJanela"] ?? 3);
+  const limite = new Date(Date.now() - diasJanela * DAY_MS);
+
+  const buscas = await db.select().from(searchLogsTable)
+    .where(and(eq(searchLogsTable.teveResultado, false), gte(searchLogsTable.createdAt, limite), sql`${searchLogsTable.consumerId} IS NOT NULL`));
+
+  let criadas = 0;
+  for (const busca of buscas) {
+    if (!busca.consumerId) continue;
+    const mensagem = preencherTemplate(regra.mensagemTemplate, { termo: busca.termo });
+    await criarOportunidade({ regra, consumerId: busca.consumerId, descricao: `Buscou "${busca.termo}" sem resultado`, mensagem, score: 50, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 17. Cupom expirando (#31)
+async function runCupomExpirando(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const horasAntes = Number(regra.condicoes["horasAntesVencimento"] ?? 3);
+  const limite = new Date(Date.now() + horasAntes * 60 * 60 * 1000);
+
+  const cupons = await db.select().from(consumerCouponsTable)
+    .where(and(sql`${consumerCouponsTable.usadoEm} IS NULL`, lt(consumerCouponsTable.expiraEm, limite), gte(consumerCouponsTable.expiraEm, new Date())));
+
+  let criadas = 0;
+  for (const cupom of cupons) {
+    const mensagem = preencherTemplate(regra.mensagemTemplate, { codigo: cupom.codigo });
+    await criarOportunidade({ regra, consumerId: cupom.consumerId, descricao: `Cupom ${cupom.codigo} expira em ate ${horasAntes}h`, mensagem, score: 88, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 18. Promocao relampago / frete gratis por tempo limitado (#29-30)
+async function runPromocaoRelampago(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const campanhasAtivas = await db.select().from(campanhasTable)
+    .where(and(eq(campanhasTable.ativo, true), lt(campanhasTable.inicioEm, new Date()), gte(campanhasTable.fimEm, new Date())));
+  if (campanhasAtivas.length === 0) return 0;
+
+  const baseAtiva = await db.execute(sql`
+    SELECT DISTINCT consumer_id FROM orders WHERE consumer_id IS NOT NULL AND created_at > now() - interval '90 days' LIMIT 5000
+  `);
+
+  let criadas = 0;
+  for (const campanha of campanhasAtivas) {
+    const mensagem = preencherTemplate(regra.mensagemTemplate, { campanha: campanha.nome });
+    for (const linha of baseAtiva.rows as unknown as { consumer_id: number }[]) {
+      await criarOportunidade({ regra, consumerId: linha.consumer_id, descricao: `Campanha "${campanha.nome}" ativa`, mensagem, score: 55, log });
+      criadas += 1;
+    }
+  }
+  return criadas;
+}
+
+// 19. Beneficio de fidelidade nao usado (#40)
+async function runBeneficioNaoUsado(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const diasAntesVencer = Number(regra.condicoes["diasAntesVencer"] ?? 10);
+  const limite = new Date(Date.now() + diasAntesVencer * DAY_MS);
+
+  const beneficios = await db.select().from(consumerBeneficiosTable)
+    .where(and(sql`${consumerBeneficiosTable.usadoEm} IS NULL`, sql`${consumerBeneficiosTable.expiraEm} IS NOT NULL`, lt(consumerBeneficiosTable.expiraEm, limite)));
+
+  let criadas = 0;
+  for (const beneficio of beneficios) {
+    const mensagem = preencherTemplate(regra.mensagemTemplate, { beneficio: beneficio.descricao });
+    await criarOportunidade({ regra, consumerId: beneficio.consumerId, descricao: `Beneficio "${beneficio.descricao}" parado, expira em breve`, mensagem, score: 60, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 20. Assinatura disponivel pra ativar (#38) — comprador frequente do
+// mesmo produto que ainda nao tem assinatura dele
+async function runAssinaturaDisponivel(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const minimoCompras = Number(regra.condicoes["minimoComprasParaSugerir"] ?? 3);
+
+  const candidatos = await db.execute(sql`
+    SELECT o.consumer_id, oi.product_id, oi.product_name, count(*)::int AS total
+    FROM orders o JOIN order_items oi ON oi.order_id = o.id
+    WHERE o.consumer_id IS NOT NULL
+    GROUP BY o.consumer_id, oi.product_id, oi.product_name
+    HAVING count(*) >= ${minimoCompras}
+  `);
+
+  let criadas = 0;
+  for (const linha of candidatos.rows as unknown as { consumer_id: number; product_id: string; product_name: string; total: number }[]) {
+    const [jaTem] = await db.select().from(assinaturasTable)
+      .where(and(eq(assinaturasTable.consumerId, linha.consumer_id), eq(assinaturasTable.productId, linha.product_id), eq(assinaturasTable.status, "ativa")))
+      .limit(1);
+    if (jaTem) continue;
+
+    const mensagem = preencherTemplate(regra.mensagemTemplate, { produto: linha.product_name });
+    await criarOportunidade({ regra, consumerId: linha.consumer_id, descricao: `Comprou ${linha.product_name} ${linha.total}x, sugerir assinatura`, mensagem, produtoId: linha.product_id, score: 58, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 21. Assinatura cancelada — tentar reconquistar (#68)
+async function runAssinaturaCancelada(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const diasAposCancelamento = Number(regra.condicoes["diasAposCancelamento"] ?? 7);
+  const limite = new Date(Date.now() - diasAposCancelamento * DAY_MS);
+
+  const canceladas = await db.select().from(assinaturasTable)
+    .where(and(eq(assinaturasTable.status, "cancelada"), sql`${assinaturasTable.canceladaEm} IS NOT NULL`, lt(assinaturasTable.canceladaEm, limite)));
+
+  let criadas = 0;
+  for (const assinatura of canceladas) {
+    const mensagem = preencherTemplate(regra.mensagemTemplate, {});
+    await criarOportunidade({ regra, consumerId: assinatura.consumerId, descricao: `Cancelou assinatura ha ${diasAposCancelamento}+ dias`, mensagem, produtoId: assinatura.productId, score: 55, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 22. Horario de almoco (#64) — o unico "gatilho externo" que nao
+// depende de API externa (geolocalizacao, clima), e so padrao de
+// horario. Se o batch nao rodar nesse horario, essa regra nao encontra
+// ninguem — precisaria de execucao mais frequente que 1x/dia (ver README).
+async function runHorarioAlmoco(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const horaAtual = new Date().getHours();
+  const inicio = Number(regra.condicoes["horaInicio"] ?? 12);
+  const fim = Number(regra.condicoes["horaFim"] ?? 14);
+  if (horaAtual < inicio || horaAtual >= fim) return 0;
+
+  const clientesDelivery = await db.execute(sql`
+    SELECT DISTINCT o.consumer_id FROM orders o JOIN order_items oi ON oi.order_id = o.id
+    JOIN produtos_catalogo pc ON pc.id = oi.product_id
+    JOIN categorias_produto cp ON cp.id = pc.categoria_id
+    WHERE o.consumer_id IS NOT NULL AND cp.nome ILIKE '%restaurante%'
+    LIMIT 1000
+  `);
+
+  let criadas = 0;
+  for (const linha of clientesDelivery.rows as unknown as { consumer_id: number }[]) {
+    const mensagem = preencherTemplate(regra.mensagemTemplate, {});
+    await criarOportunidade({ regra, consumerId: linha.consumer_id, descricao: "Horario de almoco, cliente com historico de delivery", mensagem, score: 62, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
+// 23. Auto-presente (#62) — comprou pra endereco/nome diferente do
+// proprio nas ultimas N compras, sugerir "e voce, ja se presenteou?"
+async function runAutoPresente(regra: ScoutPraRegra, log: Logger): Promise<number> {
+  const diasJanela = Number(regra.condicoes["diasJanela"] ?? 30);
+  const limite = new Date(Date.now() - diasJanela * DAY_MS);
+
+  const pedidosRecentes = await db
+    .select({ id: ordersTable.id, consumerId: ordersTable.consumerId, deliveryAddress: ordersTable.deliveryAddress })
+    .from(ordersTable)
+    .where(and(gte(ordersTable.createdAt, limite), sql`${ordersTable.consumerId} IS NOT NULL`));
+
+  let criadas = 0;
+  for (const pedido of pedidosRecentes) {
+    if (!pedido.consumerId) continue;
+    const [consumidor] = await db.select({ name: consumersTable.name }).from(consumersTable).where(eq(consumersTable.id, pedido.consumerId));
+    if (!consumidor) continue;
+    let endereco: { recipientName?: string };
+    try {
+      endereco = JSON.parse(pedido.deliveryAddress);
+    } catch {
+      continue;
+    }
+    // Heurística simples: nome do destinatário no endereço diferente do
+    // nome cadastrado — sinal de que foi presente pra outra pessoa.
+    if (!endereco.recipientName || endereco.recipientName.trim().toLowerCase() === consumidor.name.trim().toLowerCase()) continue;
+
+    const mensagem = preencherTemplate(regra.mensagemTemplate, {});
+    await criarOportunidade({ regra, consumerId: pedido.consumerId, descricao: "Comprou pra outra pessoa recentemente, sugerir auto-presente", mensagem, score: 45, log });
+    criadas += 1;
+  }
+  return criadas;
+}
+
 const RUNNERS: Partial<Record<string, (regra: ScoutPraRegra, log: Logger) => Promise<number>>> = {
   carrinho_abandonado: runCarrinhoAbandonado,
   estoque_baixo: runEstoqueBaixo,
@@ -295,6 +692,23 @@ const RUNNERS: Partial<Record<string, (regra: ScoutPraRegra, log: Logger) => Pro
   reativacao_inativo: runReativacaoInativo,
   milestone_compras: runMilestoneCompras,
   pos_compra_avaliacao: runPosCompraAvaliacao,
+  favorito_preco_caiu: runFavoritoPrecoCaiu,
+  aniversario: runAniversario,
+  pontos_expirando: runPontosExpirando,
+  cross_sell: runCrossSell,
+  upsell: runUpsell,
+  produto_nova_versao: runProdutoNovaVersao,
+  sazonalidade_evento: runSazonalidadeEvento,
+  nps_baixo: runNpsBaixo,
+  navegacao_intensa: runNavegacaoIntensa,
+  busca_sem_resultado: runBuscaSemResultado,
+  cupom_expirando: runCupomExpirando,
+  promocao_relampago: runPromocaoRelampago,
+  beneficio_nao_usado: runBeneficioNaoUsado,
+  adesao_assinatura: runAssinaturaDisponivel,
+  assinatura_cancelada: runAssinaturaCancelada,
+  gatilho_externo: runHorarioAlmoco,
+  auto_presente: runAutoPresente,
 };
 
 export async function runScoutPraTodasRegras(log: Logger): Promise<{ tipo: string; criadas: number }[]> {
