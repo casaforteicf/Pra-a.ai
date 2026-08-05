@@ -623,6 +623,47 @@ ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS especificacoes jsonb;
 -- carro" na categoria Acessórios para Veículos, tipo Tuning Parts). jsonb
 -- com lista de {marca, modelo, anoInicio, anoFim}.
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS compatibilidade_veicular jsonb;
+
+-- Revenue Scout — Lado Comprador. Espelha scout_regras/scout_oportunidades
+-- do Vendor.ai, mas pro consumidor final do marketplace.
+CREATE TABLE IF NOT EXISTS scout_pra_regras (
+  id text PRIMARY KEY,
+  nome text NOT NULL,
+  tipo text NOT NULL,
+  condicoes jsonb NOT NULL DEFAULT '{}',
+  canal text NOT NULL DEFAULT 'push',
+  mensagem_template text NOT NULL,
+  peso_estrategico numeric(4,2) NOT NULL DEFAULT 1.0,
+  ativo boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS scout_pra_oportunidades (
+  id text PRIMARY KEY,
+  regra_id text NOT NULL REFERENCES scout_pra_regras(id) ON DELETE CASCADE,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
+  tipo text NOT NULL,
+  descricao text NOT NULL,
+  mensagem text NOT NULL,
+  canal text NOT NULL,
+  produto_id text,
+  status text NOT NULL DEFAULT 'pendente',
+  score_oportunidade numeric(6,2) NOT NULL,
+  receita_esperada numeric(10,2),
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_scout_pra_oportunidades_consumer ON scout_pra_oportunidades(consumer_id);
+CREATE INDEX IF NOT EXISTS idx_scout_pra_oportunidades_status ON scout_pra_oportunidades(status);
+
+CREATE TABLE IF NOT EXISTS scout_pra_envios_log (
+  id text PRIMARY KEY,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
+  oportunidade_id text REFERENCES scout_pra_oportunidades(id) ON DELETE SET NULL,
+  canal text NOT NULL,
+  enviado_em timestamp with time zone NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_scout_pra_envios_log_consumer_data ON scout_pra_envios_log(consumer_id, enviado_em);
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {
