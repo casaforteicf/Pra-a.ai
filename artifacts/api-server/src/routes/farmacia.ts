@@ -29,13 +29,41 @@ router.get("/farmacia/produtos/:id", async (req, res): Promise<void> => {
 // temos upload de imagem no Praça.ai — a farmácia pede a foto direto pelo
 // WhatsApp depois), o pedido nasce em "aguardando_receita", igual à regra
 // que já existe no Vendor.ai.
+// Receitas estruturadas ativas do consumidor logado, pra esse
+// lojista específico (lead varia por vendedor) — usado no checkout pra
+// oferecer "usar receita já cadastrada" em vez de só a foto solta.
+router.get("/farmacia/minhas-receitas", async (req, res): Promise<void> => {
+  const consumerId = req.session?.consumerId ?? null;
+  const vendorId = req.query["vendorId"] as string | undefined;
+  if (!consumerId || !vendorId) {
+    res.json([]);
+    return;
+  }
+
+  const [consumer] = await db.select().from(consumersTable).where(eq(consumersTable.id, consumerId)).limit(1);
+  if (!consumer) {
+    res.json([]);
+    return;
+  }
+
+  const leadId = await findOrCreateLead(vendorId, { nome: consumer.name, telefone: consumer.phone ?? null, email: consumer.email, endereco: null });
+  const { rows } = await vendorPool.query(
+    `SELECT id, medicamento_nome, tipo, data_validade FROM receitas_medicas
+     WHERE cliente_id = $1 AND status = 'ativa' AND data_validade >= now()
+     ORDER BY data_validade ASC`,
+    [leadId],
+  );
+  res.json(rows);
+});
+
 router.post("/farmacia/pedido", async (req, res): Promise<void> => {
   const consumerId = req.session?.consumerId ?? null;
-  const { produtoId, quantidade, enderecoEntrega, receitaUrl, guestName, guestPhone } = req.body as {
+  const { produtoId, quantidade, enderecoEntrega, receitaUrl, receitaMedicaId, guestName, guestPhone } = req.body as {
     produtoId?: string;
     quantidade?: number;
     enderecoEntrega?: string;
     receitaUrl?: string;
+    receitaMedicaId?: string;
     guestName?: string;
     guestPhone?: string;
   };
@@ -74,17 +102,36 @@ router.post("/farmacia/pedido", async (req, res): Promise<void> => {
   }
 
   const temItemControlado = produto.exigeReceita;
-  const status = temItemControlado && !receitaUrl ? "aguardando_receita" : "aguardando_confirmacao";
   const valorTotal = produto.preco * quantidade;
 
   const leadId = await findOrCreateLead(produto.vendorId, { nome, telefone, email: email ?? null, endereco: enderecoEntrega });
 
+  // Receita estruturada (cadastrada no Vendor.ai — validade, tipo,
+  // médico) também libera item controlado, igual à foto solta. Sem
+  // isso, essa peça construída hoje mais cedo nunca era alcançável a
+  // partir do fluxo real de compra do Praça.ai.
+  let receitaValida = false;
+  if (receitaMedicaId) {
+    const { rows: receitaRows } = await vendorPool.query<{ id: string; status: string; data_validade: string; cliente_id: string }>(
+      `SELECT id, status, data_validade, cliente_id FROM receitas_medicas WHERE id = $1`,
+      [receitaMedicaId],
+    );
+    const receita = receitaRows[0];
+    receitaValida = !!receita && receita.status === "ativa" && receita.cliente_id === leadId && new Date(receita.data_validade).getTime() >= Date.now();
+  }
+
+  const status = temItemControlado && !receitaUrl && !receitaValida ? "aguardando_receita" : "aguardando_confirmacao";
+
   const { rows } = await vendorPool.query(
-    `INSERT INTO farmacia_pedidos (id, tenant_id, lead_id, origem, status, endereco_entrega, tem_item_controlado, receita_url, valor_total)
-     VALUES (gen_random_uuid()::text, $1, $2, 'app', $3, $4, $5, $6, $7)
+    `INSERT INTO farmacia_pedidos (id, tenant_id, lead_id, origem, status, endereco_entrega, tem_item_controlado, receita_url, receita_medica_id, valor_total)
+     VALUES (gen_random_uuid()::text, $1, $2, 'app', $3, $4, $5, $6, $7, $8)
      RETURNING id, status`,
-    [produto.vendorId, leadId, status, enderecoEntrega, temItemControlado, receitaUrl ?? null, valorTotal],
+    [produto.vendorId, leadId, status, enderecoEntrega, temItemControlado, receitaUrl ?? null, receitaValida ? receitaMedicaId : null, valorTotal],
   );
+
+  if (receitaValida) {
+    await vendorPool.query(`UPDATE receitas_medicas SET status = 'utilizada', updated_at = now() WHERE id = $1`, [receitaMedicaId]);
+  }
 
   const pedidoId = rows[0].id;
 

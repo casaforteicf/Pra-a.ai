@@ -34,6 +34,50 @@ import type { Logger } from "pino";
 
 const DAY_MS = 1000 * 60 * 60 * 24;
 
+const VENDOR_API_BASE_URL = process.env.VENDOR_API_BASE_URL || "https://appvendorai.com/api";
+const PRACA_AI_INTERNAL_KEY = process.env.PRACA_AI_INTERNAL_KEY || "";
+
+/**
+ * Ponte pro Scout do Vendor.ai — pra oportunidades com produtoId,
+ * resolve o vendedor (tenant) do produto e o lead do consumidor nesse
+ * vendedor, e manda o sinal. Melhor esforço: nunca lança, nunca atrasa
+ * a criação da oportunidade no Praça.ai por causa disso.
+ */
+async function alinharComVendorAi(input: {
+  consumerId: number;
+  produtoId?: string;
+  tipo: string;
+  descricao: string;
+  canal: string;
+  score: number;
+  log?: Logger;
+}): Promise<void> {
+  if (!input.produtoId || !PRACA_AI_INTERNAL_KEY) return;
+  try {
+    const { rows: produtoRows } = await vendorPool.query<{ tenant_id: string }>(
+      `SELECT tenant_id FROM produtos_catalogo WHERE id = $1`,
+      [input.produtoId],
+    );
+    const tenantId = produtoRows[0]?.tenant_id;
+    if (!tenantId) return;
+
+    const [consumer] = await db.select().from(consumersTable).where(eq(consumersTable.id, input.consumerId));
+    if (!consumer) return;
+
+    const { findOrCreateLead } = await import("./vendorSyncService");
+    const leadId = await findOrCreateLead(tenantId, { nome: consumer.name, telefone: consumer.phone ?? null, email: consumer.email, endereco: null });
+
+    await fetch(`${VENDOR_API_BASE_URL}/internal/scout/consumer-signal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-internal-key": PRACA_AI_INTERNAL_KEY },
+      body: JSON.stringify({ leadId, tenantId, tipo: input.tipo, descricao: input.descricao, canal: input.canal, scoreOportunidade: input.score }),
+      signal: AbortSignal.timeout(3000),
+    });
+  } catch (err) {
+    input.log?.warn({ err, produtoId: input.produtoId }, "scout-pra: falha ao alinhar com Vendor.ai (não bloqueia)");
+  }
+}
+
 const LIMITES_POR_CANAL: Record<string, { quantidade: number; janelaDias: number }> = {
   push: { quantidade: 1, janelaDias: 1 },
   sms: { quantidade: 2, janelaDias: 7 },
@@ -101,7 +145,10 @@ async function criarOportunidade(input: CriarOportunidadeInput): Promise<void> {
     });
   } catch (err) {
     log?.warn({ err, regraId: regra.id, consumerId }, "scout-pra: falha ao criar oportunidade");
+    return;
   }
+
+  void alinharComVendorAi({ consumerId, produtoId, tipo: regra.tipo, descricao, canal: regra.canal, score, log });
 }
 
 function preencherTemplate(template: string, vars: Record<string, string | number>): string {
