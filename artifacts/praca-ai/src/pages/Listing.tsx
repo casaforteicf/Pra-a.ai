@@ -198,7 +198,7 @@ export default function ListingPage() {
 
   if (isAutoAccessories) {
     return (
-      <div className="min-h-full w-full bg-[#f3f4f3] pb-12 text-[#202723]">
+      <div className="min-h-full w-full bg-background pb-12 text-foreground">
         <header className="bg-[#17211c] text-white">
           <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-3">
@@ -208,7 +208,7 @@ export default function ListingPage() {
             </div>
             <form onSubmit={submitSearch} className="relative mt-4">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque acessórios, marca ou modelo" className="h-12 border-0 bg-card pl-12 pr-14 text-base text-slate-950" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque acessórios, marca ou modelo" className="h-12 border-0 bg-card pl-12 pr-14 text-base text-foreground" />
               <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#1f7a45] p-2 text-white" aria-label="Buscar"><Search className="h-4 w-4" /></button>
             </form>
           </div>
@@ -224,14 +224,14 @@ export default function ListingPage() {
           </section>
 
           <section className="mt-5 rounded-2xl bg-card p-4 shadow-sm sm:p-6">
-            <div className="flex items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#1f7a45]">Encontre mais rápido</p><h2 className="mt-1 text-xl font-black">O que você procura?</h2></div><button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="text-xs font-bold text-[#1f7a45]">Ver tudo</button></div>
-            <div className="mt-4 grid grid-cols-4 gap-x-2 gap-y-5 sm:grid-cols-8">{autoDepartments.map(({ label, icon: Icon, search: departmentSearch }) => <button key={label} onClick={() => selectDepartment(departmentSearch)} className="group flex min-w-0 flex-col items-center gap-2 text-center"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e8f3ec] text-[#1f7a45] transition group-hover:bg-[#1f7a45] group-hover:text-white sm:h-14 sm:w-14"><Icon className="h-6 w-6" /></span><span className="text-[10px] font-bold leading-tight sm:text-xs">{label}</span></button>)}</div>
+            <div className="flex items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Encontre mais rápido</p><h2 className="mt-1 text-xl font-black">O que você procura?</h2></div><button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="text-xs font-bold text-primary">Ver tudo</button></div>
+            <div className="mt-4 grid grid-cols-4 gap-x-2 gap-y-5 sm:grid-cols-8">{autoDepartments.map(({ label, icon: Icon, search: departmentSearch }) => <button key={label} onClick={() => selectDepartment(departmentSearch)} className="group flex min-w-0 flex-col items-center gap-2 text-center"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground sm:h-14 sm:w-14"><Icon className="h-6 w-6" /></span><span className="text-[10px] font-bold leading-tight text-foreground sm:text-xs">{label}</span></button>)}</div>
           </section>
 
           <section id="produtos-auto" className="mt-5 rounded-2xl bg-card p-4 shadow-sm sm:p-6">
-            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#1f7a45]">Vitrine automotiva</p><h2 className="mt-1 text-2xl font-black">Acessórios para seu veículo</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} {listData.total === 1 ? "produto encontrado" : "produtos encontrados"}{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div></div>
-            <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-2">{sortOptions.slice(0, 5).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#1f7a45] bg-[#1f7a45] text-white" : "bg-card")}>{option.label}</button>)}</div>
-            {isLoading ? <div className="py-14"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os acessórios" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} compact />)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-[#bdd8c6] bg-[#f4faf6] px-5 py-10 text-center"><span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-card text-[#1f7a45] shadow-sm"><Car className="h-8 w-8" /></span><h3 className="mt-4 text-lg font-black">{submittedSearch ? "Nenhum acessório encontrado" : "Novos acessórios chegando"}</h3><p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{submittedSearch ? "Tente buscar por outro nome, marca ou escolha uma das categorias acima." : "As lojas parceiras ainda estão publicando o catálogo automotivo. Enquanto isso, explore os demais produtos disponíveis na Praça.ai."}</p><div className="mt-5 flex flex-wrap justify-center gap-2"><Button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="bg-[#1f7a45] hover:bg-[#19663a]">Limpar busca</Button><Button variant="outline" onClick={() => setLocation("/listing")}>Explorar a Praça.ai</Button></div></div>}
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Vitrine automotiva</p><h2 className="mt-1 text-2xl font-black">Acessórios para seu veículo</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} {listData.total === 1 ? "produto encontrado" : "produtos encontrados"}{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div></div>
+            <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-2">{sortOptions.slice(0, 5).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-primary bg-primary text-primary-foreground shadow-neon-sm" : "bg-card")}>{option.label}</button>)}</div>
+            {isLoading ? <div className="py-14"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os acessórios" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} compact />)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-border bg-background px-5 py-10 text-center"><span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 text-primary shadow-sm"><Car className="h-8 w-8" /></span><h3 className="mt-4 text-lg font-black">{submittedSearch ? "Nenhum acessório encontrado" : "Novos acessórios chegando"}</h3><p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{submittedSearch ? "Tente buscar por outro nome, marca ou escolha uma das categorias acima." : "As lojas parceiras ainda estão publicando o catálogo automotivo. Enquanto isso, explore os demais produtos disponíveis na Praça.ai."}</p><div className="mt-5 flex flex-wrap justify-center gap-2"><Button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="bg-primary text-primary-foreground hover:opacity-90">Limpar busca</Button><Button variant="outline" onClick={() => setLocation("/listing")}>Explorar a Praça.ai</Button></div></div>}
           </section>
         </main>
       </div>
@@ -288,7 +288,7 @@ export default function ListingPage() {
     ]
 
     return (
-      <div className="min-h-full w-full bg-[#f4f6f8] pb-12 text-[#183b63]">
+      <div className="min-h-full w-full bg-background pb-12 text-foreground">
         <header className="bg-[#075aaa] text-white">
           <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-5 sm:px-6 lg:px-8">
             <Link href="/" className="flex items-center gap-2 text-2xl font-black">
@@ -570,7 +570,7 @@ export default function ListingPage() {
 
   if (isPhones) {
     return (
-      <div className="min-h-full w-full bg-[#f5f7fa] pb-12 text-[#173f72]">
+      <div className="min-h-full w-full bg-background pb-12 text-foreground">
         <header className="bg-[#174b87] text-white">
           <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-5 sm:px-6 lg:gap-8 lg:px-8">
             <Link href="/" className="flex items-center gap-2 text-xl font-black"><Smartphone className="h-8 w-8 text-[#ffd128]" /> Praça.ai <span className="hidden text-sm font-semibold text-white/70 sm:inline">Celulares</span></Link>
@@ -596,7 +596,7 @@ export default function ListingPage() {
 
   if (isFashion) {
     return (
-      <div className="min-h-full w-full bg-[#f5f5f5] pb-12 text-[#161616]">
+      <div className="min-h-full w-full bg-background pb-12 text-foreground">
         <div className="bg-black py-2 text-center text-xs font-bold uppercase tracking-[0.14em] text-white">10% de desconto na primeira compra com o cupom <strong>PRIMEIRAPRAÇA</strong></div>
         <header className="bg-card">
           <div className="bg-background text-foreground">
@@ -632,7 +632,7 @@ export default function ListingPage() {
 
   if (isToys) {
     return (
-      <div className="min-h-full w-full bg-[#f8f5f5] pb-12 text-[#251745]">
+      <div className="min-h-full w-full bg-background pb-12 text-foreground">
         <header className="bg-[#ffe915] text-[#251745]">
           <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 sm:px-6 lg:gap-8 lg:px-8">
             <Link href="/" className="flex items-center gap-2 text-xl font-black"><Gift className="h-8 w-8 text-[#e43286]" /> Praça.ai <span className="hidden text-sm text-[#604f1c] sm:inline">Brinquedos</span></Link>
@@ -662,7 +662,7 @@ export default function ListingPage() {
 
   if (isBeauty) {
     return (
-      <div className="min-h-full w-full bg-[#f6f3f8] pb-12 text-[#241f2d]">
+      <div className="min-h-full w-full bg-background pb-12 text-foreground">
         <div className="bg-[#241f2d] py-2 text-center text-xs font-black uppercase tracking-[0.18em] text-white">Beleza local, entrega perto de você</div>
         <header className="bg-[#aaa4b1] text-white">
           <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 sm:px-6 lg:gap-8 lg:px-8">
@@ -714,7 +714,7 @@ export default function ListingPage() {
 
   if (isBaby) {
     return (
-      <div className="min-h-full w-full bg-[#fffaf5] pb-12 text-slate-950">
+      <div className="min-h-full w-full bg-background pb-12 text-foreground">
         <header className="bg-card">
           <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 sm:px-6 lg:gap-8 lg:px-8 lg:py-5">
             <Link href="/" className="flex items-center gap-2 text-xl font-black text-[#f28a22]"><Baby className="h-8 w-8" /> Praça.ai <span className="hidden text-sm text-slate-500 sm:inline">Bebê</span></Link>
@@ -774,7 +774,7 @@ export default function ListingPage() {
   }
 
   return (
-    <div className="min-h-full w-full bg-[#f4f6f8] pb-12 text-slate-950">
+    <div className="min-h-full w-full bg-background pb-12 text-foreground">
       <header className="bg-[#174667] text-white">
         <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 sm:px-6 lg:gap-8 lg:px-8 lg:py-6">
           <Link href="/" className="flex items-center gap-2 text-xl font-black"><Store className="h-7 w-7 fill-white" /> Praça.ai <span className="hidden text-sm font-semibold text-white/70 sm:inline">Papelaria</span></Link>
