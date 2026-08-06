@@ -629,11 +629,11 @@ export default function ListingPage() {
             <section className="mx-auto -mt-6 max-w-6xl px-4 sm:px-6 lg:px-8">
               {viagensHoje.map((item) => (
                 <div key={item.id} className="rounded-xl bg-card p-5 shadow-lg">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#075aaa]/10 px-3 py-1 text-xs font-bold text-[#075aaa]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#075aaa]/10 px-3 py-1 text-xs font-bold text-primary">
                     Publicado hoje por {item.tenantName}
                   </span>
-                  <h3 className="mt-2 text-xl font-black text-slate-900">{item.titulo}</h3>
-                  {item.conteudoTexto && <p className="mt-1 text-sm text-slate-600">{item.conteudoTexto}</p>}
+                  <h3 className="mt-2 text-xl font-black text-foreground">{item.titulo}</h3>
+                  {item.conteudoTexto && <p className="mt-1 text-sm text-muted-foreground">{item.conteudoTexto}</p>}
                   {item.videoUrl && <video src={item.videoUrl} className="mt-3 w-full max-w-md rounded-lg" controls />}
                   {item.promocaoTipo && (
                     <p className="mt-3 text-sm font-bold text-emerald-700">
@@ -684,13 +684,13 @@ export default function ListingPage() {
                       <div className={cn("flex h-44 items-center justify-center bg-gradient-to-br", item.color)}><Hotel className="h-20 w-20 text-white/85" strokeWidth={1.2} /></div>
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-2">
-                          <div><p className="text-xs font-bold text-[#075aaa]">{item.type}</p><h3 className="mt-1 font-black text-slate-900">{item.name}</h3></div>
-                          <span className="rounded-md bg-[#075aaa] px-2 py-1 text-xs font-black text-white">{item.rating}</span>
+                          <div><p className="text-xs font-bold text-primary">{item.type}</p><h3 className="mt-1 font-black text-foreground">{item.name}</h3></div>
+                          <span className="rounded-md bg-primary px-2 py-1 text-xs font-black text-primary-foreground">{item.rating}</span>
                         </div>
                         <p className="mt-2 flex items-center gap-1 text-xs text-slate-500"><MapPin className="h-3.5 w-3.5" />{item.city}</p>
                         <div className="mt-4 border-t pt-4 text-right">
                           <p className="text-xs text-slate-500">1 diária para {guests}</p>
-                          <p className="text-xl font-black text-slate-900">{item.price}</p>
+                          <p className="text-xl font-black text-foreground">{item.price}</p>
                           <Button className="mt-3 w-full bg-[#075aaa] hover:bg-[#064c90]">Ver disponibilidade</Button>
                         </div>
                       </div>
@@ -732,16 +732,16 @@ export default function ListingPage() {
                         {travelMode === "aereo" ? <Plane className="h-8 w-8" /> : <Bus className="h-8 w-8" />}
                       </div>
                       <div className="flex-1">
-                        <p className="text-xs font-bold text-[#075aaa]">{item.company}</p>
-                        <h3 className="mt-0.5 font-black text-slate-900">{item.route}</h3>
-                        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                        <p className="text-xs font-bold text-primary">{item.company}</p>
+                        <h3 className="mt-0.5 font-black text-foreground">{item.route}</h3>
+                        <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                           <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{item.duration}</span>
                           <span>{item.stops}</span>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-slate-500">a partir de</p>
-                        <p className="text-xl font-black text-slate-900">{item.price}</p>
+                        <p className="text-xl font-black text-foreground">{item.price}</p>
                         <Button className="mt-2 bg-[#075aaa] hover:bg-[#064c90]">{travelMode === "aereo" ? "Ver assentos" : "Ver poltronas"}</Button>
                       </div>
                     </article>
@@ -765,23 +765,23 @@ export default function ListingPage() {
   if (isPhones) {
     return (
       <div className="min-h-full w-full bg-background pb-12 text-foreground">
-        <header className="bg-[#174b87] text-white">
+        <header className="bg-primary text-primary-foreground">
           <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-5 sm:px-6 lg:gap-8 lg:px-8">
-            <Link href="/" className="flex items-center gap-2 text-xl font-black"><Smartphone className="h-8 w-8 text-[#ffd128]" /> Praça.ai <span className="hidden text-sm font-semibold text-white/70 sm:inline">Celulares</span></Link>
-            <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque celulares, marcas e acessórios" className="h-12 border-0 bg-card pl-12 pr-12 text-slate-950" /><button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#ffd128] p-2 text-[#174b87]"><Search className="h-4 w-4" /></button></form>
+            <Link href="/" className="flex items-center gap-2 text-xl font-black"><Smartphone className="h-8 w-8" /> Praça.ai <span className="hidden text-sm font-semibold text-primary-foreground/70 sm:inline">Celulares</span></Link>
+            <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque celulares, marcas e acessórios" className="h-12 border-0 bg-card pl-12 pr-12 text-foreground" /><button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-background p-2 text-primary"><Search className="h-4 w-4" /></button></form>
             <div className="flex items-center gap-3 justify-self-end"><Heart className="hidden h-5 w-5 sm:block" /><Link href="/profile" className="hidden text-sm font-bold sm:block">Minha conta</Link><ShoppingCart className="h-6 w-6" /></div>
           </div>
-          <nav className="bg-card text-[#174b87]"><div className="mx-auto flex max-w-6xl items-center justify-between gap-8 overflow-x-auto px-4 py-4 text-sm font-black sm:px-6 lg:px-8">{phoneBrands.map((brand) => <button key={brand} onClick={() => selectDepartment(brand)} className="shrink-0 hover:text-[#e0a800]">{brand}</button>)}</div></nav>
+          <nav className="bg-card text-foreground"><div className="mx-auto flex max-w-6xl items-center justify-between gap-8 overflow-x-auto px-4 py-4 text-sm font-black sm:px-6 lg:px-8">{phoneBrands.map((brand) => <button key={brand} onClick={() => selectDepartment(brand)} className="shrink-0 hover:text-primary">{brand}</button>)}</div></nav>
         </header>
 
         <main>
-          <section className="bg-gradient-to-r from-[#dcebf8] to-[#eef6fb]"><div className="mx-auto grid min-h-[320px] max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_0.75fr] lg:px-8"><div><span className="rounded-full bg-[#ffd128] px-3 py-1.5 text-xs font-black uppercase text-[#174b87]">Tecnologia perto de você</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-tight sm:text-6xl">Celulares e smartphones</h1><p className="mt-3 max-w-xl text-[#365f8d]">Encontre aparelhos, acessórios e ofertas das lojas da sua região, com compra segura e entrega local.</p><Button onClick={() => document.getElementById("produtos-celulares")?.scrollIntoView({ behavior: "smooth" })} className="mt-6 bg-[#174b87] hover:bg-[#123c6d]">Ver aparelhos</Button></div><div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-64 w-44 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[2.25rem] border-[10px] border-[#173f72] bg-gradient-to-br from-[#43b5c8] to-[#735eea] shadow-2xl"><Smartphone className="h-24 w-24 -rotate-6 text-white" strokeWidth={1.2} /></div><Wifi className="absolute right-12 top-7 h-12 w-12 text-[#e0a800]" /></div></div></section>
+          <section className="bg-card"><div className="mx-auto grid min-h-[320px] max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_0.75fr] lg:px-8"><div><span className="rounded-full bg-primary px-3 py-1.5 text-xs font-black uppercase text-primary-foreground">Tecnologia perto de você</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-tight text-foreground sm:text-6xl">Celulares e smartphones</h1><p className="mt-3 max-w-xl text-muted-foreground">Encontre aparelhos, acessórios e ofertas das lojas da sua região, com compra segura e entrega local.</p><Button onClick={() => document.getElementById("produtos-celulares")?.scrollIntoView({ behavior: "smooth" })} className="mt-6 bg-primary text-primary-foreground shadow-neon-sm hover:opacity-90">Ver aparelhos</Button></div><div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-64 w-44 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[2.25rem] border-[10px] border-primary bg-gradient-to-br from-primary/60 to-primary shadow-neon"><Smartphone className="h-24 w-24 -rotate-6 text-primary-foreground" strokeWidth={1.2} /></div><Wifi className="absolute right-12 top-7 h-12 w-12 text-primary" /></div></div></section>
 
           <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><PhoneBenefit icon={Truck} title="Pronta entrega" text="Receba com rapidez" /><PhoneBenefit icon={ShieldCheck} title="Compra segura" text="Pagamento protegido" /><PhoneBenefit icon={BatteryCharging} title="Novos e seminovos" text="Escolha o ideal" /><PhoneBenefit icon={Headphones} title="Acessórios" text="Complete seu aparelho" /></div></section>
 
           <section id="produtos-celulares" className="mx-auto grid max-w-6xl gap-5 px-4 sm:px-6 lg:grid-cols-[230px_1fr] lg:px-8">
-            <aside className="h-fit rounded-xl border bg-card p-5 shadow-sm"><h2 className="text-lg font-black">Filtros rápidos</h2><PhoneFilter title="Marca" values={["Apple","Samsung","Motorola","Xiaomi"]} select={selectDepartment} /><PhoneFilter title="Memória" values={["64 GB","128 GB","256 GB","512 GB"]} select={selectDepartment} /><PhoneFilter title="Condição" values={["Novo","Seminovo"]} select={selectDepartment} /><button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="mt-5 w-full rounded-md border py-2 text-sm font-bold">Limpar filtros</button></aside>
-            <div className="rounded-xl bg-card p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#e0a800]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Celulares e smartphones</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-[#174b87] bg-[#174b87] text-white":"bg-card")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os celulares" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum aparelho encontrado":"A loja de celulares está recebendo produtos"} text={submittedSearch?"Tente outra marca, memória ou modelo.":"As lojas parceiras ainda estão publicando seus aparelhos. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div>
+            <aside className="h-fit rounded-xl border border-border bg-card p-5 shadow-sm"><h2 className="text-lg font-black text-primary">Filtros rápidos</h2><PhoneFilter title="Marca" values={["Apple","Samsung","Motorola","Xiaomi"]} select={selectDepartment} /><PhoneFilter title="Memória" values={["64 GB","128 GB","256 GB","512 GB"]} select={selectDepartment} /><PhoneFilter title="Condição" values={["Novo","Seminovo"]} select={selectDepartment} /><button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="mt-5 w-full rounded-md border border-border py-2 text-sm font-bold text-foreground">Limpar filtros</button></aside>
+            <div className="rounded-xl bg-card p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Celulares e smartphones</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-primary bg-primary text-primary-foreground shadow-neon-sm":"bg-card")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os celulares" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum aparelho encontrado":"A loja de celulares está recebendo produtos"} text={submittedSearch?"Tente outra marca, memória ou modelo.":"As lojas parceiras ainda estão publicando seus aparelhos. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div>
           </section>
         </main>
       </div>
@@ -974,16 +974,16 @@ export default function ListingPage() {
           <Link href="/" className="flex items-center gap-2 text-xl font-black"><Store className="h-7 w-7 fill-white" /> Praça.ai <span className="hidden text-sm font-semibold text-white/70 sm:inline">Papelaria</span></Link>
           <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1">
             <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que vamos buscar hoje?" className="h-12 border-0 bg-card pl-12 pr-12 text-slate-950" />
-            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-primary p-2"><ArrowRight className="h-4 w-4" /></button>
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que vamos buscar hoje?" className="h-12 border-0 bg-card pl-12 pr-12 text-foreground" />
+            <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-primary p-2 text-primary-foreground"><ArrowRight className="h-4 w-4" /></button>
           </form>
           <div className="flex items-center gap-3 justify-self-end"><Link href="/profile" className="hidden text-sm font-bold sm:block">Entre ou cadastre-se</Link><span className="rounded-full bg-card/15 p-2.5"><ShoppingCart className="h-5 w-5" /></span></div>
         </div>
-        <nav className="border-t border-white/10 bg-[#2f78a7]">
+        <nav className="border-t border-primary-foreground/15 bg-primary">
           <div className="mx-auto flex max-w-6xl items-center gap-6 overflow-x-auto px-4 py-3 text-xs font-black uppercase sm:px-6 lg:px-8">
             <span className="flex shrink-0 items-center gap-2"><Menu className="h-4 w-4" /> Departamentos</span>
-            {stationeryDepartments.map((item) => <button key={item.label} onClick={() => selectDepartment(item.search)} className="shrink-0 hover:text-cyan-100">{item.label}</button>)}
-            <button onClick={() => setSort("offers")} className="shrink-0 text-amber-200">Ofertas</button>
+            {stationeryDepartments.map((item) => <button key={item.label} onClick={() => selectDepartment(item.search)} className="shrink-0 hover:text-primary-foreground/70">{item.label}</button>)}
+            <button onClick={() => setSort("offers")} className="shrink-0 text-primary-foreground">Ofertas</button>
           </div>
         </nav>
       </header>
@@ -996,7 +996,7 @@ export default function ListingPage() {
               [ShieldCheck, "Compra segura", "Pagamento protegido"],
               [PackageCheck, "Retirada na loja", "Compre de parceiros locais"],
               [Star, "Lojas avaliadas", "Escolha com confiança"],
-            ].map(([Icon, title, subtitle]) => <div key={title as string} className="flex items-center gap-3 bg-card px-4 py-4"><Icon className="h-6 w-6 shrink-0 text-[#2f78a7]" /><div><p className="text-sm font-black">{title as string}</p><p className="text-xs text-muted-foreground">{subtitle as string}</p></div></div>)}
+            ].map(([Icon, title, subtitle]) => <div key={title as string} className="flex items-center gap-3 bg-card px-4 py-4"><Icon className="h-6 w-6 shrink-0 text-primary" /><div><p className="text-sm font-black">{title as string}</p><p className="text-xs text-muted-foreground">{subtitle as string}</p></div></div>)}
           </div>
         </section>
 
@@ -1019,13 +1019,13 @@ export default function ListingPage() {
         </section>
 
         <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8">
-          <div className="mb-5 flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#2f78a7]">Explore por departamento</p><h2 className="mt-1 text-2xl font-black">Encontre tudo o que precisa</h2></div></div>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">{stationeryDepartments.map(({ label, icon: Icon, search: term }) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-card p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f2f8] text-[#2f78a7]"><Icon className="h-7 w-7" /></span><span className="mt-2 text-xs font-black">{label}</span></button>)}</div>
+          <div className="mb-5 flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Explore por departamento</p><h2 className="mt-1 text-2xl font-black">Encontre tudo o que precisa</h2></div></div>
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">{stationeryDepartments.map(({ label, icon: Icon, search: term }) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-card p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary"><Icon className="h-7 w-7" /></span><span className="mt-2 text-xs font-black">{label}</span></button>)}</div>
         </section>
 
         <section id="produtos-papelaria" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <div className="rounded-2xl bg-card p-4 shadow-sm sm:p-6">
-            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#2f78a7]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Produtos de papelaria</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#2f78a7] bg-[#2f78a7] text-white" : "bg-card")}>{option.label}</button>)}</div></div>
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Produtos de papelaria</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-primary bg-primary text-primary-foreground shadow-neon-sm" : "bg-card")}>{option.label}</button>)}</div></div>
 
             {isLoading ? <div className="py-16"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar a papelaria" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyCatalog title={submittedSearch ? "Nenhum produto encontrado" : "A papelaria está recebendo produtos"} text={submittedSearch ? "Tente outro termo ou veja o catálogo completo." : "As lojas parceiras ainda estão publicando seus materiais. Volte em breve para conferir as novidades."} clear={() => { setSearch(""); setSubmittedSearch("") }} />}
           </div>
@@ -1052,13 +1052,13 @@ function FashionPromo({ title, text, color, search, select }: { title: string; t
 }
 
 function PhoneBenefit({ icon: Icon, title, text }: { icon: typeof Smartphone; title: string; text: string }) {
-  return <div className="flex items-center gap-3 rounded-xl bg-card p-4 shadow-sm"><span className="rounded-full bg-[#e4eef8] p-3 text-[#174b87]"><Icon className="h-6 w-6" /></span><div><p className="text-sm font-black">{title}</p><p className="text-xs text-muted-foreground">{text}</p></div></div>
+  return <div className="flex items-center gap-3 rounded-xl bg-card p-4 shadow-sm"><span className="rounded-full bg-primary/15 p-3 text-primary"><Icon className="h-6 w-6" /></span><div><p className="text-sm font-black text-foreground">{title}</p><p className="text-xs text-muted-foreground">{text}</p></div></div>
 }
 
 function PhoneFilter({ title, values, select }: { title: string; values: string[]; select: (search: string) => void }) {
-  return <div className="mt-5 border-t pt-4"><h3 className="text-xs font-black uppercase tracking-wider text-slate-500">{title}</h3><div className="mt-2 flex flex-wrap gap-2">{values.map((value) => <button key={value} onClick={() => select(value)} className="rounded-full border px-3 py-1.5 text-xs font-bold transition hover:border-[#174b87] hover:bg-[#e4eef8]">{value}</button>)}</div></div>
+  return <div className="mt-5 border-t border-border pt-4"><h3 className="text-xs font-black uppercase tracking-wider text-muted-foreground">{title}</h3><div className="mt-2 flex flex-wrap gap-2">{values.map((value) => <button key={value} onClick={() => select(value)} className="rounded-full border border-border px-3 py-1.5 text-xs font-bold text-foreground transition hover:border-primary hover:bg-primary/15 hover:text-primary">{value}</button>)}</div></div>
 }
 
 function EmptyCatalog({ title, text, clear }: { title: string; text: string; clear: () => void }) {
-  return <Card className="mt-6 flex flex-col items-center rounded-2xl border-dashed p-10 text-center"><Heart className="h-10 w-10 text-[#2f78a7]" /><h3 className="mt-4 text-lg font-black">{title}</h3><p className="mt-1 max-w-md text-sm text-muted-foreground">{text}</p><Button variant="outline" onClick={clear} className="mt-5">Ver catálogo completo</Button></Card>
+  return <Card className="mt-6 flex flex-col items-center rounded-2xl border-dashed p-10 text-center"><Heart className="h-10 w-10 text-primary" /><h3 className="mt-4 text-lg font-black">{title}</h3><p className="mt-1 max-w-md text-sm text-muted-foreground">{text}</p><Button variant="outline" onClick={clear} className="mt-5">Ver catálogo completo</Button></Card>
 }
