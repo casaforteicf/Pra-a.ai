@@ -332,13 +332,13 @@ export default function Checkout() {
               <div className="flex bg-muted p-1 rounded-2xl">
                 <button
                   onClick={() => setPaymentMethod('pix')}
-                  className={`flex-1 py-3 text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 ${paymentMethod === 'pix' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground'}`}
+                  className={`flex-1 py-3 text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 ${paymentMethod === 'pix' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground'}`}
                 >
                   <QrCode className="w-4 h-4" /> Pix
                 </button>
                 <button
                   onClick={() => setPaymentMethod('credit_card')}
-                  className={`flex-1 py-3 text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 ${paymentMethod === 'credit_card' ? 'bg-white shadow-sm text-foreground' : 'text-muted-foreground'}`}
+                  className={`flex-1 py-3 text-sm font-bold rounded-xl transition-colors flex items-center justify-center gap-2 ${paymentMethod === 'credit_card' ? 'bg-card shadow-sm text-foreground' : 'text-muted-foreground'}`}
                 >
                   <CreditCard className="w-4 h-4" /> Cartão
                 </button>
@@ -346,7 +346,7 @@ export default function Checkout() {
 
               {paymentMethod === 'pix' && (
                 <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 flex flex-col items-center text-center">
-                  <div className="w-16 h-16 bg-white rounded-2xl shadow-sm flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 bg-card rounded-2xl shadow-sm flex items-center justify-center mb-4">
                     <QrCode className="w-8 h-8 text-primary" />
                   </div>
                   <h3 className="font-black text-primary text-lg mb-1">Pagamento via Pix</h3>
@@ -361,7 +361,7 @@ export default function Checkout() {
                 <div className="flex flex-col gap-4">
                   <div className="w-full h-48 rounded-2xl bg-gradient-to-tr from-zinc-900 to-zinc-700 p-6 flex flex-col justify-between text-white shadow-xl">
                     <div className="flex justify-between items-center">
-                      <div className="w-10 h-8 bg-white/20 rounded-md" />
+                      <div className="w-10 h-8 bg-card/20 rounded-md" />
                       <div className="font-mono text-xl font-bold tracking-wider opacity-50">VISA</div>
                     </div>
                     <div className="font-mono text-xl tracking-widest mt-2">
@@ -393,7 +393,7 @@ export default function Checkout() {
       </div>
 
       {/* Order Summary Panel */}
-      <div className="fixed bottom-[88px] inset-x-0 z-40 rounded-t-[32px] border-t bg-white p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] sm:absolute sm:bottom-0 lg:left-1/2 lg:max-w-4xl lg:-translate-x-1/2">
+      <div className="fixed bottom-[88px] inset-x-0 z-40 rounded-t-[32px] border-t bg-card p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] sm:absolute sm:bottom-0 lg:left-1/2 lg:max-w-4xl lg:-translate-x-1/2">
         <div className="flex justify-between text-sm mb-1 text-muted-foreground">
           <span>Subtotal ({cart.itemCount} itens)</span>
           <span>{formatMoney(cart.subtotal)}</span>

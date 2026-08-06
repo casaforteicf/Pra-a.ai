@@ -110,7 +110,7 @@ export default function MyFavorites() {
                     <button
                       onClick={() => handleRemove(product.id)}
                       disabled={toggleMutation.isPending}
-                      className="absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+                      className="absolute top-2 right-2 w-8 h-8 bg-card/90 rounded-full flex items-center justify-center shadow-sm active:scale-90 transition-transform"
                     >
                       <Trash2 className="w-3.5 h-3.5 text-destructive" />
                     </button>

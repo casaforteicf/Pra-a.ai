@@ -202,13 +202,13 @@ export default function ListingPage() {
         <header className="bg-[#17211c] text-white">
           <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between gap-3">
-              <button onClick={() => setLocation("/")} className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10" aria-label="Voltar"><ChevronLeft className="h-6 w-6" /></button>
+              <button onClick={() => setLocation("/")} className="flex h-10 w-10 items-center justify-center rounded-full bg-card/10" aria-label="Voltar"><ChevronLeft className="h-6 w-6" /></button>
               <Link href="/" className="flex items-center gap-2 text-xl font-black"><Car className="h-7 w-7 text-[#72d98f]" /> Praça.ai <span className="hidden text-sm font-semibold text-white/65 sm:inline">Auto</span></Link>
-              <Link href="/cart" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white/10" aria-label="Carrinho"><ShoppingCart className="h-5 w-5" /></Link>
+              <Link href="/cart" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-card/10" aria-label="Carrinho"><ShoppingCart className="h-5 w-5" /></Link>
             </div>
             <form onSubmit={submitSearch} className="relative mt-4">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque acessórios, marca ou modelo" className="h-12 border-0 bg-white pl-12 pr-14 text-base text-slate-950" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque acessórios, marca ou modelo" className="h-12 border-0 bg-card pl-12 pr-14 text-base text-slate-950" />
               <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#1f7a45] p-2 text-white" aria-label="Buscar"><Search className="h-4 w-4" /></button>
             </form>
           </div>
@@ -219,19 +219,19 @@ export default function ListingPage() {
           <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#26332c] to-[#101713] p-5 text-white shadow-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
               <div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#72d98f]">Acessórios para veículos</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Deixe seu carro do seu jeito</h1><p className="mt-2 max-w-xl text-sm text-white/70 sm:text-base">Encontre itens para proteger, equipar e cuidar do veículo nas lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-auto")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-[#72d98f] font-black text-[#132019] hover:bg-[#8be7a4]">Ver acessórios</Button></div>
-              <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-white/10 bg-white/5 md:flex"><Car className="h-24 w-24 text-[#72d98f]" strokeWidth={1.2} /></div>
+              <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-white/10 bg-card/5 md:flex"><Car className="h-24 w-24 text-[#72d98f]" strokeWidth={1.2} /></div>
             </div>
           </section>
 
-          <section className="mt-5 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+          <section className="mt-5 rounded-2xl bg-card p-4 shadow-sm sm:p-6">
             <div className="flex items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#1f7a45]">Encontre mais rápido</p><h2 className="mt-1 text-xl font-black">O que você procura?</h2></div><button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="text-xs font-bold text-[#1f7a45]">Ver tudo</button></div>
             <div className="mt-4 grid grid-cols-4 gap-x-2 gap-y-5 sm:grid-cols-8">{autoDepartments.map(({ label, icon: Icon, search: departmentSearch }) => <button key={label} onClick={() => selectDepartment(departmentSearch)} className="group flex min-w-0 flex-col items-center gap-2 text-center"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#e8f3ec] text-[#1f7a45] transition group-hover:bg-[#1f7a45] group-hover:text-white sm:h-14 sm:w-14"><Icon className="h-6 w-6" /></span><span className="text-[10px] font-bold leading-tight sm:text-xs">{label}</span></button>)}</div>
           </section>
 
-          <section id="produtos-auto" className="mt-5 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+          <section id="produtos-auto" className="mt-5 rounded-2xl bg-card p-4 shadow-sm sm:p-6">
             <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-[#1f7a45]">Vitrine automotiva</p><h2 className="mt-1 text-2xl font-black">Acessórios para seu veículo</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} {listData.total === 1 ? "produto encontrado" : "produtos encontrados"}{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div></div>
-            <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-2">{sortOptions.slice(0, 5).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#1f7a45] bg-[#1f7a45] text-white" : "bg-white")}>{option.label}</button>)}</div>
-            {isLoading ? <div className="py-14"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os acessórios" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} compact />)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-[#bdd8c6] bg-[#f4faf6] px-5 py-10 text-center"><span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-white text-[#1f7a45] shadow-sm"><Car className="h-8 w-8" /></span><h3 className="mt-4 text-lg font-black">{submittedSearch ? "Nenhum acessório encontrado" : "Novos acessórios chegando"}</h3><p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{submittedSearch ? "Tente buscar por outro nome, marca ou escolha uma das categorias acima." : "As lojas parceiras ainda estão publicando o catálogo automotivo. Enquanto isso, explore os demais produtos disponíveis na Praça.ai."}</p><div className="mt-5 flex flex-wrap justify-center gap-2"><Button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="bg-[#1f7a45] hover:bg-[#19663a]">Limpar busca</Button><Button variant="outline" onClick={() => setLocation("/listing")}>Explorar a Praça.ai</Button></div></div>}
+            <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-2">{sortOptions.slice(0, 5).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#1f7a45] bg-[#1f7a45] text-white" : "bg-card")}>{option.label}</button>)}</div>
+            {isLoading ? <div className="py-14"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os acessórios" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} compact />)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-[#bdd8c6] bg-[#f4faf6] px-5 py-10 text-center"><span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-card text-[#1f7a45] shadow-sm"><Car className="h-8 w-8" /></span><h3 className="mt-4 text-lg font-black">{submittedSearch ? "Nenhum acessório encontrado" : "Novos acessórios chegando"}</h3><p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{submittedSearch ? "Tente buscar por outro nome, marca ou escolha uma das categorias acima." : "As lojas parceiras ainda estão publicando o catálogo automotivo. Enquanto isso, explore os demais produtos disponíveis na Praça.ai."}</p><div className="mt-5 flex flex-wrap justify-center gap-2"><Button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="bg-[#1f7a45] hover:bg-[#19663a]">Limpar busca</Button><Button variant="outline" onClick={() => setLocation("/listing")}>Explorar a Praça.ai</Button></div></div>}
           </section>
         </main>
       </div>
@@ -243,7 +243,7 @@ export default function ListingPage() {
       <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col bg-background pb-8">
         <header className="sticky inset-x-0 top-0 z-30 border-b bg-background/95 px-4 pb-3 pt-4 backdrop-blur-md lg:px-6">
           <div className="flex items-center gap-3"><button onClick={() => setLocation("/")} className="flex h-10 w-10 items-center justify-center rounded-full bg-muted"><ChevronLeft className="h-6 w-6" /></button><div className="flex-1"><h1 className="text-xl font-black capitalize">{categorySlug ? categorySlug.replaceAll("-", " ") : "Explorar"}</h1>{listData && <p className="text-xs font-bold text-muted-foreground">{listData.total} resultados</p>}</div></div>
-          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">{sortOptions.map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-4 py-2 text-sm font-bold", sort === option.value ? "border-primary bg-primary text-white" : "bg-white")}>{option.label}</button>)}</div>
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1">{sortOptions.map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-4 py-2 text-sm font-bold", sort === option.value ? "border-primary bg-primary text-white" : "bg-card")}>{option.label}</button>)}</div>
         </header>
         {isLoading && <PageLoader />}
         {listData && <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div>}
@@ -320,7 +320,7 @@ export default function ListingPage() {
                     onClick={() => setTravelMode(tab.key)}
                     className={cn(
                       "flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold transition",
-                      travelMode === tab.key ? "bg-white text-[#075aaa]" : "bg-white/15 text-white hover:bg-white/25",
+                      travelMode === tab.key ? "bg-card text-[#075aaa]" : "bg-card/15 text-white hover:bg-card/25",
                     )}
                   >
                     <tab.icon className="h-4 w-4" /> {tab.label}
@@ -333,19 +333,19 @@ export default function ListingPage() {
                   onSubmit={(event) => { event.preventDefault(); document.getElementById("resultados-viagem")?.scrollIntoView({ behavior: "smooth" }) }}
                   className="mt-4 grid gap-1 rounded-xl bg-[#f6b900] p-1.5 text-slate-900 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto]"
                 >
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <MapPin className="h-5 w-5 shrink-0" />
                     <input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Para onde você vai?" className="min-w-0 flex-1 bg-transparent outline-none" />
                   </label>
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <CalendarDays className="h-5 w-5 shrink-0" />
                     <input type="date" value={checkIn} onChange={(event) => setCheckIn(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
                   </label>
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <CalendarDays className="h-5 w-5 shrink-0" />
                     <input type="date" value={checkOut} onChange={(event) => setCheckOut(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
                   </label>
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <Users className="h-5 w-5 shrink-0" />
                     <select value={guests} onChange={(event) => setGuests(event.target.value)} className="min-w-0 flex-1 bg-transparent outline-none">
                       <option>1 hóspede</option><option>2 hóspedes</option><option>3 hóspedes</option><option>4 hóspedes</option><option>Família</option>
@@ -360,31 +360,31 @@ export default function ListingPage() {
                   onSubmit={(event) => { event.preventDefault(); document.getElementById("resultados-viagem")?.scrollIntoView({ behavior: "smooth" }) }}
                   className="mt-4 grid gap-1 rounded-xl bg-[#f6b900] p-1.5 text-slate-900 lg:grid-cols-[1fr_auto_1fr_1fr_1fr_1fr_auto]"
                 >
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <Plane className="h-5 w-5 shrink-0 -rotate-45" />
                     <input value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder="De onde você sai?" className="min-w-0 flex-1 bg-transparent outline-none" />
                   </label>
                   <button
                     type="button"
                     onClick={() => { const o = origin; setOrigin(destination); setDestination(o) }}
-                    className="hidden items-center justify-center rounded-lg bg-white px-2 text-[#075aaa] lg:flex"
+                    className="hidden items-center justify-center rounded-lg bg-card px-2 text-[#075aaa] lg:flex"
                     aria-label="Trocar origem e destino"
                   >
                     <ArrowLeftRight className="h-4 w-4" />
                   </button>
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <MapPin className="h-5 w-5 shrink-0" />
                     <input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Pra onde você vai?" className="min-w-0 flex-1 bg-transparent outline-none" />
                   </label>
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <CalendarDays className="h-5 w-5 shrink-0" />
                     <input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
                   </label>
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <CalendarDays className="h-5 w-5 shrink-0" />
                     <input type="date" value={returnDate} onChange={(event) => setReturnDate(event.target.value)} placeholder="Volta (opcional)" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
                   </label>
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <Users className="h-5 w-5 shrink-0" />
                     <select value={passengers} onChange={(event) => setPassengers(event.target.value)} className="min-w-0 flex-1 bg-transparent outline-none">
                       <option>1 passageiro</option><option>2 passageiros</option><option>3 passageiros</option><option>4 passageiros</option>
@@ -399,27 +399,27 @@ export default function ListingPage() {
                   onSubmit={(event) => { event.preventDefault(); document.getElementById("resultados-viagem")?.scrollIntoView({ behavior: "smooth" }) }}
                   className="mt-4 grid gap-1 rounded-xl bg-[#f6b900] p-1.5 text-slate-900 lg:grid-cols-[1fr_auto_1fr_1fr_1fr_auto]"
                 >
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <Bus className="h-5 w-5 shrink-0" />
                     <input value={origin} onChange={(event) => setOrigin(event.target.value)} placeholder="De onde você sai?" className="min-w-0 flex-1 bg-transparent outline-none" />
                   </label>
                   <button
                     type="button"
                     onClick={() => { const o = origin; setOrigin(destination); setDestination(o) }}
-                    className="hidden items-center justify-center rounded-lg bg-white px-2 text-[#075aaa] lg:flex"
+                    className="hidden items-center justify-center rounded-lg bg-card px-2 text-[#075aaa] lg:flex"
                     aria-label="Trocar origem e destino"
                   >
                     <ArrowLeftRight className="h-4 w-4" />
                   </button>
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <MapPin className="h-5 w-5 shrink-0" />
                     <input value={destination} onChange={(event) => setDestination(event.target.value)} placeholder="Pra onde você vai?" className="min-w-0 flex-1 bg-transparent outline-none" />
                   </label>
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <CalendarDays className="h-5 w-5 shrink-0" />
                     <input type="date" value={departureDate} onChange={(event) => setDepartureDate(event.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
                   </label>
-                  <label className="flex items-center gap-3 rounded-lg bg-white px-4 py-3">
+                  <label className="flex items-center gap-3 rounded-lg bg-card px-4 py-3">
                     <Users className="h-5 w-5 shrink-0" />
                     <select value={passengers} onChange={(event) => setPassengers(event.target.value)} className="min-w-0 flex-1 bg-transparent outline-none">
                       <option>1 passageiro</option><option>2 passageiros</option><option>3 passageiros</option><option>4 passageiros</option>
@@ -434,7 +434,7 @@ export default function ListingPage() {
           {viagensHoje.length > 0 && (
             <section className="mx-auto -mt-6 max-w-6xl px-4 sm:px-6 lg:px-8">
               {viagensHoje.map((item) => (
-                <div key={item.id} className="rounded-xl bg-white p-5 shadow-lg">
+                <div key={item.id} className="rounded-xl bg-card p-5 shadow-lg">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[#075aaa]/10 px-3 py-1 text-xs font-bold text-[#075aaa]">
                     Publicado hoje por {item.tenantName}
                   </span>
@@ -455,7 +455,7 @@ export default function ListingPage() {
 
           {travelMode === "hospedagem" && (
             <section className="mx-auto -mt-10 max-w-6xl px-4 sm:px-6 lg:px-8">
-              <div className="rounded-xl bg-white p-5 shadow-lg">
+              <div className="rounded-xl bg-card p-5 shadow-lg">
                 <h2 className="text-xl font-black">Explore por tipo de hospedagem</h2>
                 <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {[[Hotel, "Hotéis"], [Home, "Casas e apartamentos"], [Store, "Pousadas"], [Sparkles, "Resorts"]].map(([Icon, label]) => {
@@ -479,14 +479,14 @@ export default function ListingPage() {
                   <h2 className="mt-1 text-3xl font-black">Ofertas para sua próxima viagem</h2>
                   <p className="mt-1 text-sm text-muted-foreground">{visibleTrips.length} opções encontradas{destination ? ` para "${destination}"` : ""}</p>
                 </div>
-                <select className="rounded-lg border bg-white px-4 py-2 text-sm font-bold">
+                <select className="rounded-lg border bg-card px-4 py-2 text-sm font-bold">
                   <option>Mais recomendados</option><option>Menor preço</option><option>Melhor avaliação</option>
                 </select>
               </div>
               {visibleTrips.length > 0 ? (
                 <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                   {visibleTrips.map((item) => (
-                    <article key={item.name} className="overflow-hidden rounded-xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
+                    <article key={item.name} className="overflow-hidden rounded-xl bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                       <div className={cn("flex h-44 items-center justify-center bg-gradient-to-br", item.color)}><Hotel className="h-20 w-20 text-white/85" strokeWidth={1.2} /></div>
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-2">
@@ -504,7 +504,7 @@ export default function ListingPage() {
                   ))}
                 </div>
               ) : (
-                <div className="mt-6 rounded-xl border border-dashed bg-white p-12 text-center">
+                <div className="mt-6 rounded-xl border border-dashed bg-card p-12 text-center">
                   <MapPin className="mx-auto h-10 w-10 text-[#075aaa]" />
                   <h3 className="mt-3 text-lg font-black">Nenhuma hospedagem encontrada</h3>
                   <p className="mt-1 text-sm text-muted-foreground">Tente buscar outro destino.</p>
@@ -525,7 +525,7 @@ export default function ListingPage() {
                     {origin || destination ? ` para "${origin || "?"} → ${destination || "?"}"` : ""}
                   </p>
                 </div>
-                <select className="rounded-lg border bg-white px-4 py-2 text-sm font-bold">
+                <select className="rounded-lg border bg-card px-4 py-2 text-sm font-bold">
                   <option>Mais recomendados</option><option>Menor preço</option><option>Mais rápido</option>
                 </select>
               </div>
@@ -533,7 +533,7 @@ export default function ListingPage() {
               {(travelMode === "aereo" ? visibleFlights : visibleBuses).length > 0 ? (
                 <div className="mt-6 flex flex-col gap-4">
                   {(travelMode === "aereo" ? visibleFlights : visibleBuses).map((item) => (
-                    <article key={`${item.company}-${item.route}`} className="flex flex-col items-stretch gap-4 rounded-xl bg-white p-4 shadow-sm transition hover:shadow-lg sm:flex-row sm:items-center">
+                    <article key={`${item.company}-${item.route}`} className="flex flex-col items-stretch gap-4 rounded-xl bg-card p-4 shadow-sm transition hover:shadow-lg sm:flex-row sm:items-center">
                       <div className={cn("flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br text-white", item.color)}>
                         {travelMode === "aereo" ? <Plane className="h-8 w-8" /> : <Bus className="h-8 w-8" />}
                       </div>
@@ -554,7 +554,7 @@ export default function ListingPage() {
                   ))}
                 </div>
               ) : (
-                <div className="mt-6 rounded-xl border border-dashed bg-white p-12 text-center">
+                <div className="mt-6 rounded-xl border border-dashed bg-card p-12 text-center">
                   {travelMode === "aereo" ? <Plane className="mx-auto h-10 w-10 text-[#075aaa]" /> : <Bus className="mx-auto h-10 w-10 text-[#075aaa]" />}
                   <h3 className="mt-3 text-lg font-black">Nenhuma {travelMode === "aereo" ? "passagem aérea" : "passagem rodoviária"} encontrada</h3>
                   <p className="mt-1 text-sm text-muted-foreground">Tente buscar outra origem ou destino.</p>
@@ -574,10 +574,10 @@ export default function ListingPage() {
         <header className="bg-[#174b87] text-white">
           <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-5 sm:px-6 lg:gap-8 lg:px-8">
             <Link href="/" className="flex items-center gap-2 text-xl font-black"><Smartphone className="h-8 w-8 text-[#ffd128]" /> Praça.ai <span className="hidden text-sm font-semibold text-white/70 sm:inline">Celulares</span></Link>
-            <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque celulares, marcas e acessórios" className="h-12 border-0 bg-white pl-12 pr-12 text-slate-950" /><button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#ffd128] p-2 text-[#174b87]"><Search className="h-4 w-4" /></button></form>
+            <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque celulares, marcas e acessórios" className="h-12 border-0 bg-card pl-12 pr-12 text-slate-950" /><button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#ffd128] p-2 text-[#174b87]"><Search className="h-4 w-4" /></button></form>
             <div className="flex items-center gap-3 justify-self-end"><Heart className="hidden h-5 w-5 sm:block" /><Link href="/profile" className="hidden text-sm font-bold sm:block">Minha conta</Link><ShoppingCart className="h-6 w-6" /></div>
           </div>
-          <nav className="bg-white text-[#174b87]"><div className="mx-auto flex max-w-6xl items-center justify-between gap-8 overflow-x-auto px-4 py-4 text-sm font-black sm:px-6 lg:px-8">{phoneBrands.map((brand) => <button key={brand} onClick={() => selectDepartment(brand)} className="shrink-0 hover:text-[#e0a800]">{brand}</button>)}</div></nav>
+          <nav className="bg-card text-[#174b87]"><div className="mx-auto flex max-w-6xl items-center justify-between gap-8 overflow-x-auto px-4 py-4 text-sm font-black sm:px-6 lg:px-8">{phoneBrands.map((brand) => <button key={brand} onClick={() => selectDepartment(brand)} className="shrink-0 hover:text-[#e0a800]">{brand}</button>)}</div></nav>
         </header>
 
         <main>
@@ -586,8 +586,8 @@ export default function ListingPage() {
           <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><PhoneBenefit icon={Truck} title="Pronta entrega" text="Receba com rapidez" /><PhoneBenefit icon={ShieldCheck} title="Compra segura" text="Pagamento protegido" /><PhoneBenefit icon={BatteryCharging} title="Novos e seminovos" text="Escolha o ideal" /><PhoneBenefit icon={Headphones} title="Acessórios" text="Complete seu aparelho" /></div></section>
 
           <section id="produtos-celulares" className="mx-auto grid max-w-6xl gap-5 px-4 sm:px-6 lg:grid-cols-[230px_1fr] lg:px-8">
-            <aside className="h-fit rounded-xl border bg-white p-5 shadow-sm"><h2 className="text-lg font-black">Filtros rápidos</h2><PhoneFilter title="Marca" values={["Apple","Samsung","Motorola","Xiaomi"]} select={selectDepartment} /><PhoneFilter title="Memória" values={["64 GB","128 GB","256 GB","512 GB"]} select={selectDepartment} /><PhoneFilter title="Condição" values={["Novo","Seminovo"]} select={selectDepartment} /><button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="mt-5 w-full rounded-md border py-2 text-sm font-bold">Limpar filtros</button></aside>
-            <div className="rounded-xl bg-white p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#e0a800]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Celulares e smartphones</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-[#174b87] bg-[#174b87] text-white":"bg-white")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os celulares" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum aparelho encontrado":"A loja de celulares está recebendo produtos"} text={submittedSearch?"Tente outra marca, memória ou modelo.":"As lojas parceiras ainda estão publicando seus aparelhos. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div>
+            <aside className="h-fit rounded-xl border bg-card p-5 shadow-sm"><h2 className="text-lg font-black">Filtros rápidos</h2><PhoneFilter title="Marca" values={["Apple","Samsung","Motorola","Xiaomi"]} select={selectDepartment} /><PhoneFilter title="Memória" values={["64 GB","128 GB","256 GB","512 GB"]} select={selectDepartment} /><PhoneFilter title="Condição" values={["Novo","Seminovo"]} select={selectDepartment} /><button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="mt-5 w-full rounded-md border py-2 text-sm font-bold">Limpar filtros</button></aside>
+            <div className="rounded-xl bg-card p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#e0a800]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Celulares e smartphones</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-[#174b87] bg-[#174b87] text-white":"bg-card")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os celulares" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum aparelho encontrado":"A loja de celulares está recebendo produtos"} text={submittedSearch?"Tente outra marca, memória ou modelo.":"As lojas parceiras ainda estão publicando seus aparelhos. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div>
           </section>
         </main>
       </div>
@@ -598,15 +598,15 @@ export default function ListingPage() {
     return (
       <div className="min-h-full w-full bg-[#f5f5f5] pb-12 text-[#161616]">
         <div className="bg-black py-2 text-center text-xs font-bold uppercase tracking-[0.14em] text-white">10% de desconto na primeira compra com o cupom <strong>PRIMEIRAPRAÇA</strong></div>
-        <header className="bg-white">
-          <div className="bg-black text-white">
+        <header className="bg-card">
+          <div className="bg-background text-foreground">
             <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 sm:px-6 lg:gap-8 lg:px-8">
-              <Link href="/" className="flex items-center gap-2 text-xl font-black tracking-[0.18em]"><span className="flex h-9 w-9 items-center justify-center bg-white text-2xl text-black">P</span> PRAÇA</Link>
-              <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que você procura hoje?" className="h-12 rounded-none border-0 bg-white pl-12 pr-12 text-black" /><button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-black"><ArrowRight className="h-5 w-5" /></button></form>
+              <Link href="/" className="flex items-center gap-2 text-xl font-black tracking-[0.18em]"><span className="flex h-9 w-9 items-center justify-center bg-primary text-2xl text-primary-foreground">P</span> PRAÇA</Link>
+              <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que você procura hoje?" className="h-12 rounded-none border-0 bg-card pl-12 pr-12 text-foreground" /><button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-foreground"><ArrowRight className="h-5 w-5" /></button></form>
               <div className="flex items-center gap-3 justify-self-end"><Link href="/profile" className="hidden text-sm font-bold sm:block">Entrar</Link><Heart className="hidden h-5 w-5 sm:block" /><span className="rounded-full border border-white/30 p-2"><ShoppingCart className="h-5 w-5" /></span></div>
             </div>
           </div>
-          <nav className="border-b bg-white"><div className="mx-auto flex max-w-6xl items-center justify-start gap-8 overflow-x-auto px-4 py-3 text-sm font-semibold sm:px-6 lg:px-8">{fashionDepartments.slice(0, 6).map((item) => <button key={item.label} onClick={() => selectDepartment(item.search)} className="shrink-0 hover:text-[#8d214a]">{item.label}</button>)}<button onClick={() => setSort("offers")} className="shrink-0 font-black text-[#8d214a]">Ofertas</button></div></nav>
+          <nav className="border-b bg-card"><div className="mx-auto flex max-w-6xl items-center justify-start gap-8 overflow-x-auto px-4 py-3 text-sm font-semibold sm:px-6 lg:px-8">{fashionDepartments.slice(0, 6).map((item) => <button key={item.label} onClick={() => selectDepartment(item.search)} className="shrink-0 hover:text-[#8d214a]">{item.label}</button>)}<button onClick={() => setSort("offers")} className="shrink-0 font-black text-[#8d214a]">Ofertas</button></div></nav>
         </header>
 
         <main>
@@ -618,13 +618,13 @@ export default function ListingPage() {
             </div>
           </section>
 
-          <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"><div className="mb-5 flex items-end justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#8d214a]">Encontre seu estilo</p><h2 className="mt-1 text-2xl font-black">Compre por departamento</h2></div></div><div className="grid grid-cols-4 gap-3 lg:grid-cols-8">{fashionDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 2 === 0 ? "bg-[#f2e3e7] text-[#8d214a]" : "bg-[#eee9e2] text-[#4e4038]")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div></section>
+          <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"><div className="mb-5 flex items-end justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#8d214a]">Encontre seu estilo</p><h2 className="mt-1 text-2xl font-black">Compre por departamento</h2></div></div><div className="grid grid-cols-4 gap-3 lg:grid-cols-8">{fashionDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center bg-card p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 2 === 0 ? "bg-[#f2e3e7] text-[#8d214a]" : "bg-[#eee9e2] text-[#4e4038]")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div></section>
 
-          <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[["Até R$ 49","49"],["Até R$ 99","99"],["Até R$ 149","149"],["Ofertas especiais","oferta"]].map(([label,term], index) => <button key={label} onClick={() => index === 3 ? setSort("offers") : selectDepartment(term)} className="border-2 border-black bg-black px-4 py-4 text-center text-sm font-black uppercase text-white transition hover:bg-[#8d214a]">{label}</button>)}</div></section>
+          <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[["Até R$ 49","49"],["Até R$ 99","99"],["Até R$ 149","149"],["Ofertas especiais","oferta"]].map(([label,term], index) => <button key={label} onClick={() => index === 3 ? setSort("offers") : selectDepartment(term)} className="border-2 border-primary bg-primary px-4 py-4 text-center text-sm font-black uppercase text-primary-foreground shadow-neon-sm transition hover:opacity-90">{label}</button>)}</div></section>
 
           <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="grid gap-3 sm:grid-cols-3"><FashionPromo title="Moda feminina" text="Novidades para todos os momentos" search="moda feminina" select={selectDepartment} color="bg-[#d9c0b7]" /><FashionPromo title="Moda masculina" text="Essenciais que combinam com você" search="moda masculina" select={selectDepartment} color="bg-[#c8ced0]" /><FashionPromo title="Calçados e acessórios" text="Complete seu visual" search="calçados acessórios" select={selectDepartment} color="bg-[#d8cfbf]" /></div></section>
 
-          <section id="produtos-moda" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="bg-white p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#8d214a]">Vitrine local</p><h2 className="mt-1 text-2xl font-black">Roupas, calçados e acessórios</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-black bg-black text-white":"bg-white")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os produtos" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum produto encontrado":"A vitrine de moda está recebendo produtos"} text={submittedSearch?"Tente outra busca ou confira o catálogo completo.":"As lojas parceiras ainda estão publicando seus itens. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div></section>
+          <section id="produtos-moda" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="bg-card p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#8d214a]">Vitrine local</p><h2 className="mt-1 text-2xl font-black">Roupas, calçados e acessórios</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-primary bg-primary text-primary-foreground shadow-neon-sm":"bg-card")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os produtos" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum produto encontrado":"A vitrine de moda está recebendo produtos"} text={submittedSearch?"Tente outra busca ou confira o catálogo completo.":"As lojas parceiras ainda estão publicando seus itens. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div></section>
         </main>
       </div>
     )
@@ -636,7 +636,7 @@ export default function ListingPage() {
         <header className="bg-[#ffe915] text-[#251745]">
           <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 sm:px-6 lg:gap-8 lg:px-8">
             <Link href="/" className="flex items-center gap-2 text-xl font-black"><Gift className="h-8 w-8 text-[#e43286]" /> Praça.ai <span className="hidden text-sm text-[#604f1c] sm:inline">Brinquedos</span></Link>
-            <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Encontre aqui um mundo de diversão..." className="h-12 rounded-full border-0 bg-white pl-12 pr-12 text-[#251745]" /><button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[#6a31a8] p-2 text-white"><ArrowRight className="h-4 w-4" /></button></form>
+            <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"><Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Encontre aqui um mundo de diversão..." className="h-12 rounded-full border-0 bg-card pl-12 pr-12 text-[#251745]" /><button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[#6a31a8] p-2 text-white"><ArrowRight className="h-4 w-4" /></button></form>
             <div className="flex items-center gap-3 justify-self-end"><Link href="/profile" className="hidden text-sm font-bold sm:block">Acesse sua conta</Link><span className="rounded-full bg-black/10 p-2.5"><ShoppingCart className="h-5 w-5" /></span></div>
           </div>
           <nav className="border-t border-black/10"><div className="mx-auto flex max-w-6xl items-center gap-7 overflow-x-auto px-4 py-3 text-xs font-black sm:px-6 lg:px-8"><span className="flex shrink-0 items-center gap-2"><Menu className="h-4 w-4" /> Departamentos</span><button onClick={() => setSubmittedSearch("")} className="shrink-0">Novidades</button><button onClick={() => setSort("offers")} className="shrink-0 text-[#a60070]">Ofertas</button>{toyDepartments.slice(0, 5).map((item) => <button key={item.label} onClick={() => selectDepartment(item.search)} className="shrink-0">{item.label}</button>)}</div></nav>
@@ -650,11 +650,11 @@ export default function ListingPage() {
             </div>
           </section>
 
-          <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="mb-5 flex items-end justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#6a31a8]">Escolha a diversão</p><h2 className="mt-1 text-2xl font-black">Todos os departamentos</h2></div></div><div className="grid grid-cols-4 gap-3 lg:grid-cols-8">{toyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 4 === 0 ? "bg-yellow-100 text-yellow-700" : index % 4 === 1 ? "bg-pink-100 text-pink-600" : index % 4 === 2 ? "bg-cyan-100 text-cyan-700" : "bg-violet-100 text-violet-700")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div></section>
+          <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="mb-5 flex items-end justify-between"><div><p className="text-xs font-black uppercase tracking-[0.2em] text-[#6a31a8]">Escolha a diversão</p><h2 className="mt-1 text-2xl font-black">Todos os departamentos</h2></div></div><div className="grid grid-cols-4 gap-3 lg:grid-cols-8">{toyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-card p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 4 === 0 ? "bg-yellow-100 text-yellow-700" : index % 4 === 1 ? "bg-pink-100 text-pink-600" : index % 4 === 2 ? "bg-cyan-100 text-cyan-700" : "bg-violet-100 text-violet-700")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div></section>
 
           <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8"><div className="mb-5 text-center"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#e43286]">Presente por idade</p><h2 className="mt-1 text-2xl font-black">A escolha certa para cada fase</h2></div><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[["0 a 2 anos","bebê brinquedo","bg-[#c7f0f7]"],["3 a 5 anos","brinquedo infantil","bg-[#ffe4ef]"],["6 a 8 anos","jogo educativo","bg-[#fff4a8]"],["9 anos ou mais","hobby jogo","bg-[#e8dafa]"]].map(([label,term,color]) => <button key={label} onClick={() => selectDepartment(term)} className={cn("rounded-2xl p-5 text-center font-black transition hover:-translate-y-1",color)}><Gift className="mx-auto mb-2 h-7 w-7" />{label}</button>)}</div></section>
 
-          <section id="produtos-brinquedos" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#6a31a8]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Brinquedos e hobbies</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-[#6a31a8] bg-[#6a31a8] text-white":"bg-white")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os brinquedos" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum brinquedo encontrado":"A loja de brinquedos está recebendo produtos"} text={submittedSearch?"Tente outra busca ou veja o catálogo completo.":"As lojas parceiras ainda estão publicando seus brinquedos. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div></section>
+          <section id="produtos-brinquedos" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="rounded-2xl bg-card p-4 shadow-sm sm:p-6"><div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#6a31a8]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Brinquedos e hobbies</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold",sort===option.value?"border-[#6a31a8] bg-[#6a31a8] text-white":"bg-card")}>{option.label}</button>)}</div></div>{isLoading?<div className="py-16"><PageLoader /></div>:isError?<EmptyCatalog title="Não foi possível carregar os brinquedos" text="Tente novamente em alguns instantes." clear={()=>setSubmittedSearch("")} />:listData&&listData.products.length>0?<div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product)=><ProductCard key={product.id} product={product} />)}</div>:<EmptyCatalog title={submittedSearch?"Nenhum brinquedo encontrado":"A loja de brinquedos está recebendo produtos"} text={submittedSearch?"Tente outra busca ou veja o catálogo completo.":"As lojas parceiras ainda estão publicando seus brinquedos. Volte em breve para conferir as novidades."} clear={()=>{setSearch("");setSubmittedSearch("")}} />}</div></section>
         </main>
       </div>
     )
@@ -669,10 +669,10 @@ export default function ListingPage() {
             <Link href="/" className="flex items-center gap-2 text-xl font-black"><Sparkles className="h-7 w-7" /> Praça.ai <span className="hidden text-xs font-semibold text-white/70 sm:inline">Beleza</span></Link>
             <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que você procura hoje?" className="h-12 border-0 bg-white pl-12 pr-12 text-[#241f2d]" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que você procura hoje?" className="h-12 border-0 bg-card pl-12 pr-12 text-[#241f2d]" />
               <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[#5e287d] p-2"><ArrowRight className="h-4 w-4" /></button>
             </form>
-            <div className="flex items-center gap-3 justify-self-end"><Link href="/profile" className="hidden text-sm font-bold sm:block">Entrar</Link><span className="rounded-full bg-white/15 p-2.5"><ShoppingCart className="h-5 w-5" /></span></div>
+            <div className="flex items-center gap-3 justify-self-end"><Link href="/profile" className="hidden text-sm font-bold sm:block">Entrar</Link><span className="rounded-full bg-card/15 p-2.5"><ShoppingCart className="h-5 w-5" /></span></div>
           </div>
           <nav className="border-t border-white/15 bg-[#77717e]">
             <div className="mx-auto flex max-w-6xl items-center gap-7 overflow-x-auto px-4 py-3 text-xs font-black sm:px-6 lg:px-8">
@@ -687,14 +687,14 @@ export default function ListingPage() {
             <div className="absolute -right-16 -top-24 h-96 w-96 rounded-full border-[60px] border-white/25" />
             <div className="absolute bottom-0 left-[45%] h-28 w-28 rounded-full bg-[#b783cc]/25 blur-2xl" />
             <div className="relative mx-auto grid min-h-[390px] max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_0.75fr] lg:px-8">
-              <div><span className="inline-flex rounded-full bg-white/70 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-[#5e287d]">Seu momento de cuidado</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.05] sm:text-6xl">Beleza que combina com você</h1><p className="mt-4 max-w-xl text-base text-[#4d4655] sm:text-lg">Cabelos, perfumaria, maquiagem, skincare e bem-estar das melhores lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-beleza")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-[#5e287d] hover:bg-[#4a1f63]">Descobrir produtos</Button></div>
+              <div><span className="inline-flex rounded-full bg-card/70 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-[#5e287d]">Seu momento de cuidado</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.05] sm:text-6xl">Beleza que combina com você</h1><p className="mt-4 max-w-xl text-base text-[#4d4655] sm:text-lg">Cabelos, perfumaria, maquiagem, skincare e bem-estar das melhores lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-beleza")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-[#5e287d] hover:bg-[#4a1f63]">Descobrir produtos</Button></div>
               <div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[38%_62%_45%_55%] bg-gradient-to-br from-[#7e4b9b] to-[#bf86d2] shadow-2xl"><Sparkles className="h-28 w-28 -rotate-6 text-white" strokeWidth={1.2} /></div><Heart className="absolute bottom-5 left-8 h-12 w-12 fill-white/70 text-white/70" /></div>
             </div>
           </section>
 
           <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
             <div className="mb-5 text-center"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#7e4b9b]">Seu ritual, suas escolhas</p><h2 className="mt-1 text-2xl font-black">Explore por categoria</h2></div>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">{beautyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 2 === 0 ? "bg-[#efe3f5] text-[#7e4b9b]" : "bg-[#f8e6ee] text-[#a34c72]")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">{beautyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-card p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 2 === 0 ? "bg-[#efe3f5] text-[#7e4b9b]" : "bg-[#f8e6ee] text-[#a34c72]")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div>
           </section>
 
           <section className="mx-auto grid max-w-6xl gap-3 px-4 pb-8 sm:grid-cols-3 sm:px-6 lg:px-8">
@@ -703,8 +703,8 @@ export default function ListingPage() {
             <BeautyPromo icon={Heart} title="Rotina de skincare" text="Limpeza, hidratação e proteção" color="bg-[#e5f1ef] text-[#39796f]" search="skincare" select={selectDepartment} />
           </section>
 
-          <section id="produtos-beleza" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#7e4b9b]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Beleza e cuidados pessoais</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#5e287d] bg-[#5e287d] text-white" : "bg-white")}>{option.label}</button>)}</div></div>
+          <section id="produtos-beleza" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8"><div className="rounded-2xl bg-card p-4 shadow-sm sm:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#7e4b9b]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Beleza e cuidados pessoais</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#5e287d] bg-[#5e287d] text-white" : "bg-card")}>{option.label}</button>)}</div></div>
             {isLoading ? <div className="py-16"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os produtos" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyCatalog title={submittedSearch ? "Nenhum produto encontrado" : "A vitrine de beleza está recebendo produtos"} text={submittedSearch ? "Tente outra busca ou confira o catálogo completo." : "As lojas parceiras ainda estão publicando seus itens. Volte em breve para conferir as novidades."} clear={() => { setSearch(""); setSubmittedSearch("") }} />}
           </div></section>
         </main>
@@ -715,12 +715,12 @@ export default function ListingPage() {
   if (isBaby) {
     return (
       <div className="min-h-full w-full bg-[#fffaf5] pb-12 text-slate-950">
-        <header className="bg-white">
+        <header className="bg-card">
           <div className="mx-auto grid max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 px-4 py-4 sm:px-6 lg:gap-8 lg:px-8 lg:py-5">
             <Link href="/" className="flex items-center gap-2 text-xl font-black text-[#f28a22]"><Baby className="h-8 w-8" /> Praça.ai <span className="hidden text-sm text-slate-500 sm:inline">Bebê</span></Link>
             <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que você está procurando?" className="h-12 rounded-full bg-white pl-12 pr-12 shadow-sm" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que você está procurando?" className="h-12 rounded-full bg-card pl-12 pr-12 shadow-sm" />
               <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-[#f28a22] p-2 text-white"><ArrowRight className="h-4 w-4" /></button>
             </form>
             <div className="flex items-center gap-3 justify-self-end"><Link href="/profile" className="hidden text-sm font-bold text-slate-600 sm:block">Entre ou cadastre-se</Link><span className="rounded-full bg-orange-50 p-2.5 text-[#f28a22]"><ShoppingCart className="h-5 w-5" /></span></div>
@@ -728,7 +728,7 @@ export default function ListingPage() {
           <nav className="bg-[#49aaa8] text-white">
             <div className="mx-auto flex max-w-6xl gap-6 overflow-x-auto px-4 py-3 text-xs font-black sm:px-6 lg:px-8">
               {babyDepartments.map((item) => <button key={item.label} onClick={() => selectDepartment(item.search)} className="shrink-0 hover:text-orange-100">{item.label}</button>)}
-              <button onClick={() => setSort("offers")} className="shrink-0 rounded-full bg-white px-3 text-[#318d8b]">Ofertas</button>
+              <button onClick={() => setSort("offers")} className="shrink-0 rounded-full bg-card px-3 text-[#318d8b]">Ofertas</button>
             </div>
           </nav>
         </header>
@@ -739,13 +739,13 @@ export default function ListingPage() {
             <div className="absolute bottom-0 right-[18%] h-52 w-52 rounded-full bg-[#8ecf79]/40 blur-2xl" />
             <div className="relative mx-auto grid min-h-[390px] max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_0.8fr] lg:px-8">
               <div>
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/70 px-3 py-1.5 text-xs font-black text-[#318d8b]"><Heart className="h-4 w-4 fill-[#f28a22] text-[#f28a22]" /> Cuidado em cada fase</span>
+                <span className="inline-flex items-center gap-2 rounded-full bg-card/70 px-3 py-1.5 text-xs font-black text-[#318d8b]"><Heart className="h-4 w-4 fill-[#f28a22] text-[#f28a22]" /> Cuidado em cada fase</span>
                 <h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.05] text-[#155d70] sm:text-6xl">Tudo para grandes aventuras</h1>
                 <p className="mt-4 max-w-xl text-base text-[#155d70]/80 sm:text-lg">Produtos para passeio, quarto, alimentação, higiene e diversão do seu bebê, vendidos por lojas da sua região.</p>
                 <Button onClick={() => document.getElementById("produtos-bebes")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-[#f28a22] hover:bg-[#dc7817]">Ver produtos</Button>
               </div>
               <div className="relative hidden min-h-64 lg:block">
-                <div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[40%_60%_55%_45%] bg-white/65 shadow-xl"><Baby className="h-32 w-32 text-[#f28a22]" strokeWidth={1.2} /></div>
+                <div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[40%_60%_55%_45%] bg-card/65 shadow-xl"><Baby className="h-32 w-32 text-[#f28a22]" strokeWidth={1.2} /></div>
                 <Sparkles className="absolute right-5 top-5 h-14 w-14 text-white" /><Heart className="absolute bottom-5 left-6 h-12 w-12 fill-[#f7b6ba] text-[#f7b6ba]" />
               </div>
             </div>
@@ -753,7 +753,7 @@ export default function ListingPage() {
 
           <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
             <div className="mb-5 text-center"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#49aaa8]">Tudo para o bebê</p><h2 className="mt-1 text-2xl font-black">Compre por departamento</h2></div>
-            <div className="grid grid-cols-4 gap-3 lg:grid-cols-8">{babyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 3 === 0 ? "bg-orange-100 text-[#f28a22]" : index % 3 === 1 ? "bg-cyan-100 text-[#318d8b]" : "bg-rose-100 text-rose-500")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div>
+            <div className="grid grid-cols-4 gap-3 lg:grid-cols-8">{babyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-card p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 3 === 0 ? "bg-orange-100 text-[#f28a22]" : index % 3 === 1 ? "bg-cyan-100 text-[#318d8b]" : "bg-rose-100 text-rose-500")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div>
           </section>
 
           <section className="mx-auto grid max-w-6xl gap-3 px-4 pb-8 sm:grid-cols-3 sm:px-6 lg:px-8">
@@ -763,8 +763,8 @@ export default function ListingPage() {
           </section>
 
           <section id="produtos-bebes" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-              <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#49aaa8]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Artigos para bebês</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#49aaa8] bg-[#49aaa8] text-white" : "bg-white")}>{option.label}</button>)}</div></div>
+            <div className="rounded-2xl bg-card p-4 shadow-sm sm:p-6">
+              <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#49aaa8]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Artigos para bebês</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#49aaa8] bg-[#49aaa8] text-white" : "bg-card")}>{option.label}</button>)}</div></div>
               {isLoading ? <div className="py-16"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os artigos" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyCatalog title={submittedSearch ? "Nenhum produto encontrado" : "A loja do bebê está recebendo produtos"} text={submittedSearch ? "Tente outra busca ou confira todo o catálogo." : "As lojas parceiras ainda estão publicando seus artigos. Volte em breve para conferir as novidades."} clear={() => { setSearch(""); setSubmittedSearch("") }} />}
             </div>
           </section>
@@ -780,10 +780,10 @@ export default function ListingPage() {
           <Link href="/" className="flex items-center gap-2 text-xl font-black"><Store className="h-7 w-7 fill-white" /> Praça.ai <span className="hidden text-sm font-semibold text-white/70 sm:inline">Papelaria</span></Link>
           <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1">
             <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que vamos buscar hoje?" className="h-12 border-0 bg-white pl-12 pr-12 text-slate-950" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="O que vamos buscar hoje?" className="h-12 border-0 bg-card pl-12 pr-12 text-slate-950" />
             <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-primary p-2"><ArrowRight className="h-4 w-4" /></button>
           </form>
-          <div className="flex items-center gap-3 justify-self-end"><Link href="/profile" className="hidden text-sm font-bold sm:block">Entre ou cadastre-se</Link><span className="rounded-full bg-white/15 p-2.5"><ShoppingCart className="h-5 w-5" /></span></div>
+          <div className="flex items-center gap-3 justify-self-end"><Link href="/profile" className="hidden text-sm font-bold sm:block">Entre ou cadastre-se</Link><span className="rounded-full bg-card/15 p-2.5"><ShoppingCart className="h-5 w-5" /></span></div>
         </div>
         <nav className="border-t border-white/10 bg-[#2f78a7]">
           <div className="mx-auto flex max-w-6xl items-center gap-6 overflow-x-auto px-4 py-3 text-xs font-black uppercase sm:px-6 lg:px-8">
@@ -795,14 +795,14 @@ export default function ListingPage() {
       </header>
 
       <main>
-        <section className="bg-white">
+        <section className="bg-card">
           <div className="mx-auto grid max-w-6xl grid-cols-2 gap-px bg-border sm:grid-cols-4">
             {[
               [Truck, "Entrega local", "Receba com rapidez"],
               [ShieldCheck, "Compra segura", "Pagamento protegido"],
               [PackageCheck, "Retirada na loja", "Compre de parceiros locais"],
               [Star, "Lojas avaliadas", "Escolha com confiança"],
-            ].map(([Icon, title, subtitle]) => <div key={title as string} className="flex items-center gap-3 bg-white px-4 py-4"><Icon className="h-6 w-6 shrink-0 text-[#2f78a7]" /><div><p className="text-sm font-black">{title as string}</p><p className="text-xs text-muted-foreground">{subtitle as string}</p></div></div>)}
+            ].map(([Icon, title, subtitle]) => <div key={title as string} className="flex items-center gap-3 bg-card px-4 py-4"><Icon className="h-6 w-6 shrink-0 text-[#2f78a7]" /><div><p className="text-sm font-black">{title as string}</p><p className="text-xs text-muted-foreground">{subtitle as string}</p></div></div>)}
           </div>
         </section>
 
@@ -826,12 +826,12 @@ export default function ListingPage() {
 
         <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6 lg:px-8">
           <div className="mb-5 flex items-center justify-between"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#2f78a7]">Explore por departamento</p><h2 className="mt-1 text-2xl font-black">Encontre tudo o que precisa</h2></div></div>
-          <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">{stationeryDepartments.map(({ label, icon: Icon, search: term }) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f2f8] text-[#2f78a7]"><Icon className="h-7 w-7" /></span><span className="mt-2 text-xs font-black">{label}</span></button>)}</div>
+          <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">{stationeryDepartments.map(({ label, icon: Icon, search: term }) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-card p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className="flex h-14 w-14 items-center justify-center rounded-full bg-[#e6f2f8] text-[#2f78a7]"><Icon className="h-7 w-7" /></span><span className="mt-2 text-xs font-black">{label}</span></button>)}</div>
         </section>
 
         <section id="produtos-papelaria" className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#2f78a7]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Produtos de papelaria</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#2f78a7] bg-[#2f78a7] text-white" : "bg-white")}>{option.label}</button>)}</div></div>
+          <div className="rounded-2xl bg-card p-4 shadow-sm sm:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#2f78a7]">Catálogo local</p><h2 className="mt-1 text-2xl font-black">Produtos de papelaria</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} produtos encontrados{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div><div className="flex max-w-full gap-2 overflow-x-auto pb-1">{sortOptions.slice(0, 4).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-[#2f78a7] bg-[#2f78a7] text-white" : "bg-card")}>{option.label}</button>)}</div></div>
 
             {isLoading ? <div className="py-16"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar a papelaria" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} />)}</div> : <EmptyCatalog title={submittedSearch ? "Nenhum produto encontrado" : "A papelaria está recebendo produtos"} text={submittedSearch ? "Tente outro termo ou veja o catálogo completo." : "As lojas parceiras ainda estão publicando seus materiais. Volte em breve para conferir as novidades."} clear={() => { setSearch(""); setSubmittedSearch("") }} />}
           </div>
@@ -846,19 +846,19 @@ function PromoTile({ icon: Icon, title, subtitle, color, onClick }: { icon: type
 }
 
 function BabyPromo({ icon: Icon, title, text, color, search, select }: { icon: typeof Baby; title: string; text: string; color: string; search: string; select: (search: string) => void }) {
-  return <button onClick={() => select(search)} className={cn("flex min-h-36 items-center gap-5 rounded-2xl p-6 text-left transition hover:-translate-y-1", color)}><span className="rounded-full bg-white/70 p-4"><Icon className="h-8 w-8" /></span><div><h3 className="text-lg font-black">{title}</h3><p className="mt-1 text-sm opacity-75">{text}</p></div></button>
+  return <button onClick={() => select(search)} className={cn("flex min-h-36 items-center gap-5 rounded-2xl p-6 text-left transition hover:-translate-y-1", color)}><span className="rounded-full bg-card/70 p-4"><Icon className="h-8 w-8" /></span><div><h3 className="text-lg font-black">{title}</h3><p className="mt-1 text-sm opacity-75">{text}</p></div></button>
 }
 
 function BeautyPromo({ icon: Icon, title, text, color, search, select }: { icon: typeof Sparkles; title: string; text: string; color: string; search: string; select: (search: string) => void }) {
-  return <button onClick={() => select(search)} className={cn("flex min-h-36 items-center gap-5 rounded-2xl p-6 text-left transition hover:-translate-y-1", color)}><span className="rounded-full bg-white/70 p-4"><Icon className="h-8 w-8" /></span><div><h3 className="text-lg font-black">{title}</h3><p className="mt-1 text-sm opacity-75">{text}</p></div></button>
+  return <button onClick={() => select(search)} className={cn("flex min-h-36 items-center gap-5 rounded-2xl p-6 text-left transition hover:-translate-y-1", color)}><span className="rounded-full bg-card/70 p-4"><Icon className="h-8 w-8" /></span><div><h3 className="text-lg font-black">{title}</h3><p className="mt-1 text-sm opacity-75">{text}</p></div></button>
 }
 
 function FashionPromo({ title, text, color, search, select }: { title: string; text: string; color: string; search: string; select: (search: string) => void }) {
-  return <button onClick={() => select(search)} className={cn("group relative min-h-48 overflow-hidden p-6 text-left transition hover:-translate-y-1", color)}><div className="absolute -bottom-14 -right-10 flex h-52 w-52 items-center justify-center rounded-full bg-white/35 transition group-hover:scale-105"><Shirt className="h-24 w-24 text-black/45" strokeWidth={1.1} /></div><div className="relative"><p className="text-xs font-black uppercase tracking-[0.18em] text-black/55">Coleção local</p><h3 className="mt-2 max-w-[12rem] text-2xl font-black">{title}</h3><p className="mt-2 max-w-[12rem] text-sm text-black/65">{text}</p><span className="mt-5 inline-flex items-center gap-2 text-sm font-black">Ver produtos <ArrowRight className="h-4 w-4" /></span></div></button>
+  return <button onClick={() => select(search)} className={cn("group relative min-h-48 overflow-hidden p-6 text-left transition hover:-translate-y-1", color)}><div className="absolute -bottom-14 -right-10 flex h-52 w-52 items-center justify-center rounded-full bg-card/35 transition group-hover:scale-105"><Shirt className="h-24 w-24 text-black/45" strokeWidth={1.1} /></div><div className="relative"><p className="text-xs font-black uppercase tracking-[0.18em] text-black/55">Coleção local</p><h3 className="mt-2 max-w-[12rem] text-2xl font-black">{title}</h3><p className="mt-2 max-w-[12rem] text-sm text-black/65">{text}</p><span className="mt-5 inline-flex items-center gap-2 text-sm font-black">Ver produtos <ArrowRight className="h-4 w-4" /></span></div></button>
 }
 
 function PhoneBenefit({ icon: Icon, title, text }: { icon: typeof Smartphone; title: string; text: string }) {
-  return <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm"><span className="rounded-full bg-[#e4eef8] p-3 text-[#174b87]"><Icon className="h-6 w-6" /></span><div><p className="text-sm font-black">{title}</p><p className="text-xs text-muted-foreground">{text}</p></div></div>
+  return <div className="flex items-center gap-3 rounded-xl bg-card p-4 shadow-sm"><span className="rounded-full bg-[#e4eef8] p-3 text-[#174b87]"><Icon className="h-6 w-6" /></span><div><p className="text-sm font-black">{title}</p><p className="text-xs text-muted-foreground">{text}</p></div></div>
 }
 
 function PhoneFilter({ title, values, select }: { title: string; values: string[]; select: (search: string) => void }) {

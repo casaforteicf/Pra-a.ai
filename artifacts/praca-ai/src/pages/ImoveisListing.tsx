@@ -145,8 +145,8 @@ export default function ImoveisListing() {
   )
 
   return (
-    <div className="min-h-full w-full bg-white text-slate-950">
-      <header className="sticky top-0 z-30 border-b bg-white/95 backdrop-blur">
+    <div className="min-h-full w-full bg-background text-foreground">
+      <header className="sticky top-0 z-30 border-b bg-card/95 backdrop-blur">
         <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-3 lg:px-7">
           <Link href="/" className="flex shrink-0 items-center gap-2 font-black text-primary"><Store className="h-6 w-6 fill-primary" /> <span>Praça.ai Imóveis</span></Link>
           <label className="relative ml-auto hidden w-full max-w-2xl lg:block">
@@ -165,22 +165,22 @@ export default function ImoveisListing() {
               {(["venda", "aluguel"] as const).map((item) => <button key={item} onClick={() => setPurpose(item)} className={cn("border-b-2 px-3 py-3 text-sm font-black capitalize", purpose === item ? "border-primary text-primary" : "border-transparent")}>{item === "venda" ? "Comprar" : "Alugar"}</button>)}
             </div>
             <div className="flex-1 overflow-y-auto px-6 py-5">{filters}</div>
-            <div className="grid grid-cols-2 gap-3 border-t bg-white p-4"><Button variant="ghost" onClick={clearFilters}>Limpar</Button><Button>Buscar imóveis</Button></div>
+            <div className="grid grid-cols-2 gap-3 border-t bg-card p-4"><Button variant="ghost" onClick={clearFilters}>Limpar</Button><Button>Buscar imóveis</Button></div>
           </div>
         </aside>
 
-        <main className="min-w-0 bg-[#f7f7f5] px-4 pb-12 pt-4 sm:px-6 lg:px-7">
+        <main className="min-w-0 bg-background px-4 pb-12 pt-4 sm:px-6 lg:px-7">
           <div className="lg:hidden">
-            <div className="grid grid-cols-2 rounded-xl bg-white p-1 shadow-sm">
+            <div className="grid grid-cols-2 rounded-xl bg-card p-1 shadow-sm">
               {(["venda", "aluguel"] as const).map((item) => <button key={item} onClick={() => setPurpose(item)} className={cn("rounded-lg py-2.5 text-sm font-black", purpose === item ? "bg-primary text-white" : "text-muted-foreground")}>{item === "venda" ? "Comprar" : "Alugar"}</button>)}
             </div>
             <label className="relative mt-3 block">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
-              <Input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Rua, bairro ou cidade" className="h-12 rounded-xl bg-white pl-12" />
+              <Input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Rua, bairro ou cidade" className="h-12 rounded-xl bg-card pl-12" />
             </label>
             <div className="mt-3 flex gap-2">
-              <Button variant="outline" onClick={() => setShowMobileFilters(true)} className="flex-1 gap-2 bg-white"><SlidersHorizontal className="h-4 w-4" /> Filtros {activeFilterCount > 0 && <span className="rounded-full bg-primary px-1.5 text-[10px] text-white">{activeFilterCount}</span>}</Button>
-              <Button variant="outline" className="gap-2 bg-white"><Map className="h-4 w-4" /> Mapa</Button>
+              <Button variant="outline" onClick={() => setShowMobileFilters(true)} className="flex-1 gap-2 bg-card"><SlidersHorizontal className="h-4 w-4" /> Filtros {activeFilterCount > 0 && <span className="rounded-full bg-primary px-1.5 text-[10px] text-white">{activeFilterCount}</span>}</Button>
+              <Button variant="outline" className="gap-2 bg-card"><Map className="h-4 w-4" /> Mapa</Button>
             </div>
           </div>
 
@@ -191,14 +191,14 @@ export default function ImoveisListing() {
             </div>
             <label className="relative">
               <ArrowDownUp className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2" />
-              <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-10 appearance-none rounded-full border bg-white pl-9 pr-9 text-sm font-bold">
+              <select value={sort} onChange={(event) => setSort(event.target.value)} className="h-10 appearance-none rounded-full border bg-card pl-9 pr-9 text-sm font-bold">
                 <option value="relevancia">Mais relevantes</option><option value="menor-preco">Menor preço</option><option value="maior-preco">Maior preço</option>
               </select>
               <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2" />
             </label>
           </div>
 
-          {isLoading ? <div className="mt-5 rounded-2xl bg-white py-16"><PageLoader /></div> : isError ? (
+          {isLoading ? <div className="mt-5 rounded-2xl bg-card py-16"><PageLoader /></div> : isError ? (
             <Card className="mt-5 p-10 text-center"><HomeIcon className="mx-auto h-10 w-10 text-muted-foreground" /><h2 className="mt-4 font-black">Não foi possível carregar os imóveis</h2></Card>
           ) : filteredProperties.length === 0 ? (
             <Card className="mt-5 overflow-hidden rounded-2xl border-0 shadow-sm">
@@ -215,15 +215,15 @@ export default function ImoveisListing() {
         </main>
       </div>
 
-      {showMobileFilters && <div className="fixed inset-0 z-50 bg-black/40 lg:hidden"><div className="absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-3xl bg-white p-6"><div className="mb-6 flex items-center justify-between"><h2 className="text-xl font-black">Filtrar imóveis</h2><button onClick={() => setShowMobileFilters(false)} className="rounded-full bg-muted p-2"><X className="h-5 w-5" /></button></div>{filters}<div className="sticky bottom-0 mt-6 grid grid-cols-2 gap-3 border-t bg-white py-4"><Button variant="ghost" onClick={clearFilters}>Limpar</Button><Button onClick={() => setShowMobileFilters(false)}>Ver {filteredProperties.length} imóveis</Button></div></div></div>}
+      {showMobileFilters && <div className="fixed inset-0 z-50 bg-black/40 lg:hidden"><div className="absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-3xl bg-card p-6"><div className="mb-6 flex items-center justify-between"><h2 className="text-xl font-black">Filtrar imóveis</h2><button onClick={() => setShowMobileFilters(false)} className="rounded-full bg-muted p-2"><X className="h-5 w-5" /></button></div>{filters}<div className="sticky bottom-0 mt-6 grid grid-cols-2 gap-3 border-t bg-card py-4"><Button variant="ghost" onClick={clearFilters}>Limpar</Button><Button onClick={() => setShowMobileFilters(false)}>Ver {filteredProperties.length} imóveis</Button></div></div></div>}
     </div>
   )
 }
 
 function FilterNumbers({ title, value, onChange }: { title: string; value: number; onChange: (value: number) => void }) {
-  return <div className="mb-5"><p className="mb-2 text-sm text-muted-foreground">{title}</p><div className="flex gap-2">{numberOptions.map((number) => <button key={number} onClick={() => onChange(value === number ? 0 : number)} className={cn("h-11 min-w-11 rounded-full border text-sm font-bold", value === number ? "border-primary bg-primary text-white" : "bg-white")}>{number}+</button>)}</div></div>
+  return <div className="mb-5"><p className="mb-2 text-sm text-muted-foreground">{title}</p><div className="flex gap-2">{numberOptions.map((number) => <button key={number} onClick={() => onChange(value === number ? 0 : number)} className={cn("h-11 min-w-11 rounded-full border text-sm font-bold", value === number ? "border-primary bg-primary text-white" : "bg-card")}>{number}+</button>)}</div></div>
 }
 
 function PropertyCard({ property }: { property: Imovel }) {
-  return <Link href={`/imoveis/${property.id}`} className="group block"><Card className="h-full overflow-hidden rounded-2xl border-0 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"><div className="relative aspect-[4/3] overflow-hidden bg-slate-200">{property.imageUrl ? <img src={property.imageUrl} alt={property.titulo} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center"><HomeIcon className="h-16 w-16 text-slate-400" /></div>}{property.destaque && <span className="absolute left-3 top-3 rounded-full bg-white px-2.5 py-1 text-[11px] font-black shadow">Destaque</span>}<span className="absolute right-3 top-3 rounded-full bg-white/90 p-2 shadow"><Heart className="h-5 w-5" /></span></div><div className="p-4"><p className="text-xs text-muted-foreground">{PROPERTY_TYPES.find(([value]) => value === property.tipo)?.[1] ?? property.tipo} para {property.finalidade === "aluguel" ? "alugar" : "comprar"}</p><h2 className="mt-1 line-clamp-2 font-black">{property.titulo}</h2><p className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground"><MapPin className="h-3.5 w-3.5" /> {[property.bairro, property.cidade].filter(Boolean).join(", ") || "Localização não informada"}</p><div className="mt-4 flex flex-wrap gap-3 text-xs font-semibold text-slate-700">{property.areaM2 != null && <span className="flex items-center gap-1"><Maximize2 className="h-4 w-4" /> {property.areaM2} m²</span>}{property.quartos != null && <span className="flex items-center gap-1"><BedDouble className="h-4 w-4" /> {property.quartos}</span>}{property.banheiros != null && <span className="flex items-center gap-1"><Bath className="h-4 w-4" /> {property.banheiros}</span>}{property.vagas != null && <span className="flex items-center gap-1"><Car className="h-4 w-4" /> {property.vagas}</span>}</div><p className="mt-5 text-2xl font-black">{formatMoney(property.valor)}{property.finalidade === "aluguel" && <span className="text-xs font-medium text-muted-foreground">/mês</span>}</p>{(property.valorCondominio || property.valorIptu) && <p className="mt-1 text-[11px] text-muted-foreground">{property.valorCondominio ? `Cond. ${formatMoney(property.valorCondominio)}` : ""}{property.valorCondominio && property.valorIptu ? " · " : ""}{property.valorIptu ? `IPTU ${formatMoney(property.valorIptu)}` : ""}</p>}<p className="mt-4 flex items-center gap-1.5 border-t pt-3 text-xs font-semibold text-muted-foreground"><Store className="h-3.5 w-3.5" /> {property.vendorName}</p><Button className="mt-4 w-full">Ver imóvel e agendar visita</Button></div></Card></Link>
+  return <Link href={`/imoveis/${property.id}`} className="group block"><Card className="h-full overflow-hidden rounded-2xl border-0 bg-card shadow-sm transition hover:-translate-y-1 hover:shadow-lg"><div className="relative aspect-[4/3] overflow-hidden bg-slate-200">{property.imageUrl ? <img src={property.imageUrl} alt={property.titulo} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center"><HomeIcon className="h-16 w-16 text-slate-400" /></div>}{property.destaque && <span className="absolute left-3 top-3 rounded-full bg-card px-2.5 py-1 text-[11px] font-black shadow">Destaque</span>}<span className="absolute right-3 top-3 rounded-full bg-card/90 p-2 shadow"><Heart className="h-5 w-5" /></span></div><div className="p-4"><p className="text-xs text-muted-foreground">{PROPERTY_TYPES.find(([value]) => value === property.tipo)?.[1] ?? property.tipo} para {property.finalidade === "aluguel" ? "alugar" : "comprar"}</p><h2 className="mt-1 line-clamp-2 font-black">{property.titulo}</h2><p className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground"><MapPin className="h-3.5 w-3.5" /> {[property.bairro, property.cidade].filter(Boolean).join(", ") || "Localização não informada"}</p><div className="mt-4 flex flex-wrap gap-3 text-xs font-semibold text-slate-700">{property.areaM2 != null && <span className="flex items-center gap-1"><Maximize2 className="h-4 w-4" /> {property.areaM2} m²</span>}{property.quartos != null && <span className="flex items-center gap-1"><BedDouble className="h-4 w-4" /> {property.quartos}</span>}{property.banheiros != null && <span className="flex items-center gap-1"><Bath className="h-4 w-4" /> {property.banheiros}</span>}{property.vagas != null && <span className="flex items-center gap-1"><Car className="h-4 w-4" /> {property.vagas}</span>}</div><p className="mt-5 text-2xl font-black">{formatMoney(property.valor)}{property.finalidade === "aluguel" && <span className="text-xs font-medium text-muted-foreground">/mês</span>}</p>{(property.valorCondominio || property.valorIptu) && <p className="mt-1 text-[11px] text-muted-foreground">{property.valorCondominio ? `Cond. ${formatMoney(property.valorCondominio)}` : ""}{property.valorCondominio && property.valorIptu ? " · " : ""}{property.valorIptu ? `IPTU ${formatMoney(property.valorIptu)}` : ""}</p>}<p className="mt-4 flex items-center gap-1.5 border-t pt-3 text-xs font-semibold text-muted-foreground"><Store className="h-3.5 w-3.5" /> {property.vendorName}</p><Button className="mt-4 w-full">Ver imóvel e agendar visita</Button></div></Card></Link>
 }

@@ -34,7 +34,7 @@ function VariedadeCard({ item }: { item: VariedadeDiaItem }) {
         <video src={item.videoUrl} className="absolute inset-0 h-full w-full object-cover opacity-40" autoPlay muted loop playsInline />
       )}
       <div className="relative z-10 space-y-3">
-        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-wide">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-card/15 px-3 py-1 text-xs font-bold uppercase tracking-wide">
           <info.icon className="h-3.5 w-3.5" /> {info.label}
         </span>
         <p className="text-xs font-semibold text-white/80">Por {item.tenantName}</p>
@@ -45,7 +45,7 @@ function VariedadeCard({ item }: { item: VariedadeDiaItem }) {
         )}
 
         {item.promocaoTipo && (
-          <div className="mt-2 flex items-center gap-2 rounded-lg bg-white/15 px-3 py-2">
+          <div className="mt-2 flex items-center gap-2 rounded-lg bg-card/15 px-3 py-2">
             <Percent className="h-4 w-4 shrink-0" />
             <p className="text-sm font-bold">
               {item.promocaoTipo === "produto"
@@ -57,7 +57,7 @@ function VariedadeCard({ item }: { item: VariedadeDiaItem }) {
 
         <Link
           href={item.promocaoTipo === "produto" && item.promocaoProdutoId ? `/product/${item.promocaoProdutoId}` : `/listing?vendor=${item.tenantSlug}`}
-          className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-900"
+          className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-full bg-card px-4 py-2 text-sm font-bold text-foreground"
         >
           {item.promocaoTipo === "produto" ? "Ver produto" : "Conhecer a loja"}
         </Link>

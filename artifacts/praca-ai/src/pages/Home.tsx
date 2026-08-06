@@ -109,37 +109,37 @@ export default function HomePage() {
   }, [loadMoreProducts])
 
   return (
-    <div className="flex min-h-full w-full flex-col bg-[#ebebeb] pb-10">
+    <div className="flex min-h-full w-full flex-col bg-background pb-10">
       {/* Marketplace header */}
-      <header className="sticky top-0 inset-x-0 z-30 bg-primary px-4 py-3 shadow-sm lg:px-8">
+      <header className="sticky top-0 inset-x-0 z-30 bg-primary px-4 py-3 shadow-neon lg:px-8">
         <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 lg:gap-x-8">
-          <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-            <Store className="w-6 h-6 fill-white" />
+          <h1 className="text-2xl font-black tracking-tight text-primary-foreground flex items-center gap-2">
+            <Store className="w-6 h-6 fill-primary-foreground" />
             Praça.ai
           </h1>
           <div className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1">
             <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Buscar produtos, lojas e serviços"
-              className="h-11 w-full rounded-md border-none bg-white pl-12 pr-4 text-base shadow-sm"
+              className="h-11 w-full rounded-md border-none bg-card pl-12 pr-4 text-base shadow-sm"
             />
           </div>
-          <div className="flex items-center gap-2 justify-self-end rounded-full bg-white/15 px-3 py-2 text-xs font-bold text-white">
+          <div className="flex items-center gap-2 justify-self-end rounded-full bg-primary-foreground/15 px-3 py-2 text-xs font-bold text-primary-foreground">
             <MapPin className="h-4 w-4" />
             <span className="hidden sm:inline">Chapecó, SC</span>
           </div>
-          <nav className="col-span-3 hidden items-center gap-6 border-t border-white/15 pt-3 text-sm font-semibold text-white/90 lg:flex">
-            <Link href="/listing" className="flex items-center gap-1 hover:text-white">Categorias <ChevronDown className="h-4 w-4" /></Link>
-            <Link href="/listing" className="hover:text-white">Ofertas</Link>
-            <Link href="/servicos" className="hover:text-white">Serviços</Link>
-            <Link href="/restaurantes" className="hover:text-white">Restaurantes</Link>
-            <Link href="/fretes" className="hover:text-white">Fretes</Link>
-            <Link href="/listing?category=viagens-e-hoteis" className="hover:text-white">Viagens</Link>
+          <nav className="col-span-3 hidden items-center gap-6 border-t border-primary-foreground/15 pt-3 text-sm font-semibold text-primary-foreground/90 lg:flex">
+            <Link href="/listing" className="flex items-center gap-1 hover:text-primary-foreground/70">Categorias <ChevronDown className="h-4 w-4" /></Link>
+            <Link href="/listing" className="hover:text-primary-foreground/70">Ofertas</Link>
+            <Link href="/servicos" className="hover:text-primary-foreground/70">Serviços</Link>
+            <Link href="/restaurantes" className="hover:text-primary-foreground/70">Restaurantes</Link>
+            <Link href="/fretes" className="hover:text-primary-foreground/70">Fretes</Link>
+            <Link href="/listing?category=viagens-e-hoteis" className="hover:text-primary-foreground/70">Viagens</Link>
             <a
               href="https://appvendorai.com/cadastro-praca"
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-auto flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-primary hover:bg-white/90"
+              className="ml-auto flex items-center gap-1.5 rounded-full bg-card px-4 py-1.5 text-primary hover:bg-card/90"
             >
               <Store className="h-4 w-4" /> Cadastre sua loja grátis
             </a>
@@ -152,13 +152,13 @@ export default function HomePage() {
         href="https://appvendorai.com/cadastro-praca"
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 bg-terracota px-4 py-2 text-center text-sm font-bold text-white lg:hidden"
+        className="flex items-center justify-center gap-2 bg-terracota px-4 py-2 text-center text-sm font-bold text-terracota-foreground lg:hidden"
       >
         <Store className="h-4 w-4 shrink-0" /> Tem uma loja? Cadastre-se grátis no Praça.ai
       </a>
 
       {/* Trust Strip */}
-      <div className="hidden items-center justify-center gap-10 border-b bg-white px-4 py-2.5 text-xs font-bold text-primary md:flex">
+      <div className="hidden items-center justify-center gap-10 border-b bg-card px-4 py-2.5 text-xs font-bold text-primary md:flex">
         <div className="flex items-center gap-1.5">
           <ShieldCheck className="w-4 h-4" />
           <span>Compra Segura</span>
@@ -194,7 +194,7 @@ export default function HomePage() {
                     )}
                     <h2 className="max-w-xl text-3xl font-black leading-tight text-white sm:text-5xl">{banner.title}</h2>
                     {banner.subtitle && <p className="mt-2 max-w-lg text-base font-medium text-white/90 sm:text-xl">{banner.subtitle}</p>}
-                    <Link href="/listing" className="mt-5 w-fit rounded-md bg-white px-5 py-2.5 text-sm font-bold text-primary shadow">Ver ofertas</Link>
+                    <Link href="/listing" className="mt-5 w-fit rounded-md bg-card px-5 py-2.5 text-sm font-bold text-primary shadow">Ver ofertas</Link>
                   </div>
                 </div>
               ))}
@@ -202,7 +202,7 @@ export default function HomePage() {
           </section>
 
           {/* Categories Grid */}
-          <section className="relative z-10 mx-auto -mt-5 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-white px-4 py-5 shadow-sm lg:-mt-8 lg:px-7">
+          <section className="relative z-10 mx-auto -mt-5 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-card px-4 py-5 shadow-sm lg:-mt-8 lg:px-7">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-xl font-semibold">Encontre tudo na sua cidade</h2>
               <Link href="/listing" className="hidden text-sm font-semibold text-primary sm:block">Ver todas as categorias</Link>
@@ -273,7 +273,7 @@ export default function HomePage() {
               [Tag, "Ofertas da região", "Preços perto de você"],
               [Headphones, "Atendimento", "Suporte quando precisar"],
             ].map(([Icon, title, subtitle]) => (
-              <div key={title as string} className="flex min-h-24 items-center gap-3 bg-white p-4">
+              <div key={title as string} className="flex min-h-24 items-center gap-3 bg-card p-4">
                 <Icon className="h-7 w-7 shrink-0 text-primary" />
                 <div><p className="text-sm font-bold">{title as string}</p><p className="text-xs text-muted-foreground">{subtitle as string}</p></div>
               </div>
@@ -298,7 +298,7 @@ export default function HomePage() {
           )}
 
           {/* Flash Deals */}
-          {offerProducts.length > 0 && <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-white p-5 shadow-sm">
+          {offerProducts.length > 0 && <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <h3 className="font-black text-xl">Ofertas do dia</h3>
@@ -317,7 +317,7 @@ export default function HomePage() {
 
           {/* Category Carousels */}
           {homeData.carousels.map((carousel) => (
-            <section key={carousel.category.id} className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-white p-5 shadow-sm">
+            <section key={carousel.category.id} className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-card p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-black text-xl">{carousel.category.name}</h3>
                 <Link href={`/listing?category=${carousel.category.slug}`} className="text-primary text-sm font-bold flex items-center gap-1">

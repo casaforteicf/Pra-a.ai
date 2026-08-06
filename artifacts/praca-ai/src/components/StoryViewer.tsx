@@ -102,9 +102,9 @@ export function StoryViewer({
     <div className="fixed inset-0 z-[100] bg-black flex flex-col select-none">
       <div className="flex gap-1 px-2 pt-3">
         {group.stories.map((s, i) => (
-          <div key={s.id} className="flex-1 h-0.5 rounded-full bg-white/30 overflow-hidden">
+          <div key={s.id} className="flex-1 h-0.5 rounded-full bg-card/30 overflow-hidden">
             <div
-              className="h-full bg-white"
+              className="h-full bg-card"
               style={{ width: i < storyIndex ? "100%" : i === storyIndex ? `${progress * 100}%` : "0%" }}
             />
           </div>
@@ -113,7 +113,7 @@ export function StoryViewer({
 
       <div className="flex items-center justify-between px-3 py-2">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-white/20 overflow-hidden flex items-center justify-center text-white text-xs font-bold">
+          <div className="w-8 h-8 rounded-full bg-card/20 overflow-hidden flex items-center justify-center text-white text-xs font-bold">
             {group.logoUrl ? <img src={group.logoUrl} className="w-full h-full object-cover" /> : group.tenantName[0]}
           </div>
           <span className="text-white text-sm font-semibold">{group.tenantName}</span>
@@ -167,7 +167,7 @@ export function StoryViewer({
           {destino && (
             <button
               onClick={() => { onClose(); setLocation(destino) }}
-              className="w-full flex items-center justify-center gap-2 rounded-full bg-white text-black text-sm font-bold py-2.5"
+              className="w-full flex items-center justify-center gap-2 rounded-full bg-primary text-primary-foreground text-sm font-bold py-2.5"
             >
               {story.produtoId ? <><Package className="w-4 h-4" /> Ver produto</> : <><ExternalLink className="w-4 h-4" /> Ver mais</>}
             </button>

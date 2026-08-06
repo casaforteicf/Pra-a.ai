@@ -59,16 +59,16 @@ export default function Login() {
     <div className="flex flex-col w-full min-h-full bg-[#FAF8F4]">
       {/* Header */}
       <div className="bg-primary px-4 pt-12 pb-14 relative overflow-hidden">
-        <div className="absolute -top-16 -right-16 w-56 h-56 bg-white/10 rounded-full" />
+        <div className="absolute -top-16 -right-16 w-56 h-56 bg-card/10 rounded-full" />
         <div className="absolute -bottom-8 -left-8 w-40 h-40 bg-black/10 rounded-full" />
         <button
           onClick={() => window.history.back()}
-          className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center mb-8 relative z-10"
+          className="w-10 h-10 rounded-full bg-card/20 flex items-center justify-center mb-8 relative z-10"
         >
           <ChevronLeft className="w-6 h-6 text-white" />
         </button>
         <div className="relative z-10">
-          <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center shadow-lg mb-4">
+          <div className="w-14 h-14 rounded-2xl bg-card flex items-center justify-center shadow-lg mb-4">
             <ShoppingBag className="w-7 h-7 text-primary" />
           </div>
           <h1 className="text-3xl font-black text-white leading-tight">
@@ -83,13 +83,13 @@ export default function Login() {
       </div>
 
       {/* Card */}
-      <div className="flex-1 -mt-6 rounded-t-[28px] bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.06)] px-5 pt-6 pb-10">
+      <div className="flex-1 -mt-6 rounded-t-[28px] bg-card shadow-[0_-8px_30px_rgba(0,0,0,0.06)] px-5 pt-6 pb-10">
         {/* Tab Toggle */}
         <div className="flex bg-muted rounded-2xl p-1 mb-6">
           <button
             onClick={() => setTab("login")}
             className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${
-              tab === "login" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"
+              tab === "login" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"
             }`}
           >
             Entrar
@@ -97,7 +97,7 @@ export default function Login() {
           <button
             onClick={() => setTab("register")}
             className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${
-              tab === "register" ? "bg-white shadow-sm text-foreground" : "text-muted-foreground"
+              tab === "register" ? "bg-card shadow-sm text-foreground" : "text-muted-foreground"
             }`}
           >
             Cadastrar

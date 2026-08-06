@@ -30,8 +30,8 @@ export default function Profile() {
     return (
       <div className="flex flex-col w-full min-h-full bg-muted/30">
         <div className="bg-primary px-4 pt-12 pb-8 rounded-b-[32px] animate-pulse">
-          <div className="h-20 w-20 bg-white/20 rounded-[24px] mb-3" />
-          <div className="h-6 w-40 bg-white/20 rounded" />
+          <div className="h-20 w-20 bg-card/20 rounded-[24px] mb-3" />
+          <div className="h-6 w-40 bg-card/20 rounded" />
         </div>
       </div>
     )
@@ -41,14 +41,14 @@ export default function Profile() {
     <div className="flex flex-col w-full min-h-full bg-muted/30">
       {/* Header Profile Area */}
       <div className="bg-primary px-4 pt-12 pb-8 rounded-b-[32px] text-white shadow-lg relative overflow-hidden">
-        <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/10 rounded-full blur-2xl" />
+        <div className="absolute -top-20 -right-20 w-64 h-64 bg-card/10 rounded-full blur-2xl" />
 
         {user ? (
           <div className="flex items-center gap-4 relative z-10">
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="w-20 h-20 rounded-[24px] bg-white text-primary flex items-center justify-center font-black text-2xl shadow-xl rotate-3 shrink-0"
+              className="w-20 h-20 rounded-[24px] bg-card text-primary flex items-center justify-center font-black text-2xl shadow-xl rotate-3 shrink-0"
             >
               {initials}
             </motion.div>
@@ -57,14 +57,14 @@ export default function Profile() {
               <p className="text-white/80 text-sm font-medium flex items-center gap-1 mt-1">
                 <MapPin className="w-3.5 h-3.5 shrink-0" /> {user.email}
               </p>
-              <div className="bg-white/20 backdrop-blur-sm w-fit px-2 py-0.5 rounded text-[10px] font-bold mt-2 uppercase tracking-wider">
+              <div className="bg-card/20 backdrop-blur-sm w-fit px-2 py-0.5 rounded text-[10px] font-bold mt-2 uppercase tracking-wider">
                 Membro desde {memberYear}
               </div>
             </div>
           </div>
         ) : (
           <div className="flex flex-col items-start relative z-10">
-            <div className="w-20 h-20 rounded-[24px] bg-white/20 flex items-center justify-center mb-4">
+            <div className="w-20 h-20 rounded-[24px] bg-card/20 flex items-center justify-center mb-4">
               <User className="w-10 h-10 text-white/60" />
             </div>
             <h1 className="text-2xl font-black mb-2">Bem-vindo(a)!</h1>
@@ -73,7 +73,7 @@ export default function Profile() {
             </p>
             <button
               onClick={() => setLocation("/login")}
-              className="bg-white text-primary px-6 py-2.5 rounded-xl font-bold text-sm shadow-md active:scale-95 transition-transform"
+              className="bg-card text-primary px-6 py-2.5 rounded-xl font-bold text-sm shadow-md active:scale-95 transition-transform"
             >
               Entrar ou Cadastrar
             </button>

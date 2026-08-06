@@ -95,22 +95,22 @@ export default function VeiculosListing() {
   }
 
   return (
-    <div className="min-h-full w-full bg-[#f3f4f2] pb-12 text-slate-950">
+    <div className="min-h-full w-full bg-background pb-12 text-foreground">
       <section className="relative overflow-hidden bg-[#123d2a] text-white">
         <div className="absolute -right-24 -top-32 h-96 w-96 rounded-full bg-emerald-300/10" />
-        <div className="absolute -bottom-44 left-1/3 h-80 w-80 rounded-full bg-white/5" />
+        <div className="absolute -bottom-44 left-1/3 h-80 w-80 rounded-full bg-card/5" />
         <div className="relative mx-auto max-w-6xl px-4 pb-20 pt-8 sm:px-6 lg:px-8 lg:pb-24 lg:pt-14">
           <div className="mb-7 flex flex-wrap items-center justify-between gap-4">
             <Link href="/" className="flex items-center gap-2 text-sm font-bold text-white/80 transition hover:text-white">
               <Store className="h-5 w-5" /> Praça.ai Veículos
             </Link>
-            <div className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs font-semibold backdrop-blur">
+            <div className="flex items-center gap-2 rounded-full bg-card/10 px-3 py-2 text-xs font-semibold backdrop-blur">
               <MapPin className="h-4 w-4" /> Chapecó e região
             </div>
           </div>
 
           <div className="max-w-3xl">
-            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-bold">
+            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/20 bg-card/10 px-3 py-1.5 text-xs font-bold">
               <ShieldCheck className="h-4 w-4" /> Anúncios de lojas parceiras verificadas
             </span>
             <h1 className="text-3xl font-black leading-tight tracking-tight sm:text-5xl">
@@ -192,7 +192,7 @@ export default function VeiculosListing() {
           </div>
 
           {isLoading ? (
-            <div className="rounded-2xl bg-white py-12"><PageLoader /></div>
+            <div className="rounded-2xl bg-card py-12"><PageLoader /></div>
           ) : isError ? (
             <Card className="rounded-2xl p-10 text-center">
               <Car className="mx-auto h-10 w-10 text-muted-foreground" />
@@ -241,8 +241,8 @@ export default function VeiculosListing() {
                       ) : (
                         <div className="flex h-full items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200"><Car className="h-16 w-16 text-slate-400" /></div>
                       )}
-                      {vehicle.destaque && <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-bold shadow"><Sparkles className="h-3.5 w-3.5 text-amber-500" /> Destaque</span>}
-                      <span className="absolute right-3 top-3 rounded-full bg-white/90 p-2 text-slate-700 shadow backdrop-blur"><Heart className="h-4 w-4" /></span>
+                      {vehicle.destaque && <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-card px-2.5 py-1 text-[11px] font-bold shadow"><Sparkles className="h-3.5 w-3.5 text-amber-500" /> Destaque</span>}
+                      <span className="absolute right-3 top-3 rounded-full bg-card/90 p-2 text-slate-700 shadow backdrop-blur"><Heart className="h-4 w-4" /></span>
                     </div>
                     <div className="p-5">
                       <p className="text-xs font-bold uppercase tracking-wide text-primary">{vehicle.marca}</p>
@@ -274,7 +274,7 @@ export default function VeiculosListing() {
           </div>
           <div className="flex snap-x gap-3 overflow-x-auto pb-2">
             {(partnerStores.length > 0 ? partnerStores : POPULAR_BRANDS).map((item) => (
-              <div key={item} className="flex min-h-24 min-w-36 snap-start flex-col items-center justify-center rounded-2xl border bg-white px-5 text-center shadow-sm sm:min-w-40">
+              <div key={item} className="flex min-h-24 min-w-36 snap-start flex-col items-center justify-center rounded-2xl border bg-card px-5 text-center shadow-sm sm:min-w-40">
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary"><Store className="h-5 w-5" /></span>
                 <p className="mt-2 text-sm font-black">{item}</p>
               </div>
@@ -282,14 +282,14 @@ export default function VeiculosListing() {
           </div>
         </section>
 
-        <section className="rounded-3xl bg-[#e7ebe8] p-6 sm:p-8">
+        <section className="rounded-3xl bg-card p-6 sm:p-8">
           <div className="mb-6">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary">Jornada completa</p>
             <h2 className="mt-1 text-2xl font-black">Soluções para comprar e vender melhor</h2>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {SERVICES.map(({ icon: Icon, title, text }) => (
-              <article key={title} className="rounded-2xl bg-white p-5 shadow-sm">
+              <article key={title} className="rounded-2xl bg-card p-5 shadow-sm">
                 <Icon className="h-7 w-7 text-primary" />
                 <h3 className="mt-5 font-black">{title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{text}</p>

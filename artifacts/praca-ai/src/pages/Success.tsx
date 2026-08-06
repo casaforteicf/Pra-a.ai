@@ -161,7 +161,7 @@ export default function Success() {
         <div className="w-full flex flex-col gap-3">
           <Button
             variant="outline"
-            className="w-full bg-white flex items-center gap-2 border-[#25D366] text-[#25D366] hover:bg-[#25D366]/5"
+            className="w-full bg-card flex items-center gap-2 border-[#25D366] text-[#25D366] hover:bg-[#25D366]/5"
           >
             <MessageSquare className="w-5 h-5" />
             Acompanhar via WhatsApp

@@ -43,6 +43,10 @@
   --color-terracota: hsl(var(--terracota));
   --color-terracota-foreground: hsl(var(--terracota-foreground));
 
+  --shadow-neon-sm: var(--shadow-neon-sm);
+  --shadow-neon: var(--shadow-neon);
+  --shadow-neon-lg: var(--shadow-neon-lg);
+
   --font-sans: var(--app-font-sans);
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
@@ -54,89 +58,103 @@
   --radius-2xl: calc(var(--radius) + 8px);
 }
 
-/* LIGHT MODE */
+/* NEON GREEN — fundo escuro de propósito: neon só "acende" contra
+   escuro. Verde vibrante (#39FF14-ish) é o protagonista — usado com
+   moderação (botões primários, bordas ativas, glow), não em toda
+   superfície, pra não cansar. Acento secundário é um ciano-verde
+   (spring green) pra dar variedade sem sair da família neon. */
 :root {
-  --background: 40 33% 97%;
-  --foreground: 0 0% 10%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 10%;
-  --card-border: 40 20% 94%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 10%;
-  --popover-border: 40 20% 90%;
-  
-  --primary: 144 61% 26%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 142 54% 36%;
-  --secondary-foreground: 0 0% 100%;
-  
-  --terracota: 18 62% 47%;
-  --terracota-foreground: 0 0% 100%;
+  --background: 160 22% 5%;
+  --foreground: 120 15% 93%;
+  --card: 160 16% 8%;
+  --card-foreground: 120 15% 93%;
+  --card-border: 160 15% 16%;
+  --popover: 160 18% 7%;
+  --popover-foreground: 120 15% 93%;
+  --popover-border: 160 15% 16%;
 
-  --muted: 40 10% 92%;
-  --muted-foreground: 0 0% 40%;
-  
-  --accent: 144 61% 94%;
-  --accent-foreground: 144 61% 26%;
-  
-  --destructive: 0 84% 60%;
+  --primary: 112 100% 50%;
+  --primary-foreground: 160 30% 6%;
+  --secondary: 165 100% 45%;
+  --secondary-foreground: 160 30% 6%;
+
+  --terracota: 165 100% 45%;
+  --terracota-foreground: 160 30% 6%;
+
+  --muted: 160 12% 14%;
+  --muted-foreground: 120 8% 62%;
+
+  --accent: 112 90% 12%;
+  --accent-foreground: 112 100% 62%;
+
+  --destructive: 348 100% 58%;
   --destructive-foreground: 0 0% 100%;
-  
-  --border: 40 20% 90%;
-  --input: 40 20% 90%;
-  --ring: 144 61% 26%;
+
+  --border: 160 15% 18%;
+  --input: 160 15% 18%;
+  --ring: 112 100% 50%;
 
   --app-font-sans: 'Plus Jakarta Sans', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: Menlo, monospace;
-  --radius: 1rem; 
-  
-  --shadow-2xs: 0px 2px 0px 0px rgba(0, 0, 0, 0.02);
-  --shadow-xs: 0px 2px 0px 0px rgba(0, 0, 0, 0.04);
-  --shadow-sm: 0px 2px 4px 0px rgba(0, 0, 0, 0.06);
-  --shadow: 0px 2px 8px 0px rgba(0, 0, 0, 0.06), 0px 1px 2px -1px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0px 4px 12px -2px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0px 8px 24px -4px rgba(0, 0, 0, 0.1);
-  --shadow-xl: 0px 12px 32px -4px rgba(0, 0, 0, 0.12);
-  --shadow-2xl: 0px 16px 48px -4px rgba(0, 0, 0, 0.16);
-  
-  --button-outline: rgba(0, 0, 0, 0.1);
-  --badge-outline: rgba(0, 0, 0, 0.05);
-  --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0, 0, 0, 0.03);
-  --elevate-2: rgba(0, 0, 0, 0.08);
+  --radius: 1rem;
+
+  --shadow-2xs: 0px 2px 0px 0px rgba(0, 0, 0, 0.2);
+  --shadow-xs: 0px 2px 0px 0px rgba(0, 0, 0, 0.24);
+  --shadow-sm: 0px 2px 4px 0px rgba(0, 0, 0, 0.3);
+  --shadow: 0px 2px 8px 0px rgba(0, 0, 0, 0.32), 0px 1px 2px -1px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0px 4px 12px -2px rgba(0, 0, 0, 0.36);
+  --shadow-lg: 0px 8px 24px -4px rgba(0, 0, 0, 0.4);
+  --shadow-xl: 0px 12px 32px -4px rgba(0, 0, 0, 0.44);
+  --shadow-2xl: 0px 16px 48px -4px rgba(0, 0, 0, 0.5);
+
+  /* Glow neon — usar só no elemento de destaque de cada tela (o CTA
+     principal, um badge de "novo"), não em toda superfície. */
+  --shadow-neon-sm: 0 0 12px hsl(112 100% 50% / 0.35);
+  --shadow-neon: 0 0 24px hsl(112 100% 50% / 0.45), 0 0 48px hsl(112 100% 50% / 0.18);
+  --shadow-neon-lg: 0 0 40px hsl(112 100% 50% / 0.55), 0 0 80px hsl(112 100% 50% / 0.25);
+
+  --button-outline: rgba(255, 255, 255, 0.08);
+  --badge-outline: rgba(255, 255, 255, 0.06);
+  --opaque-button-border-intensity: 8;
+  --elevate-1: rgba(255, 255, 255, 0.04);
+  --elevate-2: rgba(255, 255, 255, 0.09);
 }
 
 .dark {
-  --background: 40 33% 97%;
-  --foreground: 0 0% 10%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 10%;
-  --card-border: 40 20% 94%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 10%;
-  --popover-border: 40 20% 90%;
-  --primary: 144 61% 26%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 142 54% 36%;
-  --secondary-foreground: 0 0% 100%;
-  --terracota: 18 62% 47%;
-  --terracota-foreground: 0 0% 100%;
-  --muted: 40 10% 92%;
-  --muted-foreground: 0 0% 40%;
-  --accent: 144 61% 94%;
-  --accent-foreground: 144 61% 26%;
-  --destructive: 0 84% 60%;
+  --background: 160 26% 3%;
+  --foreground: 120 15% 95%;
+  --card: 160 18% 6%;
+  --card-foreground: 120 15% 95%;
+  --card-border: 160 15% 14%;
+  --popover: 160 20% 5%;
+  --popover-foreground: 120 15% 95%;
+  --popover-border: 160 15% 14%;
+  --primary: 112 100% 54%;
+  --primary-foreground: 160 30% 4%;
+  --secondary: 165 100% 48%;
+  --secondary-foreground: 160 30% 4%;
+  --terracota: 165 100% 48%;
+  --terracota-foreground: 160 30% 4%;
+  --muted: 160 12% 11%;
+  --muted-foreground: 120 8% 65%;
+  --accent: 112 90% 10%;
+  --accent-foreground: 112 100% 65%;
+  --destructive: 348 100% 62%;
   --destructive-foreground: 0 0% 100%;
-  --border: 40 20% 90%;
-  --input: 40 20% 90%;
-  --ring: 144 61% 26%;
-  
-  --button-outline: rgba(0, 0, 0, 0.1);
-  --badge-outline: rgba(0, 0, 0, 0.05);
-  --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0, 0, 0, 0.03);
-  --elevate-2: rgba(0, 0, 0, 0.08);
+  --border: 160 15% 15%;
+  --input: 160 15% 15%;
+  --ring: 112 100% 54%;
+
+  --shadow-neon-sm: 0 0 14px hsl(112 100% 54% / 0.4);
+  --shadow-neon: 0 0 28px hsl(112 100% 54% / 0.5), 0 0 56px hsl(112 100% 54% / 0.2);
+  --shadow-neon-lg: 0 0 48px hsl(112 100% 54% / 0.6), 0 0 96px hsl(112 100% 54% / 0.28);
+
+  --button-outline: rgba(255, 255, 255, 0.1);
+  --badge-outline: rgba(255, 255, 255, 0.08);
+  --opaque-button-border-intensity: 8;
+  --elevate-1: rgba(255, 255, 255, 0.05);
+  --elevate-2: rgba(255, 255, 255, 0.11);
 }
 
 @layer base {

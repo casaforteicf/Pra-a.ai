@@ -122,22 +122,22 @@ export default function ProductDetail() {
   if (!product) return <div className="p-8 text-center text-muted-foreground font-bold">Produto não encontrado.</div>
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col bg-white pb-32">
+    <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col bg-card pb-32">
       {/* Absolute Header overlay */}
       <header className="absolute top-0 inset-x-0 z-30 flex items-center justify-between px-4 pt-4 pointer-events-none">
         <button 
           onClick={() => window.history.back()}
-          className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center shadow-sm pointer-events-auto active:scale-95"
+          className="w-10 h-10 rounded-full bg-card/80 backdrop-blur-md flex items-center justify-center shadow-sm pointer-events-auto active:scale-95"
         >
           <ChevronLeft className="w-6 h-6 text-foreground" />
         </button>
         <div className="flex items-center gap-2 pointer-events-auto">
-          <button className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-95">
+          <button className="w-10 h-10 rounded-full bg-card/80 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-95">
             <Share2 className="w-5 h-5 text-foreground" />
           </button>
           <button 
             onClick={() => setIsLiked(!isLiked)}
-            className="w-10 h-10 rounded-full bg-white/80 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-95"
+            className="w-10 h-10 rounded-full bg-card/80 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-95"
           >
             <motion.div animate={isLiked ? { scale: [1, 1.2, 1] } : {}}>
               <Heart className={`w-5 h-5 ${isLiked ? 'fill-terracota text-terracota' : 'text-foreground'}`} />
@@ -246,7 +246,7 @@ export default function ProductDetail() {
                   className={`w-12 h-12 rounded-xl font-bold transition-all border-2 ${
                     selectedSize === size 
                       ? 'border-primary bg-primary/10 text-primary' 
-                      : 'border-muted bg-white text-foreground hover:border-primary/30'
+                      : 'border-muted bg-card text-foreground hover:border-primary/30'
                   }`}
                 >
                   {size}
@@ -290,7 +290,7 @@ export default function ProductDetail() {
                   {product.specs.map((spec, i) => (
                     <div
                       key={i}
-                      className={`flex text-sm ${i % 2 === 0 ? 'bg-background' : 'bg-white'} ${i > 0 ? 'border-t' : ''}`}
+                      className={`flex text-sm ${i % 2 === 0 ? 'bg-background' : 'bg-card'} ${i > 0 ? 'border-t' : ''}`}
                     >
                       <span className="w-1/3 shrink-0 px-3 py-2.5 text-muted-foreground font-medium">{spec.label}</span>
                       <span className="flex-1 px-3 py-2.5 text-foreground">{spec.value}</span>
@@ -402,11 +402,11 @@ export default function ProductDetail() {
       </div>
 
       {/* Fixed Bottom Action Bar */}
-      <div className="fixed bottom-[88px] inset-x-0 z-40 flex gap-3 border-t bg-white p-4 sm:absolute sm:bottom-0 lg:left-1/2 lg:max-w-6xl lg:-translate-x-1/2">
+      <div className="fixed bottom-[88px] inset-x-0 z-40 flex gap-3 border-t bg-card p-4 sm:absolute sm:bottom-0 lg:left-1/2 lg:max-w-6xl lg:-translate-x-1/2">
         <Button 
           variant="outline" 
           size="lg" 
-          className="flex-1 text-sm bg-white"
+          className="flex-1 text-sm bg-card"
           onClick={() => handleAddToCart(false)}
           disabled={addToCartMutation.isPending}
         >

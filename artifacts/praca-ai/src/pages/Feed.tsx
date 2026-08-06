@@ -38,7 +38,7 @@ export default function Feed() {
           {['Moda', 'Café', 'Tech', 'Livros', 'Plantas', 'Móveis'].map((item, i) => (
             <div key={i} className="flex flex-col items-center gap-1.5 shrink-0">
               <div className="w-16 h-16 rounded-full p-[2px] bg-gradient-to-tr from-terracota to-primary">
-                <div className="w-full h-full rounded-full bg-white border-2 border-white overflow-hidden p-2">
+                <div className="w-full h-full rounded-full bg-card border-2 border-white overflow-hidden p-2">
                   <img src={`https://api.dicebear.com/7.x/icons/svg?seed=${item}`} alt={item} className="w-full h-full" />
                 </div>
               </div>
