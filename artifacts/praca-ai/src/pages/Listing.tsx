@@ -877,18 +877,16 @@ export default function ListingPage() {
         </header>
 
         <main>
-          <section className="relative overflow-hidden bg-gradient-to-r from-[#e9def4] via-[#f2e9fb] to-[#ddd0ee]">
-            <div className="absolute -right-16 -top-24 h-96 w-96 rounded-full border-[60px] border-white/25" />
-            <div className="absolute bottom-0 left-[45%] h-28 w-28 rounded-full bg-[#b783cc]/25 blur-2xl" />
+          <section className="relative overflow-hidden bg-card">
             <div className="relative mx-auto grid min-h-[390px] max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_0.75fr] lg:px-8">
-              <div><span className="inline-flex rounded-full bg-card/70 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-[#5e287d]">Seu momento de cuidado</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.05] sm:text-6xl">Beleza que combina com você</h1><p className="mt-4 max-w-xl text-base text-[#4d4655] sm:text-lg">Cabelos, perfumaria, maquiagem, skincare e bem-estar das melhores lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-beleza")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-[#5e287d] hover:bg-[#4a1f63]">Descobrir produtos</Button></div>
-              <div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[38%_62%_45%_55%] bg-gradient-to-br from-[#7e4b9b] to-[#bf86d2] shadow-2xl"><Sparkles className="h-28 w-28 -rotate-6 text-white" strokeWidth={1.2} /></div><Heart className="absolute bottom-5 left-8 h-12 w-12 fill-white/70 text-white/70" /></div>
+              <div><span className="inline-flex rounded-full bg-primary px-3 py-1.5 text-xs font-black uppercase tracking-wider text-primary-foreground">Seu momento de cuidado</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.05] text-foreground sm:text-6xl">Beleza que combina com você</h1><p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">Cabelos, perfumaria, maquiagem, skincare e bem-estar das melhores lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-beleza")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-primary text-primary-foreground shadow-neon-sm hover:opacity-90">Descobrir produtos</Button></div>
+              <div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[38%_62%_45%_55%] bg-gradient-to-br from-primary/60 to-primary shadow-neon"><Sparkles className="h-28 w-28 -rotate-6 text-primary-foreground" strokeWidth={1.2} /></div><Heart className="absolute bottom-5 left-8 h-12 w-12 fill-primary/70 text-primary/70" /></div>
             </div>
           </section>
 
           <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-            <div className="mb-5 text-center"><p className="text-xs font-black uppercase tracking-[0.2em] text-[#7e4b9b]">Seu ritual, suas escolhas</p><h2 className="mt-1 text-2xl font-black">Explore por categoria</h2></div>
-            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">{beautyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-card p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full", index % 2 === 0 ? "bg-[#efe3f5] text-[#7e4b9b]" : "bg-[#f8e6ee] text-[#a34c72]")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight">{label}</span></button>)}</div>
+            <div className="mb-5 text-center"><p className="text-xs font-black uppercase tracking-[0.2em] text-primary">Seu ritual, suas escolhas</p><h2 className="mt-1 text-2xl font-black">Explore por categoria</h2></div>
+            <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">{beautyDepartments.map(({ label, icon: Icon, search: term }, index) => <button key={label} onClick={() => selectDepartment(term)} className="group flex flex-col items-center rounded-2xl bg-card p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md"><span className={cn("flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary")}><Icon className="h-7 w-7" /></span><span className="mt-2 text-[11px] font-black leading-tight text-foreground">{label}</span></button>)}</div>
           </section>
 
           <section className="mx-auto grid max-w-6xl gap-3 px-4 pb-8 sm:grid-cols-3 sm:px-6 lg:px-8">
