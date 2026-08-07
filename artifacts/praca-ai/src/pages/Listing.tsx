@@ -56,7 +56,7 @@ import {
   ArrowLeftRight,
   Clock,
 } from "lucide-react"
-import { Beef, Rabbit, PiggyBank, Bird, Dog, Sprout, Flower2, Leaf, SprayCan, Droplets, Sofa, Table2, Frame, Layers, LayoutGrid, UtensilsCrossed, Waves, Dumbbell, Mountain, Zap, PaintBucket, ShowerHead, Grid3x3, Hammer, TreePine, Package, Cable, Tv, Speaker, Video, Laptop, Refrigerator, Flame, WashingMachine, Microwave, Wind, Fan, Snowflake, ChefHat } from "lucide-react"
+import { Beef, Rabbit, PiggyBank, Bird, Dog, Sprout, Flower2, Leaf, SprayCan, Droplets, Sofa, Table2, Frame, Layers, LayoutGrid, UtensilsCrossed, Waves, Dumbbell, Mountain, Zap, PaintBucket, ShowerHead, Grid3x3, Hammer, TreePine, Package, Cable, Tv, Speaker, Video, Laptop, Refrigerator, Flame, WashingMachine, Microwave, Wind, Fan, Snowflake, ChefHat, Drill, Shovel, Ruler, HardHat, Boxes, Gauge } from "lucide-react"
 import { getListProductsQueryKey, useListProducts } from "@workspace/api-client-react"
 import type { ListProductsSort } from "@workspace/api-client-react"
 import { ProductCard } from "@/components/ProductCard"
@@ -80,6 +80,7 @@ const SPORTS_SLUG = "esportes-e-fitness"
 const CONSTRUCTION_SLUG = "construcao"
 const ELECTRONICS_SLUG = "eletronicos-cameras-e-audio"
 const APPLIANCES_SLUG = "eletrodomesticos"
+const TOOLS_SLUG = "ferramentas"
 
 const autoDepartments = [
   { label: "Exterior", icon: Car, search: "friso calha exterior" },
@@ -168,6 +169,17 @@ const appliancesDepartments = [
   { label: "Freezers", icon: Snowflake, search: "freezer" },
 ]
 
+const toolsDepartments = [
+  { label: "Ferramentas elétricas", icon: Drill, search: "furadeira parafusadeira elétrica" },
+  { label: "Ferramentas manuais", icon: Hammer, search: "martelo chave de fenda alicate" },
+  { label: "Jardinagem", icon: Shovel, search: "jardinagem enxada pá" },
+  { label: "Solda", icon: Flame, search: "solda maquina de solda" },
+  { label: "Medição", icon: Ruler, search: "trena nível medição" },
+  { label: "Segurança (EPI)", icon: HardHat, search: "epi capacete luva óculos de proteção" },
+  { label: "Organização", icon: Boxes, search: "caixa de ferramentas organizador" },
+  { label: "Pneumáticas", icon: Gauge, search: "compressor ferramenta pneumática" },
+]
+
 const stationeryDepartments = [
   { label: "Escolar", icon: GraduationCap, search: "escolar" },
   { label: "Cadernos", icon: BookOpen, search: "caderno" },
@@ -248,6 +260,7 @@ export default function ListingPage() {
   const isConstruction = categorySlug === CONSTRUCTION_SLUG
   const isElectronics = categorySlug === ELECTRONICS_SLUG
   const isAppliances = categorySlug === APPLIANCES_SLUG
+  const isTools = categorySlug === TOOLS_SLUG
   const [search, setSearch] = React.useState("")
   const [submittedSearch, setSubmittedSearch] = React.useState("")
   const [sort, setSort] = React.useState<ListProductsSort>("relevance")
@@ -607,6 +620,48 @@ export default function ListingPage() {
             <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Vitrine de eletrodomésticos</p><h2 className="mt-1 text-2xl font-black">Pra cozinha, lavanderia e climatização</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} {listData.total === 1 ? "produto encontrado" : "produtos encontrados"}{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div></div>
             <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-2">{sortOptions.slice(0, 5).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-primary bg-primary text-primary-foreground shadow-neon-sm" : "bg-card")}>{option.label}</button>)}</div>
             {isLoading ? <div className="py-14"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os produtos" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} compact />)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-border bg-background px-5 py-10 text-center"><span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 text-primary shadow-sm"><Refrigerator className="h-8 w-8" /></span><h3 className="mt-4 text-lg font-black">{submittedSearch ? "Nenhum produto encontrado" : "Novos eletrodomésticos chegando"}</h3><p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{submittedSearch ? "Tente buscar por outro nome ou escolha uma das categorias acima." : "As lojas parceiras ainda estão publicando o catálogo de eletrodomésticos. Enquanto isso, explore os demais produtos disponíveis na Praça.ai."}</p><div className="mt-5 flex flex-wrap justify-center gap-2"><Button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="bg-primary text-primary-foreground hover:opacity-90">Limpar busca</Button><Button variant="outline" onClick={() => setLocation("/listing")}>Explorar a Praça.ai</Button></div></div>}
+          </section>
+        </main>
+      </div>
+    )
+  }
+
+  if (isTools) {
+    return (
+      <div className="min-h-full w-full bg-background pb-12 text-foreground">
+        <header className="bg-primary text-primary-foreground">
+          <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between gap-3">
+              <button onClick={() => setLocation("/")} className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-foreground/10" aria-label="Voltar"><ChevronLeft className="h-6 w-6" /></button>
+              <Link href="/" className="flex items-center gap-2 text-xl font-black"><Drill className="h-7 w-7" /> Praça.ai <span className="hidden text-sm font-semibold text-primary-foreground/70 sm:inline">Ferramentas</span></Link>
+              <Link href="/cart" className="relative flex h-10 w-10 items-center justify-center rounded-full bg-primary-foreground/10" aria-label="Carrinho"><ShoppingCart className="h-5 w-5" /></Link>
+            </div>
+            <form onSubmit={submitSearch} className="relative mt-4">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque furadeira, martelo, EPI e mais" className="h-12 border-0 bg-card pl-12 pr-14 text-base text-foreground" />
+              <button type="submit" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-background p-2 text-primary" aria-label="Buscar"><Search className="h-4 w-4" /></button>
+            </form>
+          </div>
+          <div className="border-t border-primary-foreground/15"><div className="mx-auto flex max-w-7xl justify-center gap-5 overflow-x-auto px-4 py-2.5 text-[11px] font-bold sm:gap-10 sm:text-xs"><span className="flex shrink-0 items-center gap-1.5"><ShieldCheck className="h-4 w-4" />Compra segura</span><span className="flex shrink-0 items-center gap-1.5"><PackageCheck className="h-4 w-4" />Lojas curadas da região</span><span className="flex shrink-0 items-center gap-1.5"><Truck className="h-4 w-4" />Entrega local</span></div></div>
+        </header>
+
+        <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
+          <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
+            <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Ferramentas</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">A ferramenta certa pra cada trabalho</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Ferramentas elétricas, manuais, jardinagem e equipamentos de segurança das lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-ferramentas")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver ferramentas</Button></div>
+              <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Drill className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
+            </div>
+          </section>
+
+          <section className="mt-5 rounded-2xl bg-card p-4 shadow-sm sm:p-6">
+            <div className="flex items-end justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Encontre mais rápido</p><h2 className="mt-1 text-xl font-black">Por categoria</h2></div><button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="text-xs font-bold text-primary">Ver tudo</button></div>
+            <div className="mt-4 grid grid-cols-4 gap-x-2 gap-y-5 sm:grid-cols-8">{toolsDepartments.map(({ label, icon: Icon, search: departmentSearch }) => <button key={label} onClick={() => selectDepartment(departmentSearch)} className="group flex min-w-0 flex-col items-center gap-2 text-center"><span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground sm:h-14 sm:w-14"><Icon className="h-6 w-6" /></span><span className="text-[10px] font-bold leading-tight text-foreground sm:text-xs">{label}</span></button>)}</div>
+          </section>
+
+          <section id="produtos-ferramentas" className="mt-5 rounded-2xl bg-card p-4 shadow-sm sm:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Vitrine de ferramentas</p><h2 className="mt-1 text-2xl font-black">Ferramentas e equipamentos</h2>{listData && <p className="mt-1 text-sm text-muted-foreground">{listData.total} {listData.total === 1 ? "produto encontrado" : "produtos encontrados"}{submittedSearch ? ` para “${submittedSearch}”` : ""}</p>}</div></div>
+            <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-2">{sortOptions.slice(0, 5).map((option) => <button key={option.value} onClick={() => setSort(option.value)} className={cn("shrink-0 rounded-full border px-3 py-2 text-xs font-bold", sort === option.value ? "border-primary bg-primary text-primary-foreground shadow-neon-sm" : "bg-card")}>{option.label}</button>)}</div>
+            {isLoading ? <div className="py-14"><PageLoader /></div> : isError ? <EmptyCatalog title="Não foi possível carregar os produtos" text="Tente novamente em alguns instantes." clear={() => setSubmittedSearch("")} /> : listData && listData.products.length > 0 ? <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{listData.products.map((product) => <ProductCard key={product.id} product={product} compact />)}</div> : <div className="mt-5 rounded-2xl border border-dashed border-border bg-background px-5 py-10 text-center"><span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/15 text-primary shadow-sm"><Drill className="h-8 w-8" /></span><h3 className="mt-4 text-lg font-black">{submittedSearch ? "Nenhum produto encontrado" : "Novas ferramentas chegando"}</h3><p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{submittedSearch ? "Tente buscar por outro nome ou escolha uma das categorias acima." : "As lojas parceiras ainda estão publicando o catálogo de ferramentas. Enquanto isso, explore os demais produtos disponíveis na Praça.ai."}</p><div className="mt-5 flex flex-wrap justify-center gap-2"><Button onClick={() => { setSearch(""); setSubmittedSearch("") }} className="bg-primary text-primary-foreground hover:opacity-90">Limpar busca</Button><Button variant="outline" onClick={() => setLocation("/listing")}>Explorar a Praça.ai</Button></div></div>}
           </section>
         </main>
       </div>
