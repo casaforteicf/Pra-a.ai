@@ -7,8 +7,9 @@ import { vendorPool } from "../lib/vendorDb";
 
 const router: IRouter = Router();
 
-router.get("/restaurantes", async (_req, res): Promise<void> => {
-  const restaurantes = await listRestaurantes();
+router.get("/restaurantes", async (req, res): Promise<void> => {
+  const { categoria } = req.query as { categoria?: string };
+  const restaurantes = await listRestaurantes({ categoria });
   res.json(restaurantes);
 });
 

@@ -21,7 +21,6 @@ const BASE_QUERY = `
   FROM restaurante_cardapio rc
   JOIN tenants t ON t.id = rc.tenant_id
   WHERE rc.ativo = true
-    AND rc.vende_no_praca_ai = true
     AND t.vende_no_praca_ai = true
 `;
 
@@ -49,13 +48,21 @@ export async function getCardapioItemById(id: string) {
   return mapCardapioItemRow(result.rows[0]);
 }
 
-export async function listRestaurantes() {
+export async function listRestaurantes(filters: { categoria?: string } = {}) {
+  const params: unknown[] = [];
+  let categoriaFilter = "";
+  if (filters.categoria) {
+    params.push(`%${filters.categoria}%`);
+    categoriaFilter = `AND EXISTS (SELECT 1 FROM restaurante_cardapio rc3 WHERE rc3.tenant_id = t.id AND rc3.ativo = true AND rc3.categoria ILIKE $${params.length})`;
+  }
   const result = await vendorPool.query(
-    `SELECT DISTINCT t.id, t.nome_empresa
+    `SELECT DISTINCT t.id, t.nome_empresa,
+       (SELECT array_agg(DISTINCT rc2.categoria) FROM restaurante_cardapio rc2 WHERE rc2.tenant_id = t.id AND rc2.ativo = true AND rc2.categoria IS NOT NULL) AS categorias
      FROM restaurante_cardapio rc
      JOIN tenants t ON t.id = rc.tenant_id
-     WHERE rc.ativo = true AND rc.vende_no_praca_ai = true AND t.vende_no_praca_ai = true
+     WHERE rc.ativo = true AND t.vende_no_praca_ai = true ${categoriaFilter}
      ORDER BY t.nome_empresa ASC`,
+    params,
   );
-  return result.rows.map((r) => ({ vendorId: r.id, vendorName: r.nome_empresa }));
+  return result.rows.map((r) => ({ vendorId: r.id, vendorName: r.nome_empresa, categorias: r.categorias ?? [] }));
 }
