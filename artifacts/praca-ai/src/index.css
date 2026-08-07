@@ -166,6 +166,28 @@
   }
 }
 
+/* Barra de rolamento — sem isso, o navegador usa a barra clara padrão
+   do sistema, que destoa muito do tema escuro/neon. */
+html {
+  scrollbar-color: hsl(var(--primary) / 0.5) hsl(var(--background));
+  scrollbar-width: thin;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.5);
+  border-radius: 999px;
+  border: 2px solid hsl(var(--background));
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.8);
+}
+
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
