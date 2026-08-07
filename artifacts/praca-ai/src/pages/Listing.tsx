@@ -56,7 +56,7 @@ import {
   ArrowLeftRight,
   Clock,
 } from "lucide-react"
-import { Beef, Rabbit, PiggyBank, Bird, Dog, Sprout, Flower2, Leaf, SprayCan, Droplets, Sofa, Table2, Frame, Layers, LayoutGrid, UtensilsCrossed, Waves, Dumbbell, Mountain, Zap, PaintBucket, ShowerHead, Grid3x3, Hammer, TreePine, Package, Cable, Tv, Speaker, Video, Laptop, Refrigerator, Flame, WashingMachine, Microwave, Wind, Fan, Snowflake } from "lucide-react"
+import { Beef, Rabbit, PiggyBank, Bird, Dog, Sprout, Flower2, Leaf, SprayCan, Droplets, Sofa, Table2, Frame, Layers, LayoutGrid, UtensilsCrossed, Waves, Dumbbell, Mountain, Zap, PaintBucket, ShowerHead, Grid3x3, Hammer, TreePine, Package, Cable, Tv, Speaker, Video, Laptop, Refrigerator, Flame, WashingMachine, Microwave, Wind, Fan, Snowflake, ChefHat } from "lucide-react"
 import { getListProductsQueryKey, useListProducts } from "@workspace/api-client-react"
 import type { ListProductsSort } from "@workspace/api-client-react"
 import { ProductCard } from "@/components/ProductCard"
@@ -158,6 +158,7 @@ const electronicsDepartments = [
 
 const appliancesDepartments = [
   { label: "Geladeiras", icon: Refrigerator, search: "geladeira refrigerador" },
+  { label: "Air fryer", icon: ChefHat, search: "air fryer fritadeira elétrica" },
   { label: "Fogões", icon: Flame, search: "fogão cooktop" },
   { label: "Máquinas de lavar", icon: WashingMachine, search: "máquina de lavar lavadora" },
   { label: "Micro-ondas", icon: Microwave, search: "micro-ondas" },
