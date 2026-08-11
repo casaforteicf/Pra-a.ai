@@ -1,7 +1,7 @@
 import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
 import { consumersTable } from "./consumers";
 
-export const passwordResetTokensTable = pgTable("password_reset_tokens", {
+export const passwordResetTokensTable = pgTable("praca_password_reset_tokens", {
   id: serial("id").primaryKey(),
   consumerId: integer("consumer_id").notNull().references(() => consumersTable.id, { onDelete: "cascade" }),
   tokenHash: text("token_hash").notNull().unique(),
@@ -9,4 +9,3 @@ export const passwordResetTokensTable = pgTable("password_reset_tokens", {
   usedAt: timestamp("used_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
-
