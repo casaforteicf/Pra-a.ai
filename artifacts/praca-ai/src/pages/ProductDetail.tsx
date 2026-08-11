@@ -402,7 +402,7 @@ export default function ProductDetail() {
       </div>
 
       {/* Fixed Bottom Action Bar */}
-      <div className="fixed bottom-[88px] inset-x-0 z-40 flex gap-3 border-t bg-card p-4 sm:absolute sm:bottom-0 lg:left-1/2 lg:max-w-6xl lg:-translate-x-1/2">
+      <div className="fixed bottom-[88px] inset-x-0 z-40 flex gap-3 border-t bg-card/95 p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md lg:bottom-0 lg:left-1/2 lg:max-w-6xl lg:-translate-x-1/2">
         <Button 
           variant="outline" 
           size="lg" 
