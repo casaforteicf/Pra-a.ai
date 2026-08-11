@@ -43,6 +43,7 @@ const CATEGORY_ICON_MAP: Record<string, typeof Package> = {
   watch: Watch,
   book: BookOpen,
   "paw-print": PawPrint,
+  store: Store,
 }
 
 export default function HomePage() {
@@ -211,7 +212,7 @@ export default function HomePage() {
               {homeData.categories.map((category) => {
                 const Icon = CATEGORY_ICON_MAP[(category as any).icon] ?? Package
                 return (
-                  <Link key={category.id} href={`/listing?category=${category.slug}`} className="flex flex-col items-center gap-2 group">
+                  <Link key={category.id} href={category.slug === "marketplace" ? "/marketplace" : `/listing?category=${category.slug}`} className="flex flex-col items-center gap-2 group">
                     <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:-translate-y-1 group-active:scale-95">
                       <Icon className="w-7 h-7 text-primary" />
                     </div>

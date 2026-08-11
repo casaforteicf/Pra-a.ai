@@ -35,7 +35,7 @@ export const ITEM_CATEGORIES = [
   "Joias e Relógios",
   "Livros, Revistas e Comics",
   "Pet Shop",
-  "Saúde",
+  "Marketplace",
 ] as const;
 
 // O Vendor.ai permite categorias específicas para o cadastro (por exemplo,
@@ -279,7 +279,7 @@ const ICON_BY_NAME: Record<string, string> = {
   "joias-e-relogios": "watch",
   "livros-revistas-e-comics": "book",
   "pet-shop": "paw-print",
-  saude: "pill",
+  marketplace: "store",
   moda: "shirt",
   delivery: "bike",
   restaurantes: "bike",

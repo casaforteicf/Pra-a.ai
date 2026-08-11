@@ -13,3 +13,4 @@ export * from "./session";
 export * from "./vendorPayouts";
 export * from "./scoutPra";
 export * from "./scoutPraExtras";
+export * from "./marketplaceListings";
