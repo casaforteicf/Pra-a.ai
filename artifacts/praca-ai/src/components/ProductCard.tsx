@@ -1,5 +1,5 @@
 import { Link } from "wouter"
-import { ArrowUpRight, Star, Truck } from "lucide-react"
+import { ArrowRight, Star, Truck } from "lucide-react"
 import { formatMoney, cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 
@@ -27,21 +27,21 @@ export function ProductCard({ product, className, compact = false }: { product: 
 
   return (
     <Link href={`/product/${product.id}`} className={cn("block", className)}>
-      <Card className="group h-full overflow-hidden rounded-[20px] border border-border/70 bg-card shadow-[0_8px_24px_rgba(45,39,110,.07)] transition-all duration-300 hover:-translate-y-1.5 hover:border-secondary/70 hover:shadow-[0_18px_40px_rgba(45,39,110,.14)] active:scale-95">
-        <div className={cn("relative overflow-hidden bg-gradient-to-br from-slate-50 to-violet-50", compact ? "aspect-[1.18/1] sm:aspect-square" : "aspect-square")}>
+      <Card className="group h-full overflow-hidden rounded-[20px] border border-slate-200 bg-card shadow-[0_8px_24px_rgba(11,27,47,.06)] transition-all duration-300 hover:-translate-y-1.5 hover:border-secondary hover:shadow-[0_20px_48px_rgba(11,27,47,.12)] active:scale-95">
+        <div className={cn("relative overflow-hidden bg-gradient-to-br from-slate-50 to-slate-200", compact ? "aspect-[1.18/1] sm:aspect-square" : "aspect-square")}>
           <img
             src={product.imageUrl ?? undefined}
             alt={product.name}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           {product.discountPct && (
-            <div className="absolute left-2 top-2 rounded-full bg-gradient-to-r from-orange-500 to-yellow-400 px-2.5 py-1 text-xs font-black text-slate-950 shadow-md">
+            <div className="absolute left-2 top-2 rounded-full bg-secondary px-2.5 py-1 text-xs font-black text-secondary-foreground shadow-md">
               -{product.discountPct}%
             </div>
           )}
         </div>
         <div className={cn("space-y-1", compact ? "p-2 sm:p-3" : "p-3")}>
-          <div className="flex items-center justify-between gap-2"><p className="truncate text-[10px] font-black uppercase tracking-wide text-primary">{product.vendorName}</p><ArrowUpRight className="h-4 w-4 text-muted-foreground transition group-hover:text-primary" /></div>
+          <p className="truncate text-[10px] font-black uppercase tracking-wide text-muted-foreground">{product.vendorName}</p>
           <h4 className={cn("font-bold line-clamp-2 leading-tight", compact ? "text-[13px] sm:text-sm" : "text-sm")}>{product.name}</h4>
 
           {hasRating && (
@@ -65,15 +65,18 @@ export function ProductCard({ product, className, compact = false }: { product: 
             {product.originalPrice && (
               <span className="text-xs text-muted-foreground line-through">{formatMoney(product.originalPrice)}</span>
             )}
-            <span className={cn("font-black text-terracota", compact ? "text-base sm:text-lg" : "text-lg")}>{formatMoney(product.price)}</span>
+            <span className={cn("font-serif font-bold text-primary", compact ? "text-base sm:text-lg" : "text-xl")}>{formatMoney(product.price)}</span>
           </div>
 
           {product.freeShipping && (
-            <div className="flex items-center gap-1 text-[11px] font-bold text-primary">
+            <div className="flex items-center gap-1 text-[11px] font-bold text-sky-700">
               <Truck className="w-3 h-3" />
               <span>Frete grátis</span>
             </div>
           )}
+          <span className="mt-2 flex w-full items-center justify-center gap-2 rounded-full bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition group-hover:bg-secondary group-hover:text-secondary-foreground">
+            Ver produto <ArrowRight className="h-3.5 w-3.5" />
+          </span>
         </div>
       </Card>
     </Link>

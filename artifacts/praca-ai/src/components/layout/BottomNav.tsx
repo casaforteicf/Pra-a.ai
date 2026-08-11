@@ -14,10 +14,10 @@ export function BottomNav() {
   ]
 
   return (
-    <nav className="absolute bottom-0 inset-x-0 z-40 flex h-[88px] items-center justify-between border-t border-white/10 bg-[linear-gradient(135deg,#0f0c29,#302b63,#24243e)] px-6 pb-6 pt-2 text-white shadow-[0_-10px_30px_rgba(15,12,41,.18)] lg:top-0 lg:bottom-auto lg:h-[72px] lg:border-b lg:border-t-0 lg:px-8 lg:py-0">
+    <nav className="absolute bottom-0 inset-x-0 z-40 flex h-[88px] items-center justify-between border-t border-white/10 bg-[#0B1B2F] px-6 pb-6 pt-2 text-white shadow-[0_-10px_30px_rgba(11,27,47,.18)] lg:top-0 lg:bottom-auto lg:h-[72px] lg:border-b lg:border-t-0 lg:px-8 lg:py-0">
       <Link href="/" className="hidden items-center gap-2 lg:flex">
-        <Store className="h-7 w-7 fill-yellow-300 text-yellow-300" />
-        <span className="bg-gradient-to-r from-orange-400 to-yellow-300 bg-clip-text text-xl font-black tracking-tight text-transparent">Praça.ai</span>
+        <Store className="h-7 w-7 fill-amber-500 text-amber-500" />
+        <span className="font-serif text-xl font-black tracking-tight text-amber-500">Praça.ai</span>
       </Link>
       <div className="contents lg:flex lg:h-full lg:items-center lg:gap-2">
       {navItems.map((item) => {
