@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ArrowRight, BookOpen, Car, ChevronLeft, ChevronRight, Dumbbell, Gamepad2, Heart, Headphones, Home, Package, Plane, Search, ShieldCheck, Shirt, ShoppingBag, Smartphone, Sparkles, Store, Tag, Truck, User, UtensilsCrossed, Wrench } from "lucide-react"
+import { ArrowRight, BookOpen, Building2, Car, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Dumbbell, Gamepad2, Heart, Headphones, Home, Package, Plane, Search, ShieldCheck, Shirt, ShoppingBag, Smartphone, Sparkles, Store, Tag, Truck, User, UtensilsCrossed, Wrench } from "lucide-react"
 import { getGetHomeQueryKey, useGetHome } from "@workspace/api-client-react"
 import type { Product } from "@workspace/api-client-react"
 import { Link, useLocation } from "wouter"
@@ -36,6 +36,31 @@ const NAV_ITEMS = [
   ["Serviços", "/servicos", Wrench],
 ] as const
 
+const CATEGORY_ICONS: Record<string, typeof Package> = {
+  smartphone: Smartphone,
+  shirt: Shirt,
+  home: Home,
+  sofa: Home,
+  gamepad: Gamepad2,
+  book: BookOpen,
+  dumbbell: Dumbbell,
+  car: Car,
+  truck: Truck,
+  store: Store,
+  wrench: Wrench,
+  package: Package,
+}
+
+const FIXED_CATEGORIES = [
+  { label: "MKT Place", href: "/marketplace", Icon: Store },
+  { label: "Veículos", href: "/veiculos", Icon: Car },
+  { label: "Imóveis", href: "/imoveis", Icon: Building2 },
+  { label: "Restaurantes", href: "/restaurantes", Icon: UtensilsCrossed },
+  { label: "Serviços", href: "/servicos", Icon: Wrench },
+  { label: "Fretes", href: "/fretes", Icon: Truck },
+  { label: "Viagens e hotéis", href: "/listing?category=viagens-e-hoteis", Icon: Plane },
+] as const
+
 function realProductToCard(product: Product): ShowcaseProduct {
   return { ...product, category: product.category || "Catálogo" }
 }
@@ -44,6 +69,7 @@ export default function HomePage() {
   const [, navigate] = useLocation()
   const [search, setSearch] = React.useState("")
   const [activeFilter, setActiveFilter] = React.useState("Todos")
+  const [showAllCategories, setShowAllCategories] = React.useState(false)
   const [promoIndex, setPromoIndex] = React.useState(0)
   const { data: homeData, isLoading } = useGetHome({ query: { queryKey: getGetHomeQueryKey() } })
 
@@ -64,6 +90,25 @@ export default function HomePage() {
     const source = realProducts.filter((product) => product.discountPct).slice(0, 4)
     return source.length >= 3 ? source : MOCK_PRODUCTS.filter((product) => product.discountPct).slice(0, 4)
   }, [realProducts])
+
+  const allCategories = React.useMemo(() => {
+    const dynamic = (homeData?.categories ?? []).map((category) => ({
+      label: category.name,
+      href: category.slug === "marketplace" ? "/marketplace" : `/listing?category=${category.slug}`,
+      Icon: CATEGORY_ICONS[category.icon] ?? Package,
+    }))
+    const fallback = FILTERS.slice(1).map(([label, Icon]) => ({
+      label,
+      href: `/listing?search=${encodeURIComponent(label)}`,
+      Icon,
+    }))
+    const unique = new Map<string, { label: string; href: string; Icon: typeof Package }>()
+    for (const category of [...dynamic, ...fallback, ...FIXED_CATEGORIES]) {
+      const key = category.label.toLocaleLowerCase("pt-BR")
+      if (!unique.has(key)) unique.set(key, category)
+    }
+    return [...unique.values()]
+  }, [homeData?.categories])
 
   React.useEffect(() => {
     if (promos.length < 2) return
@@ -108,10 +153,40 @@ export default function HomePage() {
       <div className="sticky top-[116px] z-20 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-[1360px] gap-2 overflow-x-auto px-4 py-3 lg:px-6">
           {FILTERS.map(([label, Icon]) => (
-            <button key={label} type="button" onClick={() => setActiveFilter(label)} className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-4 py-1.5 text-xs font-bold transition ${activeFilter === label ? "border-amber-500 bg-amber-500 text-[#0B1B2F]" : "border-slate-200 bg-white text-slate-700 hover:border-amber-500 hover:text-amber-600"}`}><Icon className="h-3.5 w-3.5" />{label}</button>
+            <button
+              key={label}
+              type="button"
+              aria-expanded={label === "Todos" ? showAllCategories : undefined}
+              onClick={() => {
+                setActiveFilter(label)
+                setShowAllCategories((current) => label === "Todos" ? !current : false)
+              }}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-4 py-1.5 text-xs font-bold transition ${activeFilter === label ? "border-amber-500 bg-amber-500 text-[#0B1B2F]" : "border-slate-200 bg-white text-slate-700 hover:border-amber-500 hover:text-amber-600"}`}
+            >
+              <Icon className="h-3.5 w-3.5" />{label}
+              {label === "Todos" ? showAllCategories ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" /> : null}
+            </button>
           ))}
           <span className="ml-auto hidden shrink-0 self-center text-sm text-slate-500 sm:block">{products.length} produtos</span>
         </div>
+        {showAllCategories ? (
+          <div className="border-t border-slate-100 bg-white px-4 pb-5 pt-2 lg:px-6">
+            <div className="mx-auto max-w-[1360px]">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div><h2 className="font-serif text-lg font-bold text-[#0B1B2F]">Todas as categorias</h2><p className="text-xs text-slate-500">Escolha uma categoria para explorar</p></div>
+                <button type="button" onClick={() => setShowAllCategories(false)} className="text-xs font-bold text-amber-600">Recolher</button>
+              </div>
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+                {allCategories.map(({ label, href, Icon }) => (
+                  <Link key={label} href={href} className="group flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 text-center transition hover:-translate-y-0.5 hover:border-amber-500 hover:bg-amber-50">
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#0B1B2F] shadow-sm group-hover:text-amber-600"><Icon className="h-5 w-5" /></span>
+                    <span className="text-[10px] font-bold leading-tight text-slate-700 sm:text-xs">{label}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <main className="mx-auto max-w-[1360px] px-4 py-7 lg:px-6">
