@@ -38,6 +38,34 @@ export const ITEM_CATEGORIES = [
   "Saúde",
 ] as const;
 
+// O Vendor.ai permite categorias específicas para o cadastro (por exemplo,
+// Banheiro, Hidráulica e Acabamento), enquanto a Praça.ai navega por
+// departamentos mais amplos. Esta hierarquia mantém a etiqueta específica no
+// produto e faz o item também aparecer no departamento correspondente.
+const DEPARTMENT_SUBCATEGORY_SLUGS: Record<string, string[]> = {
+  construcao: [
+    "construcao",
+    "acabamento",
+    "acabamento-externo",
+    "area-externa",
+    "automacao",
+    "banheiro",
+    "climatizacao",
+    "conforto-termico",
+    "eletrica",
+    "esquadria",
+    "estrutura",
+    "hidraulica",
+    "lazer",
+    "revestimento",
+    "sustentabilidade",
+  ],
+};
+
+export function expandCategorySlugs(slugs: string[]): string[] {
+  return Array.from(new Set(slugs.flatMap((slug) => DEPARTMENT_SUBCATEGORY_SLUGS[slug] ?? [slug])));
+}
+
 export function mapCatalogRow(row: any) {
   // Preço específico do Praça.ai (Complemento) — quando o lojista configura
   // um valor diferente só pra vitrine do Praça.ai, ele sobrepõe TUDO (preço
@@ -128,26 +156,37 @@ export async function getProductById(id: string) {
 }
 
 export async function getRealCategories(limit?: number) {
+  const categoryHierarchy = ITEM_CATEGORIES.flatMap((department) =>
+    expandCategorySlugs([slugify(department)]).map((subcategorySlug) => ({
+      department,
+      subcategorySlug,
+    })),
+  );
   const result = await vendorPool.query(
     `WITH categorias_oficiais AS (
        SELECT nome, ordem
        FROM unnest($1::text[]) WITH ORDINALITY AS categoria(nome, ordem)
+     ), hierarquia AS (
+       SELECT department, subcategory_slug
+       FROM jsonb_to_recordset($2::jsonb) AS item(department text, subcategory_slug text)
      ), contagens AS (
-       SELECT cp.nome, count(*)::int AS product_count
+       SELECT hierarquia.department AS nome, count(*)::int AS product_count
        FROM produtos_catalogo pc
        JOIN tenants t ON t.id = pc.tenant_id
        JOIN categorias_produto cp ON cp.id = pc.categoria_id
+       JOIN hierarquia
+         ON lower(regexp_replace(unaccent(cp.nome), '[^a-zA-Z0-9]+', '-', 'g')) = hierarquia.subcategory_slug
        WHERE t.vende_no_praca_ai = true
          AND pc.ativo = true
          AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
-       GROUP BY cp.nome
+       GROUP BY hierarquia.department
      )
      SELECT categoria.nome AS categoria_nome, COALESCE(contagens.product_count, 0)::int AS product_count
      FROM categorias_oficiais categoria
      LEFT JOIN contagens ON lower(contagens.nome) = lower(categoria.nome)
      ORDER BY categoria.ordem
      ${limit ? `LIMIT ${Number(limit)}` : ""}`,
-    [ITEM_CATEGORIES],
+    [ITEM_CATEGORIES, JSON.stringify(categoryHierarchy)],
   );
 
   return result.rows
@@ -203,15 +242,17 @@ export async function getPromotedProducts(limit = 8) {
 }
 
 export async function getProductsByCategoryName(categoriaNome: string, limit = 4) {
+  const categorySlugs = expandCategorySlugs([slugify(categoriaNome)]);
   const result = await vendorPool.query(
     `SELECT pc.*, cp.nome AS categoria_nome, t.nome_empresa
      FROM produtos_catalogo pc
      JOIN tenants t ON t.id = pc.tenant_id
      LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
-     WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true) AND cp.nome = $1
+     WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
+       AND lower(regexp_replace(unaccent(cp.nome), '[^a-zA-Z0-9]+', '-', 'g')) = ANY($1)
      ORDER BY pc.destaque DESC, pc.created_at DESC
      LIMIT $2`,
-    [categoriaNome, limit],
+    [categorySlugs, limit],
   );
   return result.rows.map(mapCatalogRow);
 }

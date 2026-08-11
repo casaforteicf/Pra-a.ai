@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { vendorPool } from "../lib/vendorDb";
-import { mapCatalogRow, getProductById, getRelatedProducts, getVehicleFilterOptions, getProductsByVehicleCompatibility } from "../lib/catalogService";
+import { expandCategorySlugs, mapCatalogRow, getProductById, getRelatedProducts, getVehicleFilterOptions, getProductsByVehicleCompatibility } from "../lib/catalogService";
 import { getVendorSalesCount } from "./stores";
 import { getProductRatingSummary, getRatingsForProducts, getVendorRatingSummary } from "./reviews";
 import { db, orderItemsTable, ordersTable } from "@workspace/db";
@@ -49,7 +49,7 @@ router.get("/products/compatibilidade-veicular", async (req, res): Promise<void>
 // lista fixa, só aparece o que os lojistas realmente preencheram).
 router.get("/products/filters", async (req, res): Promise<void> => {
   const { categories } = req.query as Record<string, string>;
-  const categorySlugs = categories ? categories.split(",").filter(Boolean) : [];
+  const categorySlugs = expandCategorySlugs(categories ? categories.split(",").filter(Boolean) : []);
 
   try {
     const categoriesResult = await vendorPool.query(`
@@ -113,7 +113,7 @@ router.get("/products", async (req, res): Promise<void> => {
   const conditions: string[] = ["t.vende_no_praca_ai = true", "pc.ativo = true"];
   const params: any[] = [];
 
-  const categorySlugs = categories ? categories.split(",").filter(Boolean) : (category ? [category] : []);
+  const categorySlugs = expandCategorySlugs(categories ? categories.split(",").filter(Boolean) : (category ? [category] : []));
   if (categorySlugs.length > 0) {
     params.push(categorySlugs);
     conditions.push(

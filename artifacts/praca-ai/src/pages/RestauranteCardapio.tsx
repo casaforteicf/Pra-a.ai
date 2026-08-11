@@ -160,7 +160,7 @@ export default function RestauranteCardapio() {
           </div>
 
           {itensCarrinho.length > 0 && (
-            <div className="fixed bottom-[88px] inset-x-0 border-t bg-background p-4 lg:bottom-0 lg:left-1/2 lg:max-w-6xl lg:-translate-x-1/2">
+            <div className="fixed bottom-[88px] inset-x-0 z-40 border-t bg-background/95 p-4 shadow-[0_-8px_24px_rgba(0,0,0,0.18)] backdrop-blur-md lg:bottom-0 lg:left-1/2 lg:max-w-6xl lg:-translate-x-1/2">
               <Button className="w-full" onClick={() => setMostrarCheckout(true)}>
                 Ver Carrinho — {formatMoney(total)}
               </Button>

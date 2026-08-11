@@ -393,7 +393,7 @@ export default function Checkout() {
       </div>
 
       {/* Order Summary Panel */}
-      <div className="fixed bottom-[88px] inset-x-0 z-40 rounded-t-[32px] border-t bg-card p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.05)] sm:absolute sm:bottom-0 lg:left-1/2 lg:max-w-4xl lg:-translate-x-1/2">
+      <div className="fixed bottom-[88px] inset-x-0 z-40 rounded-t-[32px] border-t bg-card/95 p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.22)] backdrop-blur-md lg:bottom-0 lg:left-1/2 lg:max-w-4xl lg:-translate-x-1/2">
         <div className="flex justify-between text-sm mb-1 text-muted-foreground">
           <span>Subtotal ({cart.itemCount} itens)</span>
           <span>{formatMoney(cart.subtotal)}</span>
