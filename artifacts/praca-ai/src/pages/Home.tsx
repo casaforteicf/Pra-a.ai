@@ -112,24 +112,24 @@ export default function HomePage() {
   return (
     <div className="flex min-h-full w-full flex-col bg-background pb-10">
       {/* Marketplace header */}
-      <header className="sticky top-0 inset-x-0 z-30 bg-primary px-4 py-3 shadow-neon lg:px-8">
+      <header className="sticky top-0 inset-x-0 z-30 border-b border-white/10 bg-[linear-gradient(135deg,#0f0c29_0%,#302b63_52%,#24243e_100%)] px-4 py-3 text-white shadow-[0_14px_40px_rgba(15,12,41,.28)] lg:px-8">
         <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 lg:gap-x-8">
-          <h1 className="text-2xl font-black tracking-tight text-primary-foreground flex items-center gap-2">
-            <Store className="w-6 h-6 fill-primary-foreground" />
+          <h1 className="flex items-center gap-2 bg-gradient-to-r from-orange-400 to-yellow-300 bg-clip-text text-2xl font-black tracking-tight text-transparent">
+            <Store className="h-6 w-6 fill-yellow-300 text-yellow-300" />
             Praça.ai
           </h1>
           <div className="relative col-span-3 row-start-2 lg:col-span-1 lg:col-start-2 lg:row-start-1">
             <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Buscar produtos, lojas e serviços"
-              className="h-11 w-full rounded-md border-none bg-card pl-12 pr-4 text-base shadow-sm"
+              className="h-12 w-full rounded-full border border-white/15 bg-white/10 pl-12 pr-4 text-base text-white shadow-inner backdrop-blur placeholder:text-white/55 focus-visible:ring-yellow-300"
             />
           </div>
-          <div className="flex items-center gap-2 justify-self-end rounded-full bg-primary-foreground/15 px-3 py-2 text-xs font-bold text-primary-foreground">
+          <div className="flex items-center gap-2 justify-self-end rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-bold text-white backdrop-blur">
             <MapPin className="h-4 w-4" />
             <span className="hidden sm:inline">Chapecó, SC</span>
           </div>
-          <nav className="col-span-3 hidden items-center gap-6 border-t border-primary-foreground/15 pt-3 text-sm font-semibold text-primary-foreground/90 lg:flex">
+          <nav className="col-span-3 hidden items-center gap-6 border-t border-white/10 pt-3 text-sm font-semibold text-white/80 lg:flex">
             <Link href="/listing" className="flex items-center gap-1 hover:text-primary-foreground/70">Categorias <ChevronDown className="h-4 w-4" /></Link>
             <Link href="/listing" className="hover:text-primary-foreground/70">Ofertas</Link>
             <Link href="/servicos" className="hover:text-primary-foreground/70">Serviços</Link>
@@ -140,7 +140,7 @@ export default function HomePage() {
               href="https://appvendorai.com/cadastro-praca"
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-auto flex items-center gap-1.5 rounded-full bg-card px-4 py-1.5 text-primary hover:bg-card/90"
+              className="ml-auto flex items-center gap-1.5 rounded-full bg-gradient-to-r from-orange-400 to-yellow-300 px-4 py-2 font-black text-slate-950 shadow-lg transition hover:-translate-y-0.5"
             >
               <Store className="h-4 w-4" /> Cadastre sua loja grátis
             </a>
@@ -153,13 +153,13 @@ export default function HomePage() {
         href="https://appvendorai.com/cadastro-praca"
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 bg-terracota px-4 py-2 text-center text-sm font-bold text-terracota-foreground lg:hidden"
+        className="flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-yellow-400 px-4 py-2.5 text-center text-sm font-black text-slate-950 lg:hidden"
       >
         <Store className="h-4 w-4 shrink-0" /> Tem uma loja? Cadastre-se grátis no Praça.ai
       </a>
 
       {/* Trust Strip */}
-      <div className="hidden items-center justify-center gap-10 border-b bg-card px-4 py-2.5 text-xs font-bold text-primary md:flex">
+      <div className="hidden items-center justify-center gap-10 border-b bg-white px-4 py-2.5 text-xs font-bold text-primary shadow-sm md:flex">
         <div className="flex items-center gap-1.5">
           <ShieldCheck className="w-4 h-4" />
           <span>Compra Segura</span>
@@ -184,18 +184,18 @@ export default function HomePage() {
           <StoriesRow groups={(homeData as any).stories ?? []} />
 
           {/* Banners */}
-          <section className="bg-primary/10">
-            <div className="mx-auto flex max-w-[1440px] snap-x snap-mandatory gap-0 overflow-x-auto hide-scrollbar">
+          <section className="px-4 pt-5 lg:px-8">
+            <div className="mx-auto flex max-w-[1376px] snap-x snap-mandatory gap-0 overflow-hidden rounded-[28px] shadow-neon hide-scrollbar">
               {homeData.banners.slice(0, 1).map((banner) => (
                 <div key={banner.id} className="relative h-[250px] w-full shrink-0 snap-center overflow-hidden sm:h-[330px] lg:h-[390px]">
                   <img src={banner.imageUrl} alt={banner.title} className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute inset-0 flex flex-col justify-center bg-gradient-to-r from-black/75 via-black/35 to-transparent px-6 sm:px-12 lg:px-[max(3rem,calc((100%-1152px)/2))]">
+                  <div className="absolute inset-0 flex flex-col justify-center bg-gradient-to-r from-[#0f0c29]/90 via-[#302b63]/55 to-transparent px-6 sm:px-12 lg:px-16">
                     {banner.badgeText && (
                       <Badge className="w-fit mb-2 bg-terracota">{banner.badgeText}</Badge>
                     )}
                     <h2 className="max-w-xl text-3xl font-black leading-tight text-white sm:text-5xl">{banner.title}</h2>
                     {banner.subtitle && <p className="mt-2 max-w-lg text-base font-medium text-white/90 sm:text-xl">{banner.subtitle}</p>}
-                    <Link href="/listing" className="mt-5 w-fit rounded-md bg-card px-5 py-2.5 text-sm font-bold text-primary shadow">Ver ofertas</Link>
+                    <Link href="/listing" className="mt-5 inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-orange-400 to-yellow-300 px-5 py-3 text-sm font-black text-slate-950 shadow-lg transition hover:-translate-y-0.5">Ver ofertas <ArrowRight className="h-4 w-4" /></Link>
                   </div>
                 </div>
               ))}
@@ -203,7 +203,7 @@ export default function HomePage() {
           </section>
 
           {/* Categories Grid */}
-          <section className="relative z-10 mx-auto -mt-5 w-[calc(100%-2rem)] max-w-6xl rounded-lg bg-card px-4 py-5 shadow-sm lg:-mt-8 lg:px-7">
+          <section className="relative z-10 mx-auto -mt-4 w-[calc(100%-2rem)] max-w-6xl rounded-[24px] border border-white bg-card px-4 py-5 shadow-[0_18px_45px_rgba(45,39,110,.12)] lg:-mt-7 lg:px-7">
             <div className="mb-5 flex items-center justify-between">
               <h2 className="text-xl font-semibold">Encontre tudo na sua cidade</h2>
               <Link href="/listing" className="hidden text-sm font-semibold text-primary sm:block">Ver todas as categorias</Link>
@@ -213,7 +213,7 @@ export default function HomePage() {
                 const Icon = CATEGORY_ICON_MAP[(category as any).icon] ?? Package
                 return (
                   <Link key={category.id} href={category.slug === "marketplace" ? "/marketplace" : `/listing?category=${category.slug}`} className="flex flex-col items-center gap-2 group">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:-translate-y-1 group-active:scale-95">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-secondary/20 transition-all group-hover:-translate-y-1 group-hover:shadow-neon-sm group-active:scale-95">
                       <Icon className="w-7 h-7 text-primary" />
                     </div>
                     <span className="text-[11px] font-bold text-center leading-tight">{category.name}</span>

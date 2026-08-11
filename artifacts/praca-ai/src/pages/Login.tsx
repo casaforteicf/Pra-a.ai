@@ -16,6 +16,9 @@ export default function Login() {
   const [tab, setTab] = React.useState<Tab>("login")
   const [isLoading, setIsLoading] = React.useState(false)
   const [showPassword, setShowPassword] = React.useState(false)
+  const [forgotPassword, setForgotPassword] = React.useState(false)
+  const [forgotEmail, setForgotEmail] = React.useState("")
+  const [forgotSent, setForgotSent] = React.useState(false)
 
   // Login form
   const [loginEmail, setLoginEmail] = React.useState("")
@@ -55,6 +58,20 @@ export default function Login() {
     }
   }
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!forgotEmail) return
+    setIsLoading(true)
+    try {
+      const response = await fetch("/api/auth/forgot-password", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: forgotEmail.trim() }) })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error || "Não foi possível enviar as instruções.")
+      setForgotSent(true)
+    } catch (error) {
+      toast({ title: "Não foi possível enviar", description: (error as Error).message, variant: "destructive" })
+    } finally { setIsLoading(false) }
+  }
+
   return (
     <div className="flex flex-col w-full min-h-full bg-[#FAF8F4]">
       {/* Header */}
@@ -72,10 +89,10 @@ export default function Login() {
             <ShoppingBag className="w-7 h-7 text-primary" />
           </div>
           <h1 className="text-3xl font-black text-white leading-tight">
-            {tab === "login" ? "Bem-vindo\nde volta!" : "Crie sua\nconta"}
+            {forgotPassword ? "Vamos recuperar\nsua conta" : tab === "login" ? "Bem-vindo\nde volta!" : "Crie sua\nconta"}
           </h1>
           <p className="text-white/70 text-sm mt-2">
-            {tab === "login"
+            {forgotPassword ? "Enviaremos um link seguro para o seu e-mail." : tab === "login"
               ? "Entre para acessar seus pedidos e favoritos."
               : "Compre dos melhores comércios de Chapecó."}
           </p>
@@ -85,7 +102,7 @@ export default function Login() {
       {/* Card */}
       <div className="flex-1 -mt-6 rounded-t-[28px] bg-card shadow-[0_-8px_30px_rgba(0,0,0,0.06)] px-5 pt-6 pb-10">
         {/* Tab Toggle */}
-        <div className="flex bg-muted rounded-2xl p-1 mb-6">
+        {!forgotPassword && <div className="flex bg-muted rounded-2xl p-1 mb-6">
           <button
             onClick={() => setTab("login")}
             className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all ${
@@ -102,10 +119,15 @@ export default function Login() {
           >
             Cadastrar
           </button>
-        </div>
+        </div>}
 
         <AnimatePresence mode="wait">
-          {tab === "login" ? (
+          {forgotPassword ? (
+            <motion.form key="forgot" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} onSubmit={handleForgotPassword} className="flex flex-col gap-4">
+              {forgotSent ? <div className="rounded-2xl border border-primary/20 bg-primary/10 p-5 text-center"><div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground"><ShoppingBag className="h-6 w-6" /></div><h2 className="font-black">Confira seu e-mail</h2><p className="mt-2 text-sm text-muted-foreground">Se existir uma conta com esse endereço, o link chegará em alguns minutos e será válido por 30 minutos.</p></div> : <div><label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-muted-foreground">E-mail da sua conta</label><Input type="email" placeholder="seu@email.com" value={forgotEmail} onChange={(event) => setForgotEmail(event.target.value)} required className="h-12" /><Button type="submit" size="lg" className="mt-4 h-12 w-full text-base font-bold" disabled={isLoading}>{isLoading ? "Enviando..." : "Enviar link de recuperação"}</Button></div>}
+              <button type="button" onClick={() => { setForgotPassword(false); setForgotSent(false) }} className="text-center text-sm font-bold text-primary">Voltar para entrar</button>
+            </motion.form>
+          ) : tab === "login" ? (
             <motion.form
               key="login"
               initial={{ opacity: 0, x: 20 }}
@@ -127,6 +149,8 @@ export default function Login() {
                   className="h-12"
                 />
               </div>
+
+              <button type="button" onClick={() => { setForgotPassword(true); setForgotEmail(loginEmail) }} className="-mt-2 self-end text-sm font-bold text-primary hover:underline">Esqueci minha senha</button>
               <div>
                 <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1.5 block">
                   Senha
