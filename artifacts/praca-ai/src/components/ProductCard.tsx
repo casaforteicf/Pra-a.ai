@@ -1,5 +1,5 @@
 import { Link } from "wouter"
-import { Star, Truck } from "lucide-react"
+import { ArrowUpRight, Star, Truck } from "lucide-react"
 import { formatMoney, cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 
@@ -27,21 +27,21 @@ export function ProductCard({ product, className, compact = false }: { product: 
 
   return (
     <Link href={`/product/${product.id}`} className={cn("block", className)}>
-      <Card className="h-full border-none shadow-sm overflow-hidden active:scale-95 transition-transform group">
-        <div className={cn("relative bg-muted", compact ? "aspect-[1.18/1] sm:aspect-square" : "aspect-square")}>
+      <Card className="group h-full overflow-hidden rounded-[20px] border border-border/70 bg-card shadow-[0_8px_24px_rgba(45,39,110,.07)] transition-all duration-300 hover:-translate-y-1.5 hover:border-secondary/70 hover:shadow-[0_18px_40px_rgba(45,39,110,.14)] active:scale-95">
+        <div className={cn("relative overflow-hidden bg-gradient-to-br from-slate-50 to-violet-50", compact ? "aspect-[1.18/1] sm:aspect-square" : "aspect-square")}>
           <img
             src={product.imageUrl ?? undefined}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
           {product.discountPct && (
-            <div className="absolute top-2 left-2 bg-terracota text-white text-xs font-black px-2 py-1 rounded-lg">
+            <div className="absolute left-2 top-2 rounded-full bg-gradient-to-r from-orange-500 to-yellow-400 px-2.5 py-1 text-xs font-black text-slate-950 shadow-md">
               -{product.discountPct}%
             </div>
           )}
         </div>
         <div className={cn("space-y-1", compact ? "p-2 sm:p-3" : "p-3")}>
-          <p className="text-[11px] text-muted-foreground font-bold truncate">{product.vendorName}</p>
+          <div className="flex items-center justify-between gap-2"><p className="truncate text-[10px] font-black uppercase tracking-wide text-primary">{product.vendorName}</p><ArrowUpRight className="h-4 w-4 text-muted-foreground transition group-hover:text-primary" /></div>
           <h4 className={cn("font-bold line-clamp-2 leading-tight", compact ? "text-[13px] sm:text-sm" : "text-sm")}>{product.name}</h4>
 
           {hasRating && (
@@ -65,7 +65,7 @@ export function ProductCard({ product, className, compact = false }: { product: 
             {product.originalPrice && (
               <span className="text-xs text-muted-foreground line-through">{formatMoney(product.originalPrice)}</span>
             )}
-            <span className={cn("font-black text-foreground", compact ? "text-sm sm:text-base" : "text-base")}>{formatMoney(product.price)}</span>
+            <span className={cn("font-black text-terracota", compact ? "text-base sm:text-lg" : "text-lg")}>{formatMoney(product.price)}</span>
           </div>
 
           {product.freeShipping && (

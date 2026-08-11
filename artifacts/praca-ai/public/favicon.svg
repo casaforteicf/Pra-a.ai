@@ -1,3 +1,17 @@
 <svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+  <defs>
+    <linearGradient id="bg" x1="18" y1="15" x2="164" y2="169" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F0C29"/>
+      <stop offset="0.55" stop-color="#302B63"/>
+      <stop offset="1" stop-color="#6D4EE8"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="48" y1="48" x2="132" y2="132" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7971E"/>
+      <stop offset="1" stop-color="#FFD200"/>
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" rx="42" fill="url(#bg)"/>
+  <path d="M45 75h90l-8-29H53l-8 29Z" fill="url(#mark)"/>
+  <path d="M53 75v58h74V75" stroke="url(#mark)" stroke-width="12" stroke-linejoin="round"/>
+  <path d="M78 133V99h24v34" stroke="url(#mark)" stroke-width="10" stroke-linejoin="round"/>
 </svg>

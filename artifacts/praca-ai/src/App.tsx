@@ -31,6 +31,7 @@ import RestaurantesListing from '@/pages/RestaurantesListing';
 import RestauranteCardapio from '@/pages/RestauranteCardapio';
 import Marketplace from '@/pages/Marketplace';
 import DriverLogistics from '@/pages/DriverLogistics';
+import ResetPassword from '@/pages/ResetPassword';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -53,6 +54,7 @@ function Router() {
       <Route path="/feed" component={Feed} />
       <Route path="/profile" component={Profile} />
       <Route path="/login" component={Login} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route path="/orders" component={MyOrders} />
       <Route path="/favorites" component={MyFavorites} />
       <Route path="/account/:section" component={Account} />
