@@ -786,7 +786,7 @@ CREATE INDEX IF NOT EXISTS idx_marketplace_listings_status_category
 CREATE INDEX IF NOT EXISTS idx_marketplace_listings_consumer
   ON marketplace_listings(consumer_id, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS password_reset_tokens (
+CREATE TABLE IF NOT EXISTS praca_password_reset_tokens (
   id serial PRIMARY KEY,
   consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
   token_hash text NOT NULL UNIQUE,
@@ -794,8 +794,8 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   used_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS idx_password_reset_consumer
-  ON password_reset_tokens(consumer_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_praca_password_reset_consumer
+  ON praca_password_reset_tokens(consumer_id, created_at DESC);
 
 -- Central logística: entregador, jornada, comprovantes e carteira Praça.Bank.
 ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS consumer_id integer UNIQUE REFERENCES consumers(id) ON DELETE SET NULL;

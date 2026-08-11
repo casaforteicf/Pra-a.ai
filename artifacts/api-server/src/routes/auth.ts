@@ -28,6 +28,7 @@ async function sendPasswordResetEmail(email: string, name: string, resetUrl: str
   if (!apiKey || !from) throw new Error("RESEND_API_KEY ou EMAIL_FROM não configurado");
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
+    signal: AbortSignal.timeout(8_000),
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from,
