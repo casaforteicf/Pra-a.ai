@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
-import { db, ambassadorsTable, referralsTable, REFERRAL_COMMISSION } from "@workspace/db";
+import { eq, and, desc, sql } from "drizzle-orm";
+import { db, ambassadorsTable, referralsTable, REFERRAL_COMMISSION, influencerConversionsTable, consumersTable } from "@workspace/db";
 import crypto from "crypto";
 
 const router: IRouter = Router();
@@ -22,7 +22,8 @@ router.post("/embaixadores", async (req, res): Promise<void> => {
     return;
   }
 
-  let codigo = gerarCodigo();
+  const requestedCode = typeof req.body?.codigo === "string" ? req.body.codigo.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20) : "";
+  let codigo = requestedCode.length >= 4 ? requestedCode : gerarCodigo();
   // Garante unicidade (raro colidir, mas confere antes de inserir)
   for (let tentativas = 0; tentativas < 5; tentativas++) {
     const [taken] = await db.select().from(ambassadorsTable).where(eq(ambassadorsTable.codigo, codigo)).limit(1);
@@ -30,8 +31,54 @@ router.post("/embaixadores", async (req, res): Promise<void> => {
     codigo = gerarCodigo();
   }
 
-  const [ambassador] = await db.insert(ambassadorsTable).values({ consumerId, codigo }).returning();
+  const [consumer] = await db.select().from(consumersTable).where(eq(consumersTable.id, consumerId)).limit(1);
+  const [ambassador] = await db.insert(ambassadorsTable).values({
+    consumerId,
+    codigo,
+    nomePublico: req.body?.nomePublico?.trim() || consumer?.name || null,
+    bio: req.body?.bio?.trim() || null,
+    nicho: req.body?.nicho?.trim() || null,
+    cidade: req.body?.cidade?.trim() || null,
+    instagram: req.body?.instagram?.trim() || null,
+    tiktok: req.body?.tiktok?.trim() || null,
+    youtube: req.body?.youtube?.trim() || null,
+  }).returning();
   res.status(201).json(ambassador);
+});
+
+router.patch("/influenciadores/me", async (req, res): Promise<void> => {
+  const consumerId = req.session?.consumerId;
+  if (!consumerId) return void res.status(401).json({ error: "Faça login." });
+  const allowed = ["nomePublico", "bio", "nicho", "cidade", "instagram", "tiktok", "youtube"] as const;
+  const updates: Record<string, string | null> = {};
+  for (const field of allowed) if (req.body?.[field] !== undefined) updates[field] = String(req.body[field]).trim() || null;
+  const [updated] = await db.update(ambassadorsTable).set(updates).where(eq(ambassadorsTable.consumerId, consumerId)).returning();
+  if (!updated) return void res.status(404).json({ error: "Perfil de influenciador não encontrado." });
+  res.json(updated);
+});
+
+router.post("/influenciadores/:codigo/clique", async (req, res): Promise<void> => {
+  const codigo = String(req.params.codigo).toUpperCase();
+  const [updated] = await db.update(ambassadorsTable).set({ cliques: sql`${ambassadorsTable.cliques} + 1` }).where(and(eq(ambassadorsTable.codigo, codigo), eq(ambassadorsTable.status, "ativo"))).returning();
+  if (!updated) return void res.status(404).json({ error: "Influenciador não encontrado." });
+  res.status(204).end();
+});
+
+router.get("/influenciadores/me/dashboard", async (req, res): Promise<void> => {
+  const consumerId = req.session?.consumerId;
+  if (!consumerId) return void res.status(401).json({ error: "Faça login." });
+  const [influencer] = await db.select().from(ambassadorsTable).where(eq(ambassadorsTable.consumerId, consumerId)).limit(1);
+  if (!influencer) return void res.status(404).json({ error: "Perfil de influenciador não encontrado." });
+  const conversions = await db.select().from(influencerConversionsTable).where(eq(influencerConversionsTable.ambassadorId, influencer.id)).orderBy(desc(influencerConversionsTable.createdAt));
+  const totalSales = conversions.reduce((sum, item) => sum + Number(item.orderValue), 0);
+  const totalCommission = conversions.reduce((sum, item) => sum + Number(item.commissionValue), 0);
+  res.json({
+    influencer,
+    metrics: { clicks: influencer.cliques, conversions: conversions.length, totalSales, totalCommission, conversionRate: influencer.cliques > 0 ? (conversions.length / influencer.cliques) * 100 : 0 },
+    conversions,
+    referralLink: `${req.protocol}://${req.get("host")}/?ref=${influencer.codigo}`,
+    couponCode: influencer.codigo,
+  });
 });
 
 router.get("/embaixadores/me", async (req, res): Promise<void> => {

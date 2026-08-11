@@ -65,6 +65,9 @@ export interface CouponValidationResult {
   coupon?: Coupon;
   discountAmount: number;
   message: string | null;
+  code?: string;
+  description?: string;
+  influencerId?: number;
 }
 
 /**
@@ -109,4 +112,32 @@ export function validateCoupon(
   }
 
   return { valid: true, coupon, discountAmount: Math.round(discountAmount * 100) / 100, message: null };
+}
+
+/** Valida primeiro os cupons promocionais e depois códigos de influenciador. */
+export async function validateCouponWithInfluencer(
+  code: string | null | undefined,
+  orderValue: number,
+  shippingValue?: number,
+): Promise<CouponValidationResult> {
+  const fixed = validateCoupon(code, orderValue, shippingValue);
+  if (fixed.valid) return { ...fixed, code: fixed.coupon?.code, description: fixed.coupon?.description };
+
+  const normalized = (code ?? "").trim().toUpperCase();
+  if (!normalized) return fixed;
+  const { db, ambassadorsTable } = await import("@workspace/db");
+  const { eq } = await import("drizzle-orm");
+  const [influencer] = await db.select().from(ambassadorsTable).where(eq(ambassadorsTable.codigo, normalized)).limit(1);
+  if (!influencer || influencer.status !== "ativo") return fixed;
+
+  const percentage = Number(influencer.descontoPercentual ?? 0);
+  const discountAmount = Math.round(orderValue * percentage) / 100;
+  return {
+    valid: true,
+    discountAmount,
+    message: null,
+    code: influencer.codigo,
+    description: `${percentage}% de desconto com ${influencer.nomePublico || "influenciador parceiro"}`,
+    influencerId: influencer.id,
+  };
 }

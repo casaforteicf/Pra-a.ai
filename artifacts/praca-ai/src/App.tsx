@@ -94,6 +94,12 @@ function AppShell() {
 }
 
 function App() {
+  React.useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get('ref')?.toUpperCase()
+    if (!ref) return
+    localStorage.setItem('praca-influencer-coupon', ref)
+    fetch(`/api/influenciadores/${encodeURIComponent(ref)}/clique`, { method: 'POST' }).catch(() => undefined)
+  }, [])
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -109,3 +115,4 @@ function App() {
 }
 
 export default App;
+import * as React from 'react';

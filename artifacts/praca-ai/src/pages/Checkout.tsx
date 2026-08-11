@@ -47,7 +47,7 @@ export default function Checkout() {
   const [deliveryOption, setDeliveryOption] = React.useState<'express' | 'standard'>('express')
   const [paymentMethod, setPaymentMethod] = React.useState<'credit_card' | 'pix' | 'boleto'>('pix')
 
-  const [couponCode, setCouponCode] = React.useState('')
+  const [couponCode, setCouponCode] = React.useState(() => localStorage.getItem('praca-influencer-coupon') || '')
   const [appliedCoupon, setAppliedCoupon] = React.useState<{ code: string; discount: number; description: string } | null>(null)
   const [couponError, setCouponError] = React.useState('')
 
@@ -62,10 +62,11 @@ export default function Checkout() {
     if (!couponCode.trim()) return
     setCouponError('')
     validateCouponMutation.mutate(
-      { data: { code: couponCode.trim().toUpperCase(), subtotal: cart?.subtotal ?? 0 } as any },
+      { data: { code: couponCode.trim().toUpperCase(), orderValue: cart?.subtotal ?? 0 } },
       {
         onSuccess: (data: any) => {
           setAppliedCoupon({ code: couponCode.trim().toUpperCase(), discount: data.discount, description: data.description ?? `Desconto aplicado` })
+          localStorage.setItem('praca-influencer-coupon', couponCode.trim().toUpperCase())
           toast({ title: "Cupom aplicado!", description: data.description ?? `Desconto de ${formatMoney(data.discount)}` })
         },
         onError: () => {
@@ -79,6 +80,7 @@ export default function Checkout() {
     setAppliedCoupon(null)
     setCouponCode('')
     setCouponError('')
+    localStorage.removeItem('praca-influencer-coupon')
   }
 
   if (isLoading) return <PageLoader />
@@ -104,7 +106,7 @@ export default function Checkout() {
   const shipping = deliveryOption === 'express' ? 12.9 : 0
   const pixDiscount = paymentMethod === 'pix' ? Math.round((cart.subtotal ?? 0) * 0.1 * 100) / 100 : 0
   const couponDiscount = appliedCoupon?.discount ?? 0
-  const totalDiscount = Math.max(pixDiscount, couponDiscount)
+  const totalDiscount = pixDiscount + couponDiscount
   const grandTotal = (cart.subtotal ?? 0) + shipping - totalDiscount
 
   const handleSubmit = () => {
@@ -404,7 +406,7 @@ export default function Checkout() {
         </div>
         {totalDiscount > 0 && (
           <div className="flex justify-between text-sm mb-1 text-primary font-medium">
-            <span>{paymentMethod === 'pix' ? 'Desconto Pix (10%)' : `Cupom ${appliedCoupon?.code ?? ''}`}</span>
+            <span>{paymentMethod === 'pix' && appliedCoupon ? `Pix (10%) + cupom ${appliedCoupon.code}` : paymentMethod === 'pix' ? 'Desconto Pix (10%)' : `Cupom ${appliedCoupon?.code ?? ''}`}</span>
             <span>-{formatMoney(totalDiscount)}</span>
           </div>
         )}

@@ -742,6 +742,29 @@ CREATE TABLE IF NOT EXISTS nps_respostas (
   comentario text,
   created_at timestamp with time zone NOT NULL DEFAULT now()
 );
+ALTER TABLE ambassadors ADD COLUMN IF NOT EXISTS nome_publico text;
+ALTER TABLE ambassadors ADD COLUMN IF NOT EXISTS bio text;
+ALTER TABLE ambassadors ADD COLUMN IF NOT EXISTS nicho text;
+ALTER TABLE ambassadors ADD COLUMN IF NOT EXISTS cidade text;
+ALTER TABLE ambassadors ADD COLUMN IF NOT EXISTS instagram text;
+ALTER TABLE ambassadors ADD COLUMN IF NOT EXISTS tiktok text;
+ALTER TABLE ambassadors ADD COLUMN IF NOT EXISTS youtube text;
+ALTER TABLE ambassadors ADD COLUMN IF NOT EXISTS desconto_percentual numeric(5,2) NOT NULL DEFAULT 5;
+ALTER TABLE ambassadors ADD COLUMN IF NOT EXISTS comissao_percentual numeric(5,2) NOT NULL DEFAULT 5;
+ALTER TABLE ambassadors ADD COLUMN IF NOT EXISTS cliques integer NOT NULL DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS influencer_conversions (
+  id serial PRIMARY KEY,
+  ambassador_id integer NOT NULL REFERENCES ambassadors(id) ON DELETE CASCADE,
+  order_id integer NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
+  order_value numeric(12,2) NOT NULL,
+  discount_value numeric(12,2) NOT NULL,
+  commission_value numeric(12,2) NOT NULL,
+  status text NOT NULL DEFAULT 'pendente',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  paid_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS idx_influencer_conversions_ambassador ON influencer_conversions(ambassador_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS marketplace_listings (
   id serial PRIMARY KEY,
