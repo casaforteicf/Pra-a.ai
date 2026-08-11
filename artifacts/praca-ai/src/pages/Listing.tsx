@@ -318,6 +318,7 @@ export default function ListingPage() {
   const [, setLocation] = useLocation()
   const searchParams = new URLSearchParams(window.location.search)
   const categorySlug = searchParams.get("category") || undefined
+  const initialSearch = searchParams.get("search") || ""
   const isStationery = categorySlug === STATIONERY_SLUG
   const isBaby = categorySlug === BABY_SLUG
   const isBeauty = categorySlug === BEAUTY_SLUG
@@ -339,8 +340,8 @@ export default function ListingPage() {
   const isJewelry = categorySlug === JEWELRY_SLUG
   const isBooks = categorySlug === BOOKS_SLUG
   const isPetShop = categorySlug === PET_SLUG
-  const [search, setSearch] = React.useState("")
-  const [submittedSearch, setSubmittedSearch] = React.useState("")
+  const [search, setSearch] = React.useState(initialSearch)
+  const [submittedSearch, setSubmittedSearch] = React.useState(initialSearch)
   const [sort, setSort] = React.useState<ListProductsSort>("relevance")
   const [destination, setDestination] = React.useState("")
   const [viagensHoje, setViagensHoje] = React.useState<any[]>([])
