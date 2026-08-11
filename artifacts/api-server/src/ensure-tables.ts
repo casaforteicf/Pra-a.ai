@@ -742,6 +742,26 @@ CREATE TABLE IF NOT EXISTS nps_respostas (
   comentario text,
   created_at timestamp with time zone NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS marketplace_listings (
+  id serial PRIMARY KEY,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  description text NOT NULL,
+  price numeric(12,2) NOT NULL CHECK (price >= 0),
+  category text NOT NULL,
+  condition text NOT NULL CHECK (condition IN ('new', 'like_new', 'good', 'used')),
+  image_urls jsonb NOT NULL DEFAULT '[]'::jsonb,
+  city text NOT NULL,
+  state text NOT NULL,
+  status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'sold')),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_marketplace_listings_status_category
+  ON marketplace_listings(status, category, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_marketplace_listings_consumer
+  ON marketplace_listings(consumer_id, created_at DESC);
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {

@@ -29,6 +29,7 @@ import servicosRouter from "./servicos";
 import fretesRouter from "./fretes";
 import restauranteRouter from "./restaurante";
 import variedadesRouter from "./variedades";
+import marketplaceRouter from "./marketplace";
 
 const router: IRouter = Router();
 
@@ -62,5 +63,6 @@ router.use(servicosRouter);
 router.use(fretesRouter);
 router.use(restauranteRouter);
 router.use(variedadesRouter);
+router.use(marketplaceRouter);
 
 export default router;

@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useLocation, useRoute } from "wouter"
-import { ChevronLeft, Copy, MapPin, Plus, Save, Trash2 } from "lucide-react"
+import { ChevronLeft, Copy, MapPin, Plus, Save, Trash2, Store } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext"
 type Address = { id: string; label: string; street: string; number: string; complement?: string | null; neighborhood: string; city: string; state: string; zipCode: string; isDefault: boolean }
 type ProfileData = { name: string; email: string; phone?: string | null; cpf?: string | null; addresses: Address[] }
 type Coupon = { id?: string | number; code: string; description?: string }
-const titles = { profile: "Meus dados", addresses: "Endereços", coupons: "Meus cupons", settings: "Configurações do app", support: "Ajuda e suporte" } as const
+const titles = { profile: "Meus dados", addresses: "Endereços", coupons: "Meus cupons", listings: "Meus anúncios", settings: "Configurações do app", support: "Ajuda e suporte" } as const
 const blankAddress = { label: "Casa", street: "", number: "", complement: "", neighborhood: "", city: "", state: "SC", zipCode: "", isDefault: false }
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -90,6 +90,7 @@ export default function Account() {
         {!profile.addresses.length ? <Empty text="Nenhum endereço cadastrado." /> : profile.addresses.map(a => <article key={a.id} className="rounded-2xl border bg-background p-4 shadow-sm"><div className="flex justify-between gap-3"><div><div className="flex gap-2"><strong>{a.label}</strong>{a.isDefault && <span className="rounded-full bg-primary/10 px-2 text-xs font-bold text-primary">Principal</span>}</div><p className="mt-2 text-sm text-muted-foreground">{a.street}, {a.number}{a.complement ? ` · ${a.complement}` : ""}<br />{a.neighborhood} · {a.city}/{a.state}<br />CEP {a.zipCode}</p></div><button aria-label="Remover" onClick={() => changeAddress(a.id, "DELETE")} className="text-destructive"><Trash2 className="h-5 w-5" /></button></div>{!a.isDefault && <Button className="mt-3" variant="outline" size="sm" onClick={() => changeAddress(a.id, "PATCH")}>Tornar principal</Button>}</article>)}
       </>}
       {section === "coupons" && (coupons.length ? coupons.map(c => <article key={c.id || c.code} className="rounded-2xl border bg-background p-4 shadow-sm"><div className="flex items-center justify-between"><div><strong className="text-lg">{c.code}</strong><p className="text-sm text-muted-foreground">{c.description || "Disponível para sua próxima compra"}</p></div><Button variant="outline" size="icon" onClick={() => { void navigator.clipboard.writeText(c.code); toast({ title: "Cupom copiado" }) }}><Copy className="h-4 w-4" /></Button></div></article>) : <Empty text="Nenhum cupom disponível agora." />)}
+      {section === "listings" && <MarketplaceManager toast={toast} />}
       {section === "settings" && <Settings />}
       {section === "support" && <Support />}
     </main>
@@ -98,6 +99,44 @@ export default function Account() {
 
 function Field({ label, value, onChange, disabled }: { label: string; value: string; onChange?: (v: string) => void; disabled?: boolean }) { return <label className="block text-sm font-semibold">{label}<Input className="mt-1" value={value} disabled={disabled} onChange={e => onChange?.(e.target.value)} /></label> }
 function Empty({ text }: { text: string }) { return <div className="rounded-2xl border border-dashed bg-background p-10 text-center text-sm text-muted-foreground">{text}</div> }
+
+type PersonalListing = { id: string; title: string; price: number; category: string; condition: string; imageUrls: string[]; city: string; state: string; status: "active" | "paused" | "sold" }
+const emptyListing = { title: "", description: "", price: "", category: "", condition: "good", imageUrl: "", city: "Chapecó", state: "SC" }
+
+function MarketplaceManager({ toast }: { toast: ReturnType<typeof useToast>["toast"] }) {
+  const [items, setItems] = React.useState<PersonalListing[]>([])
+  const [categories, setCategories] = React.useState<string[]>([])
+  const [form, setForm] = React.useState(emptyListing)
+  const [adding, setAdding] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
+  const load = React.useCallback(async () => setItems(await api<PersonalListing[]>("/api/marketplace/mine")), [])
+  React.useEffect(() => { void load(); fetch("/api/marketplace/categories").then((r) => r.json()).then(setCategories) }, [load])
+  const create = async () => {
+    setSaving(true)
+    try {
+      await api("/api/marketplace", { method: "POST", body: JSON.stringify({ ...form, price: Number(form.price), imageUrls: [form.imageUrl] }) })
+      setForm(emptyListing); setAdding(false); await load(); toast({ title: "Anúncio publicado" })
+    } catch (error) { toast({ title: "Revise o anúncio", description: (error as Error).message, variant: "destructive" }) }
+    finally { setSaving(false) }
+  }
+  const updateStatus = async (id: string, status: PersonalListing["status"]) => { await api(`/api/marketplace/${id}`, { method: "PATCH", body: JSON.stringify({ status }) }); await load() }
+  const remove = async (id: string) => { await api(`/api/marketplace/${id}`, { method: "DELETE" }); await load() }
+  return <div className="space-y-4">
+    <section className="rounded-2xl border bg-background p-4 shadow-sm"><div className="flex items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 font-black"><Store className="h-5 w-5 text-primary" />Venda no Marketplace</h2><p className="mt-1 text-sm text-muted-foreground">Anuncie objetos novos ou usados. A categoria é obrigatória.</p></div><Button size="sm" onClick={() => setAdding(!adding)}><Plus className="mr-1 h-4 w-4" />Novo</Button></div></section>
+    {adding && <section className="space-y-3 rounded-2xl border bg-background p-4 shadow-sm">
+      <Field label="Título do item" value={form.title} onChange={(title) => setForm({ ...form, title })} />
+      <label className="block text-sm font-semibold">Categoria<select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="mt-1 h-10 w-full rounded-xl border bg-background px-3"><option value="">Selecione uma categoria</option>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
+      <label className="block text-sm font-semibold">Estado do item<select value={form.condition} onChange={(e) => setForm({ ...form, condition: e.target.value })} className="mt-1 h-10 w-full rounded-xl border bg-background px-3"><option value="new">Novo</option><option value="like_new">Seminovo</option><option value="good">Bom estado</option><option value="used">Usado</option></select></label>
+      <Field label="Descrição" value={form.description} onChange={(description) => setForm({ ...form, description })} />
+      <Field label="Preço (R$)" value={form.price} onChange={(price) => setForm({ ...form, price })} />
+      <Field label="URL da foto" value={form.imageUrl} onChange={(imageUrl) => setForm({ ...form, imageUrl })} />
+      <div className="grid grid-cols-[1fr_80px] gap-3"><Field label="Cidade" value={form.city} onChange={(city) => setForm({ ...form, city })} /><Field label="UF" value={form.state} onChange={(state) => setForm({ ...form, state: state.toUpperCase().slice(0, 2) })} /></div>
+      <Button className="w-full" disabled={saving || !form.category} onClick={create}>Publicar anúncio</Button>
+    </section>}
+    {!items.length ? <Empty text="Você ainda não publicou nenhum item." /> : items.map((item) => <article key={item.id} className="flex gap-3 rounded-2xl border bg-background p-3 shadow-sm"><div className="h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted">{item.imageUrls[0] && <img src={item.imageUrls[0]} alt={item.title} className="h-full w-full object-cover" />}</div><div className="min-w-0 flex-1"><p className="truncate font-black">{item.title}</p><p className="text-sm text-primary">R$ {item.price.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p><p className="text-xs text-muted-foreground">{item.category} · {item.status}</p><div className="mt-2 flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => updateStatus(item.id, item.status === "active" ? "paused" : "active")}>{item.status === "active" ? "Pausar" : "Ativar"}</Button><Button size="sm" variant="outline" onClick={() => updateStatus(item.id, "sold")}>Vendido</Button><Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4" /></Button></div></div></article>)}
+  </div>
+}
+
 function Settings() {
   const [prefs, setPrefs] = React.useState<Record<string, boolean>>(() => JSON.parse(localStorage.getItem("praca-preferences") || '{"offers":true,"orders":true,"location":true}'))
   const toggle = (key: string) => { const next = { ...prefs, [key]: !prefs[key] }; setPrefs(next); localStorage.setItem("praca-preferences", JSON.stringify(next)) }

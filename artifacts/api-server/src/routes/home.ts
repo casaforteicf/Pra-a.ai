@@ -3,6 +3,8 @@ import { getRealCategories, getFeaturedProducts, getProductsByCategoryName, getP
 import { getRatingsForProducts } from "./reviews";
 import { getActiveStoriesGrouped, registerStoryView } from "../lib/storiesService";
 import { getVariedadesDeHoje } from "../lib/variedadesDiaService";
+import { db, marketplaceListingsTable } from "@workspace/db";
+import { count, eq } from "drizzle-orm";
 
 const router: IRouter = Router();
 
@@ -37,7 +39,9 @@ const BANNERS = [
 
 router.get("/home", async (_req, res): Promise<void> => {
   try {
-    const categories = await getRealCategories();
+    const baseCategories = await getRealCategories();
+    const [marketplace] = await db.select({ total: count() }).from(marketplaceListingsTable).where(eq(marketplaceListingsTable.status, "active"));
+    const categories = baseCategories.map((category) => category.slug === "marketplace" ? { ...category, productCount: marketplace?.total ?? 0 } : category);
     const featuredProducts = await getFeaturedProducts(6);
     const flashDeals = await getPromotedProducts(8);
     const stories = await getActiveStoriesGrouped();
