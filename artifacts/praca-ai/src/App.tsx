@@ -30,6 +30,7 @@ import FretesPage from '@/pages/FretesPage';
 import RestaurantesListing from '@/pages/RestaurantesListing';
 import RestauranteCardapio from '@/pages/RestauranteCardapio';
 import Marketplace from '@/pages/Marketplace';
+import DriverLogistics from '@/pages/DriverLogistics';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +67,7 @@ function Router() {
       <Route path="/restaurantes" component={RestaurantesListing} />
       <Route path="/restaurantes/:vendorId" component={RestauranteCardapio} />
       <Route path="/marketplace" component={Marketplace} />
+      <Route path="/entregador" component={DriverLogistics} />
       <Route component={NotFound} />
     </Switch>
   );

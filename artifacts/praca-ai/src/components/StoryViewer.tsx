@@ -38,7 +38,7 @@ export function StoryViewer({
   const [progress, setProgress] = React.useState(0)
   const [paused, setPaused] = React.useState(false)
   const videoRef = React.useRef<HTMLVideoElement>(null)
-  const rafRef = React.useRef<number>()
+  const rafRef = React.useRef<number | undefined>(undefined)
   const startRef = React.useRef<number>(0)
 
   const group = groups[groupIndex]

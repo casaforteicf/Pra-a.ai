@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useLocation } from "wouter"
-import { Settings, Package, Heart, Tag, HelpCircle, ChevronRight, LogOut, MapPin, User, Store, TrendingUp } from "lucide-react"
+import { Settings, Package, Heart, Tag, HelpCircle, ChevronRight, LogOut, MapPin, User, Store, TrendingUp, Truck } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { motion } from "framer-motion"
 
@@ -108,6 +108,8 @@ export default function Profile() {
           <MenuRow icon={<Store className="text-primary" />} title="Meus anúncios" subtitle="Venda seus itens no Marketplace" onClick={() => (user ? setLocation("/account/listings") : setLocation("/login"))} />
           <div className="h-px bg-muted mx-4" />
           <MenuRow icon={<TrendingUp className="text-amber-500" />} title="Portal do Influenciador" subtitle="Cupons, vendas e comissões" onClick={() => (user ? setLocation("/account/influencer") : setLocation("/login"))} />
+          <div className="h-px bg-muted mx-4" />
+          <MenuRow icon={<Truck className="text-primary" />} title="Portal do Entregador" subtitle="Tarefas, rotas e Praça.Bank" onClick={() => (user ? setLocation("/entregador") : setLocation("/login"))} />
         </div>
 
         <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider ml-2 mt-4 mb-1">

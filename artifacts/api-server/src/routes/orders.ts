@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES, vendorPayoutsTable, ambassadorsTable, influencerConversionsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES, vendorPayoutsTable, ambassadorsTable, influencerConversionsTable, deliveriesTable, deliveryEventsTable } from "@workspace/db";
 import { getProductById, getProductsByIds } from "../lib/catalogService";
 import { vendorPool } from "../lib/vendorDb";
 import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncService";
@@ -341,6 +341,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
     couponDiscount = result.discountAmount;
     influencerId = result.influencerId;
   }
+
   const discount = Math.min(subtotal + shipping, pixDiscount + couponDiscount);
 
   const total = Math.max(0, subtotal + shipping - discount);
@@ -407,6 +408,23 @@ router.post("/checkout", async (req, res): Promise<void> => {
       );
     } catch (stockErr) {
       console.error("[checkout] falha ao decrementar estoque (pedido já confirmado):", stockErr);
+    }
+  }
+
+  // Um pedido com produtos de lojas diferentes gera uma coleta por vendedor.
+  // A entrega começa em preparação; só é oferecida quando a loja confirmar
+  // que o volume está pronto para coleta.
+  if (deliveryOption !== "pickup") {
+    const vendorIds = [...new Set(cartItems.map((item) => item.vendorId).filter((id): id is string => Boolean(id)))];
+    for (const vendorId of vendorIds) {
+      const [delivery] = await db.insert(deliveriesTable).values({
+        orderId: order.id,
+        vendorId,
+        origem: "produto",
+        status: "preparando",
+        valorPagoParceiro: String(vendorIds.length ? shipping / vendorIds.length : 0),
+      }).returning();
+      await db.insert(deliveryEventsTable).values({ deliveryId: delivery.id, status: "preparando", observacao: "Entrega criada automaticamente após a confirmação do pedido." });
     }
   }
 

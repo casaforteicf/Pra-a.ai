@@ -785,6 +785,73 @@ CREATE INDEX IF NOT EXISTS idx_marketplace_listings_status_category
   ON marketplace_listings(status, category, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_marketplace_listings_consumer
   ON marketplace_listings(consumer_id, created_at DESC);
+
+-- Central logística: entregador, jornada, comprovantes e carteira Praça.Bank.
+ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS consumer_id integer UNIQUE REFERENCES consumers(id) ON DELETE SET NULL;
+ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS cpf text;
+ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS documento_foto_url text;
+ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS selfie_url text;
+ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS cnh_url text;
+ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS veiculo_documento_url text;
+ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS placa text;
+ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS documentacao_status text NOT NULL DEFAULT 'pendente';
+ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS latitude numeric(10,7);
+ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS longitude numeric(10,7);
+ALTER TABLE delivery_partners ADD COLUMN IF NOT EXISTS localizacao_em timestamptz;
+
+ALTER TABLE deliveries ALTER COLUMN status SET DEFAULT 'preparando';
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS origem text NOT NULL DEFAULT 'produto';
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS largura_cm numeric(10,2);
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS altura_cm numeric(10,2);
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS profundidade_cm numeric(10,2);
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS peso_kg numeric(10,3);
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS volume_foto_url text;
+ALTER TABLE deliveries ADD COLUMN IF NOT EXISTS oferta_expira_em timestamptz;
+
+CREATE TABLE IF NOT EXISTS delivery_events (
+  id serial PRIMARY KEY,
+  delivery_id integer NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
+  status text NOT NULL,
+  observacao text,
+  latitude numeric(10,7),
+  longitude numeric(10,7),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_delivery_events_delivery ON delivery_events(delivery_id, created_at);
+
+CREATE TABLE IF NOT EXISTS delivery_proofs (
+  id serial PRIMARY KEY,
+  delivery_id integer NOT NULL REFERENCES deliveries(id) ON DELETE CASCADE,
+  tipo text NOT NULL,
+  arquivo_url text NOT NULL,
+  recebedor_nome text,
+  consentimento_pessoa boolean NOT NULL DEFAULT false,
+  observacao text,
+  latitude numeric(10,7),
+  longitude numeric(10,7),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS praca_bank_transactions (
+  id serial PRIMARY KEY,
+  partner_id integer NOT NULL REFERENCES delivery_partners(id) ON DELETE CASCADE,
+  delivery_id integer REFERENCES deliveries(id) ON DELETE SET NULL,
+  tipo text NOT NULL DEFAULT 'credito_entrega',
+  valor numeric(12,2) NOT NULL,
+  status text NOT NULL DEFAULT 'pendente',
+  descricao text NOT NULL,
+  disponivel_em timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_praca_bank_delivery_credit
+  ON praca_bank_transactions(delivery_id, tipo) WHERE delivery_id IS NOT NULL;
+
+-- Dados logísticos padronizados L x H x P e peso. Foto do volume é opcional.
+ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS largura_cm numeric(10,2);
+ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS altura_cm numeric(10,2);
+ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS profundidade_cm numeric(10,2);
+ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS peso_kg numeric(10,3);
+ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS volume_foto_url text;
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {

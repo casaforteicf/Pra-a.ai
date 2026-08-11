@@ -36,8 +36,10 @@ app.use(
   }),
 );
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Fotos de documentação e comprovantes são enviadas pelo app como data URL
+// neste MVP. O limite evita rejeitar imagens de celular e ainda impõe um teto.
+app.use(express.json({ limit: "12mb" }));
+app.use(express.urlencoded({ extended: true, limit: "12mb" }));
 
 // Session store backed by PostgreSQL
 const PgStore = ConnectPgSimple(session);
