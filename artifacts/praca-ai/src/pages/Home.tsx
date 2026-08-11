@@ -175,7 +175,7 @@ export default function HomePage() {
       </nav>
 
       <div className="sticky top-[116px] z-20 border-b border-slate-200 bg-white shadow-sm">
-        <div className="mx-auto flex max-w-[1360px] gap-2 overflow-x-auto px-4 py-3 lg:px-6">
+        <div className="hide-scrollbar mx-auto flex max-w-[1360px] gap-2 overflow-x-auto px-4 py-3 lg:px-6">
           <button
             type="button"
             aria-expanded={showAllCategories}
@@ -197,25 +197,26 @@ export default function HomePage() {
           ))}
           <span className="ml-auto hidden shrink-0 self-center text-sm text-slate-500 sm:block">{products.length} produtos</span>
         </div>
-        {showAllCategories ? (
-          <div className="border-t border-slate-100 bg-white px-4 pb-5 pt-2 lg:px-6">
-            <div className="mx-auto max-w-[1360px]">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div><h2 className="font-serif text-lg font-bold text-[#0B1B2F]">Todas as categorias</h2><p className="text-xs text-slate-500">Escolha uma categoria para explorar</p></div>
-                <button type="button" onClick={() => setShowAllCategories(false)} className="text-xs font-bold text-amber-600">Recolher</button>
-              </div>
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-                {allCategories.map(({ label, href, Icon }) => (
-                  <Link key={label} href={href} className="group flex min-h-20 flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 text-center transition hover:-translate-y-0.5 hover:border-amber-500 hover:bg-amber-50">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#0B1B2F] shadow-sm group-hover:text-amber-600"><Icon className="h-5 w-5" /></span>
-                    <span className="text-[10px] font-bold leading-tight text-slate-700 sm:text-xs">{label}</span>
-                  </Link>
-                ))}
-              </div>
+      </div>
+
+      {showAllCategories ? (
+        <section className="border-b border-slate-200 bg-white px-4 pb-6 pt-5 lg:px-6" aria-labelledby="all-categories-title">
+          <div className="mx-auto max-w-[1360px]">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div><h2 id="all-categories-title" className="font-serif text-2xl font-bold text-[#0B1B2F]">Todas as categorias</h2><p className="text-sm text-slate-500">Escolha uma categoria para explorar</p></div>
+              <button type="button" onClick={() => setShowAllCategories(false)} className="shrink-0 text-sm font-bold text-amber-600">Recolher</button>
+            </div>
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
+              {allCategories.map(({ label, href, Icon }) => (
+                <Link key={label} href={href} className="group flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 text-center transition hover:-translate-y-0.5 hover:border-amber-500 hover:bg-amber-50">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#0B1B2F] shadow-sm group-hover:text-amber-600"><Icon className="h-5 w-5" /></span>
+                  <span className="text-[10px] font-bold leading-tight text-slate-700 sm:text-xs">{label}</span>
+                </Link>
+              ))}
             </div>
           </div>
-        ) : null}
-      </div>
+        </section>
+      ) : null}
 
       <main className="mx-auto max-w-[1360px] px-4 py-7 lg:px-6">
         <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_48px_rgba(11,27,47,.12)]">
