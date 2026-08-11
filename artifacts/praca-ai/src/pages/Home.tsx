@@ -1,65 +1,75 @@
 import * as React from "react"
-import { ShieldCheck, Truck, Store, MapPin, Search as SearchIcon, ArrowRight, Shirt, Bike, Smartphone, Sofa, Wrench, ShoppingCart, Pill, Dumbbell, Car, Home as HomeIcon, UtensilsCrossed, Paintbrush, Droplet, Grid3x3, Trees, DoorOpen, Zap, Waves, Blocks, Package, ChevronDown, Tag, Headphones, CreditCard, Sparkles, Gamepad2, Camera, Music, Watch, BookOpen, PawPrint, Plane } from "lucide-react"
-import { useGetHome, getGetHomeQueryKey } from "@workspace/api-client-react"
-import { Link, useLocation } from "wouter"
-import { formatMoney } from "@/lib/utils"
-import { PageLoader, Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
-import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { ProductCard } from "@/components/ProductCard"
-import { StoriesRow } from "@/components/StoriesRow"
-import { VariedadesDiaSection } from "@/components/VariedadesDiaSection"
+import { ArrowRight, BookOpen, Car, ChevronLeft, ChevronRight, Dumbbell, Gamepad2, Heart, Headphones, Home, Package, Plane, Search, ShieldCheck, Shirt, ShoppingBag, Smartphone, Sparkles, Store, Tag, Truck, User, UtensilsCrossed, Wrench } from "lucide-react"
+import { getGetHomeQueryKey, useGetHome } from "@workspace/api-client-react"
 import type { Product } from "@workspace/api-client-react"
+import { Link, useLocation } from "wouter"
+import { ProductCard, type ProductCardData } from "@/components/ProductCard"
+import { PageLoader } from "@/components/ui/skeleton"
+import { formatMoney } from "@/lib/utils"
 
-// Mapa dos nomes de ícone que o backend calcula (lib/catalogService.ts,
-// ICON_BY_NAME) pros componentes reais do lucide-react. Categoria sem
-// ícone mapeado cai no Package (nunca mais fica em branco).
-const CATEGORY_ICON_MAP: Record<string, typeof Package> = {
-  shirt: Shirt,
-  bike: Bike,
-  smartphone: Smartphone,
-  sofa: Sofa,
-  wrench: Wrench,
-  "shopping-cart": ShoppingCart,
-  pill: Pill,
-  dumbbell: Dumbbell,
-  home: HomeIcon,
-  car: Car,
-  truck: Truck,
-  paintbrush: Paintbrush,
-  droplet: Droplet,
-  grid: Grid3x3,
-  trees: Trees,
-  "door-open": DoorOpen,
-  zap: Zap,
-  waves: Waves,
-  blocks: Blocks,
-  package: Package,
-  sparkles: Sparkles,
-  gamepad: Gamepad2,
-  camera: Camera,
-  music: Music,
-  watch: Watch,
-  book: BookOpen,
-  "paw-print": PawPrint,
-  store: Store,
+type ShowcaseProduct = ProductCardData & { category: string; label?: string }
+
+const MOCK_PRODUCTS: ShowcaseProduct[] = [
+  { id: "demo-smartphone", name: "Smartphone Galaxy S24 256 GB", category: "Eletrônicos", price: 3499.9, originalPrice: 4999.9, discountPct: 30, imageUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=700&q=80", vendorName: "Loja Tech", rating: 4.8, reviewCount: 1245, freeShipping: true, label: "Mais vendido", href: "/listing?search=smartphone" },
+  { id: "demo-notebook", name: "Notebook para trabalho e estudos", category: "Eletrônicos", price: 4299.9, originalPrice: 5499.9, discountPct: 22, imageUrl: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?auto=format&fit=crop&w=700&q=80", vendorName: "Mundo Digital", rating: 4.7, reviewCount: 876, freeShipping: true, href: "/listing?search=notebook" },
+  { id: "demo-headphone", name: "Fone Bluetooth premium", category: "Eletrônicos", price: 199.9, originalPrice: 299.9, discountPct: 33, imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=700&q=80", vendorName: "Som & Cia", rating: 4.5, reviewCount: 543, href: "/listing?search=fone" },
+  { id: "demo-tenis", name: "Tênis esportivo urbano", category: "Moda", price: 499.9, originalPrice: 699.9, discountPct: 29, imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=700&q=80", vendorName: "Estilo Local", rating: 4.7, reviewCount: 234, label: "Destaque", href: "/listing?search=tenis" },
+  { id: "demo-sofa", name: "Sofá retrátil três lugares", category: "Casa", price: 1899.9, originalPrice: 2499.9, discountPct: 24, imageUrl: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=700&q=80", vendorName: "Casa & Conforto", rating: 4.8, reviewCount: 187, freeShipping: true, href: "/listing?search=sofa" },
+  { id: "demo-bike", name: "Bicicleta aro 29", category: "Esportes", price: 1899.9, originalPrice: 2499.9, discountPct: 24, imageUrl: "https://images.unsplash.com/photo-1502744688674-c619d1586c9e?auto=format&fit=crop&w=700&q=80", vendorName: "Pedal Livre", rating: 4.8, reviewCount: 154, href: "/listing?search=bicicleta" },
+  { id: "demo-game", name: "Console de nova geração", category: "Games", price: 3599.9, originalPrice: 4499.9, discountPct: 20, imageUrl: "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?auto=format&fit=crop&w=700&q=80", vendorName: "Arena Gamer", rating: 4.9, reviewCount: 932, label: "Mais vendido", href: "/listing?search=console" },
+  { id: "demo-book", name: "Box de livros clássicos", category: "Livros", price: 199.9, originalPrice: 299.9, discountPct: 33, imageUrl: "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=700&q=80", vendorName: "Livraria da Praça", rating: 4.9, reviewCount: 476, href: "/listing?search=livros" },
+  { id: "demo-camera", name: "Câmera digital profissional", category: "Eletrônicos", price: 3499.9, originalPrice: 4599.9, discountPct: 24, imageUrl: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=700&q=80", vendorName: "Foto Pro", rating: 4.8, reviewCount: 167, freeShipping: true, href: "/listing?search=camera" },
+  { id: "demo-watch", name: "Relógio inteligente esportivo", category: "Moda", price: 249.9, originalPrice: 349.9, discountPct: 29, imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=700&q=80", vendorName: "Conecta Shop", rating: 4.6, reviewCount: 321, href: "/listing?search=relogio" },
+  { id: "demo-chair", name: "Cadeira de escritório ergonômica", category: "Casa", price: 899.9, originalPrice: 1199.9, discountPct: 25, imageUrl: "https://images.unsplash.com/photo-1505843490538-5133c6c7d0e1?auto=format&fit=crop&w=700&q=80", vendorName: "Office Mais", rating: 4.7, reviewCount: 209, href: "/listing?search=cadeira" },
+  { id: "demo-tools", name: "Kit de ferramentas completo", category: "Automotivo", price: 189.9, originalPrice: 259.9, discountPct: 27, imageUrl: "https://images.unsplash.com/photo-1581166397057-235af2b3c6dd?auto=format&fit=crop&w=700&q=80", vendorName: "Ferramentas Sul", rating: 4.7, reviewCount: 345, href: "/listing?search=ferramentas" },
+]
+
+const FILTERS = [
+  ["Todos", Package], ["Eletrônicos", Smartphone], ["Moda", Shirt], ["Casa", Home],
+  ["Games", Gamepad2], ["Livros", BookOpen], ["Esportes", Dumbbell], ["Automotivo", Car],
+] as const
+
+const NAV_ITEMS = [
+  ["Início", "/", Home], ["Ofertas", "/listing", Tag], ["Categorias", "/listing", Package],
+  ["Marketplace", "/marketplace", Store], ["Fretes", "/fretes", Truck],
+  ["Viagens", "/listing?category=viagens-e-hoteis", Plane], ["Restaurantes", "/restaurantes", UtensilsCrossed],
+  ["Serviços", "/servicos", Wrench],
+] as const
+
+function realProductToCard(product: Product): ShowcaseProduct {
+  return { ...product, category: product.category || "Catálogo" }
 }
 
 export default function HomePage() {
   const [, navigate] = useLocation()
   const [search, setSearch] = React.useState("")
-  const { data: homeData, isLoading, isError } = useGetHome({
-    query: { queryKey: getGetHomeQueryKey() }
-  })
+  const [activeFilter, setActiveFilter] = React.useState("Todos")
+  const [promoIndex, setPromoIndex] = React.useState(0)
+  const { data: homeData, isLoading } = useGetHome({ query: { queryKey: getGetHomeQueryKey() } })
 
-  const [infiniteProducts, setInfiniteProducts] = React.useState<Product[]>([])
-  const [hasMoreProducts, setHasMoreProducts] = React.useState(true)
-  const [isLoadingMore, setIsLoadingMore] = React.useState(false)
-  const productsPageRef = React.useRef(1)
-  const loadingMoreRef = React.useRef(false)
-  const hasMoreRef = React.useRef(true)
-  const loadMoreSentinelRef = React.useRef<HTMLDivElement | null>(null)
+  const realProducts = React.useMemo(() => {
+    if (!homeData) return []
+    const all = [...homeData.flashDeals, ...homeData.carousels.flatMap((item) => item.products)]
+    const unique = new Map(all.map((product) => [product.id, product]))
+    return [...unique.values()].map(realProductToCard)
+  }, [homeData])
+
+  const products = React.useMemo(() => {
+    const source = [...MOCK_PRODUCTS, ...realProducts]
+    if (activeFilter === "Todos") return source
+    return source.filter((product) => product.category.toLocaleLowerCase("pt-BR").includes(activeFilter.toLocaleLowerCase("pt-BR")))
+  }, [activeFilter, realProducts])
+
+  const promos = React.useMemo(() => {
+    const source = realProducts.filter((product) => product.discountPct).slice(0, 4)
+    return source.length >= 3 ? source : MOCK_PRODUCTS.filter((product) => product.discountPct).slice(0, 4)
+  }, [realProducts])
+
+  React.useEffect(() => {
+    if (promos.length < 2) return
+    const interval = window.setInterval(() => setPromoIndex((current) => (current + 1) % promos.length), 5000)
+    return () => window.clearInterval(interval)
+  }, [promos.length])
 
   const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -67,356 +77,87 @@ export default function HomePage() {
     navigate(query ? `/listing?search=${encodeURIComponent(query)}` : "/listing")
   }
 
-  const offerProducts = React.useMemo(() => {
-    const products = [...(homeData?.flashDeals ?? [])]
-    return products.filter((product, index) => products.findIndex((item) => item.id === product.id) === index)
-  }, [homeData?.flashDeals])
-
-  const loadMoreProducts = React.useCallback(async () => {
-    if (loadingMoreRef.current || !hasMoreRef.current) return
-    loadingMoreRef.current = true
-    setIsLoadingMore(true)
-
-    try {
-      const response = await fetch(`/api/products?page=${productsPageRef.current}&limit=20`)
-      if (!response.ok) throw new Error("Falha ao carregar produtos")
-      const data = await response.json() as { products: Product[]; hasMore: boolean }
-
-      setInfiniteProducts((current) => {
-        const knownIds = new Set(current.map((product) => product.id))
-        return [...current, ...data.products.filter((product) => !knownIds.has(product.id))]
-      })
-      productsPageRef.current += 1
-      hasMoreRef.current = data.hasMore
-      setHasMoreProducts(data.hasMore)
-    } catch (error) {
-      console.error("[home] erro ao carregar mais produtos:", error)
-      hasMoreRef.current = false
-      setHasMoreProducts(false)
-    } finally {
-      loadingMoreRef.current = false
-      setIsLoadingMore(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    void loadMoreProducts()
-  }, [loadMoreProducts])
-
-  React.useEffect(() => {
-    const sentinel = loadMoreSentinelRef.current
-    if (!sentinel) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) void loadMoreProducts()
-      },
-      { rootMargin: "500px 0px" },
-    )
-    observer.observe(sentinel)
-    return () => observer.disconnect()
-  }, [loadMoreProducts])
+  const promo = promos[promoIndex] ?? MOCK_PRODUCTS[0]
 
   return (
-    <div className="flex min-h-full w-full flex-col bg-background pb-10">
-      {/* Marketplace header */}
-      <header className="sticky top-0 inset-x-0 z-30 border-b border-white/10 bg-[#0B1B2F] px-4 py-3 text-white shadow-[0_10px_30px_rgba(11,27,47,.28)] lg:px-8">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-[auto_1fr_auto] items-center gap-3 lg:gap-x-8">
-          <h1 className="flex items-center gap-2 font-serif text-2xl font-black tracking-tight text-white">
-            <Store className="h-6 w-6 fill-amber-500 text-amber-500" />
-            Praça.ai
-          </h1>
-          <form onSubmit={submitSearch} className="relative col-span-3 row-start-2 flex rounded-full border border-white/10 bg-white/[.08] p-1 transition focus-within:border-amber-500 focus-within:bg-white/[.13] lg:col-span-1 lg:col-start-2 lg:row-start-1">
-            <SearchIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Buscar produtos, lojas e serviços"
-              aria-label="Buscar produtos, lojas e serviços"
-              className="h-11 flex-1 rounded-full border-0 bg-transparent pl-12 pr-3 text-base text-white shadow-none placeholder:text-white/50 focus-visible:ring-0"
-            />
-            <button type="submit" className="hidden rounded-full bg-amber-500 px-5 text-sm font-bold text-[#0B1B2F] transition hover:bg-amber-600 sm:block">Buscar</button>
+    <div className="min-h-full bg-slate-100 pb-10 text-slate-950">
+      <header className="sticky top-0 z-40 bg-[#0B1B2F] px-4 py-3 text-white shadow-[0_4px_20px_rgba(0,0,0,.3)] lg:px-8">
+        <div className="mx-auto flex max-w-[1360px] flex-wrap items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-2 font-serif text-2xl font-extrabold sm:text-3xl">
+            <Store className="h-7 w-7 fill-amber-500 text-amber-500" /> Praça<span className="text-amber-500">.ai</span>
+          </Link>
+          <form onSubmit={submitSearch} className="order-3 flex w-full rounded-full border border-white/10 bg-white/[.08] p-1 transition focus-within:border-amber-500 focus-within:bg-white/[.14] lg:order-none lg:max-w-[540px] lg:flex-1">
+            <label className="sr-only" htmlFor="home-search">Buscar produtos</label>
+            <input id="home-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque produtos, marcas, categorias..." className="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/40" />
+            <button type="submit" className="flex items-center gap-2 rounded-full bg-amber-500 px-5 py-2 text-sm font-bold text-[#0B1B2F] transition hover:bg-amber-600"><Search className="h-4 w-4" /><span className="hidden sm:inline">Buscar</span></button>
           </form>
-          <div className="flex items-center gap-2 justify-self-end rounded-full border border-white/10 bg-white/10 px-3 py-2 text-xs font-bold text-white backdrop-blur">
-            <MapPin className="h-4 w-4" />
-            <span className="hidden sm:inline">Chapecó, SC</span>
+          <div className="flex items-center gap-4 text-[11px] text-white/70 sm:gap-5">
+            <Link href="/favorites" className="flex flex-col items-center gap-1 hover:text-amber-500"><Heart className="h-5 w-5" /><span className="hidden sm:inline">Favoritos</span></Link>
+            <Link href="/marketplace" className="flex flex-col items-center gap-1 hover:text-amber-500"><ShoppingBag className="h-5 w-5" /><span className="hidden sm:inline">Comprar</span></Link>
+            <Link href="/profile" className="flex flex-col items-center gap-1 hover:text-amber-500"><User className="h-5 w-5" /><span className="hidden sm:inline">Conta</span></Link>
           </div>
-          <nav className="col-span-3 hidden items-center gap-6 border-t border-white/10 pt-3 text-sm font-semibold text-white/75 lg:flex">
-            <Link href="/" className="hover:text-amber-500">Início</Link>
-            <Link href="/listing" className="flex items-center gap-1 hover:text-amber-500">Categorias <ChevronDown className="h-4 w-4" /></Link>
-            <Link href="/listing" className="hover:text-amber-500">Ofertas</Link>
-            <Link href="/servicos" className="hover:text-amber-500">Serviços</Link>
-            <Link href="/restaurantes" className="hover:text-amber-500">Restaurantes</Link>
-            <Link href="/fretes" className="hover:text-amber-500">Fretes</Link>
-            <Link href="/listing?category=viagens-e-hoteis" className="hover:text-amber-500">Viagens</Link>
-            <a
-              href="https://appvendorai.com/cadastro-praca"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-auto flex items-center gap-1.5 rounded-full bg-amber-500 px-4 py-2 font-black text-[#0B1B2F] shadow-lg transition hover:-translate-y-0.5 hover:bg-amber-600"
-            >
-              <Store className="h-4 w-4" /> Cadastre sua loja grátis
-            </a>
-          </nav>
         </div>
       </header>
 
-      {/* CTA cadastro de vendedor — visível também no mobile, onde o nav de cima fica escondido */}
-      <a
-        href="https://appvendorai.com/cadastro-praca"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 bg-amber-500 px-4 py-2.5 text-center text-sm font-black text-[#0B1B2F] lg:hidden"
-      >
-        <Store className="h-4 w-4 shrink-0" /> Tem uma loja? Cadastre-se grátis no Praça.ai
-      </a>
-
-      {/* Trust Strip */}
-      <div className="hidden items-center justify-center gap-10 border-b bg-white px-4 py-2.5 text-xs font-bold text-primary shadow-sm md:flex">
-        <div className="flex items-center gap-1.5">
-          <ShieldCheck className="w-4 h-4" />
-          <span>Compra Segura</span>
+      <nav className="sticky top-[68px] z-30 hidden border-b border-slate-200 bg-white shadow-sm lg:block">
+        <div className="mx-auto flex max-w-[1360px] gap-7 overflow-x-auto px-6 py-3 text-sm font-semibold text-slate-700">
+          {NAV_ITEMS.map(([label, href, Icon]) => <Link key={label} href={href} className="flex shrink-0 items-center gap-1.5 border-b-2 border-transparent transition hover:border-amber-500 hover:text-amber-600"><Icon className="h-4 w-4 text-amber-500" />{label}</Link>)}
         </div>
-        <div className="flex items-center gap-1.5">
-          <Truck className="w-4 h-4" />
-          <span>Entrega Local Rápida</span>
+      </nav>
+
+      <div className="sticky top-[116px] z-20 border-b border-slate-200 bg-white shadow-sm">
+        <div className="mx-auto flex max-w-[1360px] gap-2 overflow-x-auto px-4 py-3 lg:px-6">
+          {FILTERS.map(([label, Icon]) => (
+            <button key={label} type="button" onClick={() => setActiveFilter(label)} className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-4 py-1.5 text-xs font-bold transition ${activeFilter === label ? "border-amber-500 bg-amber-500 text-[#0B1B2F]" : "border-slate-200 bg-white text-slate-700 hover:border-amber-500 hover:text-amber-600"}`}><Icon className="h-3.5 w-3.5" />{label}</button>
+          ))}
+          <span className="ml-auto hidden shrink-0 self-center text-sm text-slate-500 sm:block">{products.length} produtos</span>
         </div>
       </div>
 
-      {isLoading && <PageLoader />}
-      
-      {isError && !isLoading && (
-        <div className="p-8 text-center text-muted-foreground">
-          <p>Erro ao carregar os dados. Tente novamente mais tarde.</p>
+      <main className="mx-auto max-w-[1360px] px-4 py-7 lg:px-6">
+        <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_48px_rgba(11,27,47,.12)]">
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-[#0B1B2F] px-5 py-4 text-white sm:px-7">
+            <h1 className="flex items-center gap-2 font-serif text-xl font-bold"><Sparkles className="h-5 w-5 text-amber-500" /> Promoções do dia</h1>
+            <span className="rounded-full border border-amber-500/20 bg-amber-500/15 px-4 py-1.5 text-xs font-bold text-amber-500">Seleção em destaque</span>
+          </div>
+          <div className="grid items-center gap-5 p-5 sm:grid-cols-[180px_1fr_auto] sm:p-7">
+            <img src={promo.imageUrl ?? undefined} alt={promo.name} className="aspect-square w-full rounded-2xl bg-slate-100 object-cover sm:w-[180px]" />
+            <div>
+              <span className="inline-flex rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">{promo.category}</span>
+              <h2 className="mt-3 font-serif text-2xl font-bold text-[#0B1B2F]">{promo.name}</h2>
+              {promo.originalPrice ? <p className="mt-2 text-sm text-slate-400 line-through">{formatMoney(promo.originalPrice)}</p> : null}
+              <p className="font-serif text-3xl font-extrabold text-[#0B1B2F]">{formatMoney(promo.price)}</p>
+              <p className="mt-1 text-sm font-semibold text-amber-600"><Store className="mr-1 inline h-4 w-4" />{promo.vendorName}</p>
+            </div>
+            <Link href={promo.href ?? `/product/${promo.id}`} className="flex items-center justify-center gap-2 rounded-full bg-amber-500 px-6 py-3 font-bold text-[#0B1B2F] shadow-[0_8px_24px_rgba(245,158,11,.25)] transition hover:-translate-y-0.5 hover:bg-amber-600">Ver oferta <ArrowRight className="h-4 w-4" /></Link>
+          </div>
+          <div className="flex items-center justify-center gap-4 pb-5">
+            <button type="button" onClick={() => setPromoIndex((promoIndex - 1 + promos.length) % promos.length)} aria-label="Promoção anterior" className="text-slate-400 hover:text-amber-500"><ChevronLeft className="h-5 w-5" /></button>
+            <div className="flex gap-2">{promos.map((item, index) => <button type="button" key={item.id} onClick={() => setPromoIndex(index)} aria-label={`Ver promoção ${index + 1}`} className={`h-2.5 rounded-full transition-all ${index === promoIndex ? "w-7 bg-amber-500" : "w-2.5 bg-slate-200"}`} />)}</div>
+            <button type="button" onClick={() => setPromoIndex((promoIndex + 1) % promos.length)} aria-label="Próxima promoção" className="text-slate-400 hover:text-amber-500"><ChevronRight className="h-5 w-5" /></button>
+          </div>
+        </section>
+
+        <section className="mt-8">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div><h2 className="flex items-center gap-2 font-serif text-3xl font-bold"><Store className="h-6 w-6 text-amber-500" /> Todos os produtos</h2><p className="mt-1 text-sm text-slate-500">Itens demonstrativos e ofertas disponíveis no catálogo</p></div>
+            <Link href="/listing" className="flex items-center gap-1 text-sm font-bold text-amber-600 hover:text-amber-700">Ver catálogo <ArrowRight className="h-4 w-4" /></Link>
+          </div>
+          {isLoading && realProducts.length === 0 ? <PageLoader /> : null}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            {products.map((product) => <div key={product.id} className="relative"><span className="absolute left-3 top-3 z-10 rounded-full bg-[#0B1B2F]/90 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-white">{product.id.startsWith("demo-") ? "Demonstração" : "Catálogo"}</span><ProductCard product={product} className="h-full" /></div>)}
+          </div>
+        </section>
+      </main>
+
+      <footer className="mt-10 rounded-t-[40px] bg-[#0B1B2F] px-5 pb-28 pt-10 text-white lg:pb-8">
+        <div className="mx-auto max-w-[1360px]">
+          <div className="grid gap-6 border-b border-white/10 pb-8 sm:grid-cols-2 lg:grid-cols-4">
+            {[[ShieldCheck, "Compra protegida", "Segurança em cada pedido"], [Truck, "Entrega conectada", "Logística integrada"], [Store, "Parceiros locais", "Lojas da sua região"], [Headphones, "Atendimento", "Ajuda quando precisar"]].map(([Icon, title, text]) => <div key={title as string} className="flex items-center gap-3"><Icon className="h-7 w-7 text-amber-500" /><div><p className="font-bold">{title as string}</p><p className="text-xs text-white/50">{text as string}</p></div></div>)}
+          </div>
+          <div className="flex flex-col items-center justify-between gap-4 pt-7 sm:flex-row"><span className="font-serif text-xl font-bold">Praça<span className="text-amber-500">.ai</span></span><div className="flex gap-6 text-sm text-white/55"><Link href="/listing">Explorar</Link><Link href="/fretes">Fretes</Link><Link href="/profile">Conta</Link></div><span className="text-xs text-white/30">© 2026 Praça.ai</span></div>
         </div>
-      )}
-
-      {homeData && (
-        <div className="flex flex-col">
-
-          <StoriesRow groups={(homeData as any).stories ?? []} />
-
-          {/* Banners */}
-          <section className="px-4 pt-5 lg:px-8">
-            <div className="mx-auto flex max-w-[1376px] snap-x snap-mandatory gap-0 overflow-hidden rounded-[28px] shadow-neon hide-scrollbar">
-              {homeData.banners.slice(0, 1).map((banner) => (
-                <div key={banner.id} className="relative h-[250px] w-full shrink-0 snap-center overflow-hidden sm:h-[330px] lg:h-[390px]">
-                  <img src={banner.imageUrl} alt={banner.title} className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute inset-0 flex flex-col justify-center bg-gradient-to-r from-[#0B1B2F]/95 via-[#1A365D]/75 to-[#0B1B2F]/10 px-6 sm:px-12 lg:px-16">
-                    {banner.badgeText && (
-                      <Badge className="w-fit mb-2 bg-terracota">{banner.badgeText}</Badge>
-                    )}
-                    <h2 className="max-w-xl font-serif text-3xl font-black leading-tight text-white sm:text-5xl">{banner.title}</h2>
-                    {banner.subtitle && <p className="mt-2 max-w-lg text-base font-medium text-white/90 sm:text-xl">{banner.subtitle}</p>}
-                    <Link href="/listing" className="mt-5 inline-flex w-fit items-center gap-2 rounded-full bg-amber-500 px-6 py-3 text-sm font-black text-[#0B1B2F] shadow-lg transition hover:-translate-y-0.5 hover:bg-amber-600">Ver ofertas <ArrowRight className="h-4 w-4" /></Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Categories Grid */}
-          <section className="relative z-10 mx-auto -mt-4 w-[calc(100%-2rem)] max-w-6xl rounded-[24px] border border-white bg-card px-4 py-5 shadow-[0_18px_45px_rgba(45,39,110,.12)] lg:-mt-7 lg:px-7">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="font-serif text-2xl font-bold">Encontre tudo na sua cidade</h2>
-              <Link href="/listing" className="hidden text-sm font-semibold text-primary sm:block">Ver todas as categorias</Link>
-            </div>
-            <div className="grid grid-cols-4 gap-x-2 gap-y-5 md:grid-cols-7 lg:grid-cols-10">
-              {homeData.categories.map((category) => {
-                const Icon = CATEGORY_ICON_MAP[(category as any).icon] ?? Package
-                return (
-                  <Link key={category.id} href={category.slug === "marketplace" ? "/marketplace" : `/listing?category=${category.slug}`} className="flex flex-col items-center gap-2 group">
-                    <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 transition-all group-hover:-translate-y-1 group-hover:bg-amber-100 group-hover:shadow-neon-sm group-active:scale-95">
-                      <Icon className="w-7 h-7 text-primary" />
-                    </div>
-                    <span className="text-[11px] font-bold text-center leading-tight">{category.name}</span>
-                  </Link>
-                )
-              })}
-              {/* Veículos não vem do catálogo dinâmico (produtos_catalogo) —
-                  fica numa tabela própria do Vendor.ai, por isso é fixo aqui. */}
-              <Link href="/veiculos" className="flex flex-col items-center gap-2 group">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:-translate-y-1 group-active:scale-95">
-                  <Car className="w-7 h-7 text-primary" />
-                </div>
-                <span className="text-[11px] font-bold text-center leading-tight">Veículos</span>
-              </Link>
-              <Link href="/imoveis" className="flex flex-col items-center gap-2 group">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:-translate-y-1 group-active:scale-95">
-                  <HomeIcon className="w-7 h-7 text-primary" />
-                </div>
-                <span className="text-[11px] font-bold text-center leading-tight">Imóveis</span>
-              </Link>
-              <Link href="/farmacia" className="flex flex-col items-center gap-2 group">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:-translate-y-1 group-active:scale-95">
-                  <Pill className="w-7 h-7 text-primary" />
-                </div>
-                <span className="text-[11px] font-bold text-center leading-tight">Farmácia</span>
-              </Link>
-              <Link href="/restaurantes" className="flex flex-col items-center gap-2 group">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:-translate-y-1 group-active:scale-95">
-                  <UtensilsCrossed className="w-7 h-7 text-primary" />
-                </div>
-                <span className="text-[11px] font-bold text-center leading-tight">Restaurantes</span>
-              </Link>
-              <Link href="/servicos" className="flex flex-col items-center gap-2 group">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:-translate-y-1 group-active:scale-95">
-                  <Wrench className="w-7 h-7 text-primary" />
-                </div>
-                <span className="text-[11px] font-bold text-center leading-tight">Serviços</span>
-              </Link>
-              <Link href="/fretes" className="flex flex-col items-center gap-2 group">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:-translate-y-1 group-active:scale-95">
-                  <Truck className="w-7 h-7 text-primary" />
-                </div>
-                <span className="text-[11px] font-bold text-center leading-tight">Fretes</span>
-              </Link>
-              <Link href="/listing?category=viagens-e-hoteis" className="flex flex-col items-center gap-2 group">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 transition-transform group-hover:-translate-y-1 group-active:scale-95">
-                  <Plane className="w-7 h-7 text-primary" />
-                </div>
-                <span className="text-[11px] font-bold text-center leading-tight">Viagens e hotéis</span>
-              </Link>
-            </div>
-          </section>
-
-          <section className="mx-auto mt-6 grid w-[calc(100%-2rem)] max-w-6xl grid-cols-2 gap-px overflow-hidden rounded-lg bg-border shadow-sm md:grid-cols-4">
-            {[
-              [CreditCard, "Pagamento seguro", "Compre com tranquilidade"],
-              [Truck, "Entrega local", "Receba mais rápido"],
-              [Tag, "Ofertas da região", "Preços perto de você"],
-              [Headphones, "Atendimento", "Suporte quando precisar"],
-            ].map(([Icon, title, subtitle]) => (
-              <div key={title as string} className="flex min-h-24 items-center gap-3 bg-card p-4">
-                <Icon className="h-7 w-7 shrink-0 text-primary" />
-                <div><p className="text-sm font-bold">{title as string}</p><p className="text-xs text-muted-foreground">{subtitle as string}</p></div>
-              </div>
-            ))}
-          </section>
-
-          {/* Produtos aparecem cedo no mobile, antes dos blocos editoriais. */}
-          {infiniteProducts.length > 0 && (
-            <section className="mx-auto mt-6 w-[calc(100%-2rem)] max-w-6xl">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="font-serif text-2xl font-bold">Destaques para você</h3>
-                <Link href="/listing" className="flex items-center gap-1 text-sm font-bold text-primary">
-                  Ver mais <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-6">
-                {infiniteProducts.slice(0, 6).map((product) => (
-                  <ProductCard key={product.id} product={product} compact className="h-full w-full" />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* Flash Deals */}
-          {offerProducts.length > 0 && <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl rounded-[24px] border border-slate-200 bg-card p-5 shadow-[0_12px_32px_rgba(11,27,47,.06)]">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-serif text-2xl font-bold">Ofertas do dia</h3>
-                  <Badge variant="terracota">Seleção local</Badge>
-                </div>
-                <Link href="/listing" className="text-primary text-sm font-bold flex items-center gap-1">
-                  Ver todas <ArrowRight className="w-4 h-4" />
-                </Link>
-              </div>
-              <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 hide-scrollbar">
-                  {offerProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} className="w-[140px] shrink-0 snap-center md:w-[190px] lg:w-[220px]" />
-                  ))}
-              </div>
-          </section>}
-
-          {/* Category Carousels */}
-          {homeData.carousels.map((carousel) => (
-            <section key={carousel.category.id} className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl rounded-[24px] border border-slate-200 bg-card p-5 shadow-[0_12px_32px_rgba(11,27,47,.06)]">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-serif text-2xl font-bold">{carousel.category.name}</h3>
-                <Link href={`/listing?category=${carousel.category.slug}`} className="text-primary text-sm font-bold flex items-center gap-1">
-                  Ver mais <ArrowRight className="w-4 h-4" />
-                </Link>
-              </div>
-              <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 hide-scrollbar">
-                {carousel.products.map((product) => (
-                  <ProductCard key={product.id} product={product} className="w-[140px] shrink-0 snap-center md:w-[190px] lg:w-[220px]" />
-                ))}
-              </div>
-            </section>
-          ))}
-
-          {/* Infinite product discovery */}
-          <section className="mx-auto mt-8 w-[calc(100%-2rem)] max-w-6xl">
-            <div className="mb-4 flex items-end justify-between gap-4">
-              <div>
-                <h3 className="font-serif text-3xl font-bold">Todos os produtos</h3>
-                <p className="text-sm text-muted-foreground">Continue rolando para descobrir mais ofertas da sua região.</p>
-              </div>
-              <Link href="/listing" className="hidden shrink-0 text-sm font-bold text-primary sm:flex sm:items-center sm:gap-1">
-                Explorar catálogo <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
-              {infiniteProducts.slice(6, 6 + 4 + (new Date().getDate() % 3) * 2).map((product) => (
-                <ProductCard key={product.id} product={product} compact className="h-full w-full" />
-              ))}
-            </div>
-
-            <VariedadesDiaSection variedades={(homeData as any)?.variedadesHoje ?? []} />
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 md:grid-cols-4 lg:grid-cols-5">
-              {infiniteProducts.slice(6 + 4 + (new Date().getDate() % 3) * 2).map((product) => (
-                <ProductCard key={product.id} product={product} compact className="h-full w-full" />
-              ))}
-            </div>
-
-            <div ref={loadMoreSentinelRef} className="flex min-h-24 items-center justify-center py-6" aria-live="polite">
-              {isLoadingMore && (
-                <div className="flex items-center gap-3 text-sm font-semibold text-muted-foreground">
-                  <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
-                  Carregando mais produtos...
-                </div>
-              )}
-              {!hasMoreProducts && infiniteProducts.length > 0 && (
-                <p className="text-sm text-muted-foreground">Você chegou ao fim do catálogo.</p>
-              )}
-            </div>
-          </section>
-
-          <footer className="mt-12 rounded-t-[36px] bg-[#0B1B2F] px-5 pb-28 pt-10 text-white lg:pb-10">
-            <div className="mx-auto max-w-6xl">
-              <div className="grid gap-6 border-b border-white/10 pb-8 sm:grid-cols-2 lg:grid-cols-4">
-                {[
-                  [ShieldCheck, "Compra protegida", "Mais segurança em cada pedido"],
-                  [Truck, "Entrega conectada", "Acompanhe a logística do produto"],
-                  [Store, "Parceiros locais", "Lojas e vendedores da sua região"],
-                  [Headphones, "Atendimento", "Ajuda quando você precisar"],
-                ].map(([Icon, title, subtitle]) => (
-                  <div key={title as string} className="flex items-center gap-3">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-500">
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <div><p className="font-bold">{title as string}</p><p className="text-xs text-white/55">{subtitle as string}</p></div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex flex-col items-center justify-between gap-5 pt-7 sm:flex-row">
-                <Link href="/" className="flex items-center gap-2 font-serif text-2xl font-bold"><Store className="h-6 w-6 text-amber-500" /> Praça.ai</Link>
-                <nav className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-white/60">
-                  <Link href="/listing" className="hover:text-amber-500">Explorar</Link>
-                  <Link href="/servicos" className="hover:text-amber-500">Serviços</Link>
-                  <Link href="/fretes" className="hover:text-amber-500">Fretes</Link>
-                  <Link href="/profile" className="hover:text-amber-500">Minha conta</Link>
-                </nav>
-                <p className="text-xs text-white/35">© 2026 Praça.ai</p>
-              </div>
-            </div>
-          </footer>
-          
-        </div>
-      )}
+      </footer>
     </div>
   )
 }

@@ -14,6 +14,8 @@ export interface ProductCardData {
   rating?: number
   reviewCount?: number
   freeShipping?: boolean
+  /** Destino alternativo usado por cards demonstrativos sem página própria. */
+  href?: string
 }
 
 /**
@@ -26,7 +28,7 @@ export function ProductCard({ product, className, compact = false }: { product: 
   const hasRating = (product.reviewCount ?? 0) > 0
 
   return (
-    <Link href={`/product/${product.id}`} className={cn("block", className)}>
+    <Link href={product.href ?? `/product/${product.id}`} className={cn("block", className)}>
       <Card className="group h-full overflow-hidden rounded-[20px] border border-slate-200 bg-card shadow-[0_8px_24px_rgba(11,27,47,.06)] transition-all duration-300 hover:-translate-y-1.5 hover:border-secondary hover:shadow-[0_20px_48px_rgba(11,27,47,.12)] active:scale-95">
         <div className={cn("relative overflow-hidden bg-gradient-to-br from-slate-50 to-slate-200", compact ? "aspect-[1.18/1] sm:aspect-square" : "aspect-square")}>
           <img
