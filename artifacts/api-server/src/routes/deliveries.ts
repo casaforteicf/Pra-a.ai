@@ -1,236 +1,190 @@
 import { Router, type IRouter } from "express";
-import { eq, and, inArray, ne, sql } from "drizzle-orm";
-import { db, deliveriesTable, deliveryPartnersTable, ordersTable } from "@workspace/db";
+import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import {
+  db, consumersTable, deliveriesTable, deliveryEventsTable, deliveryPartnersTable,
+  deliveryProofsTable, ordersTable, pracaBankTransactionsTable,
+} from "@workspace/db";
 
 const router: IRouter = Router();
-
-// Limite realista de encomendas simultâneas por parceiro motorista (moto/
-// carro não carrega infinitas entregas de uma vez).
 const MAX_ENTREGAS_SIMULTANEAS = 3;
-const STATUS_ATIVOS = ["aceita", "coletada", "a_caminho"] as const;
+const STATUS_ATIVOS = ["ofertada", "aceita", "chegando_coleta", "coletada", "em_transito", "chegando_entrega"];
+const TRANSICOES: Record<string, string[]> = {
+  aceita: ["chegando_coleta", "cancelada"],
+  chegando_coleta: ["coletada", "cancelada"],
+  coletada: ["em_transito", "cancelada"],
+  em_transito: ["chegando_entrega", "falha_entrega"],
+  chegando_entrega: ["entregue", "falha_entrega"],
+  falha_entrega: ["em_transito", "devolucao"],
+};
 
-function extrairCidade(deliveryAddressJson: string): string | null {
-  try {
-    const addr = JSON.parse(deliveryAddressJson);
-    return typeof addr?.city === "string" ? addr.city.trim().toLowerCase() : null;
-  } catch {
-    return null;
-  }
+function consumerId(req: any): number | null { return req.session?.consumerId ?? null; }
+function cidadeDoEndereco(raw: string): string | null {
+  try { return String(JSON.parse(raw)?.city || "").trim().toLowerCase() || null; } catch { return null; }
+}
+async function partnerDaSessao(req: any) {
+  const id = consumerId(req);
+  if (!id) return null;
+  const [partner] = await db.select().from(deliveryPartnersTable).where(eq(deliveryPartnersTable.consumerId, id)).limit(1);
+  return partner ?? null;
+}
+async function evento(deliveryId: number, status: string, observacao?: string, latitude?: number, longitude?: number) {
+  await db.insert(deliveryEventsTable).values({ deliveryId, status, observacao: observacao || null, latitude: latitude == null ? null : String(latitude), longitude: longitude == null ? null : String(longitude) });
 }
 
-/**
- * Matching por carga + agrupamento por região: entre os parceiros não
- * offline com menos de MAX_ENTREGAS_SIMULTANEAS entregas ativas, prioriza
- * quem já está com uma entrega ativa pra MESMA cidade de destino (evita
- * mandar dois motoristas pro mesmo bairro enquanto outro fica ocioso do
- * outro lado da praça) — depois desempata pelo parceiro com MENOS entregas
- * ativas no momento (balanceamento de carga, não sempre o primeiro
- * cadastrado).
- *
- * Ainda não é roteirização real por distância (sem chave de geocoding,
- * mesma limitação já documentada em freteService.ts) — é aproximação por
- * cidade + carga, mas já resolve os dois problemas reais do matching
- * anterior: nunca balanceava carga, e nunca agrupava por região.
- */
-async function encontrarParceiroOtimo(praca: string, cidadeDestino: string | null) {
-  const candidatos = await db
-    .select()
-    .from(deliveryPartnersTable)
-    .where(and(eq(deliveryPartnersTable.praca, praca), ne(deliveryPartnersTable.status, "offline")));
-
-  if (candidatos.length === 0) return null;
-
-  const entregasAtivas = await db
-    .select({
-      partnerId: deliveriesTable.partnerId,
-      orderId: deliveriesTable.orderId,
-    })
-    .from(deliveriesTable)
-    .where(inArray(deliveriesTable.status, STATUS_ATIVOS as unknown as string[]));
-
-  // Carrega o endereço de cada pedido em rota, pra saber a cidade de cada
-  // entrega ativa por parceiro.
-  const orderIds = [...new Set(entregasAtivas.map((e) => e.orderId))];
-  const orders = orderIds.length
-    ? await db.select({ id: ordersTable.id, deliveryAddress: ordersTable.deliveryAddress })
-        .from(ordersTable).where(inArray(ordersTable.id, orderIds))
-    : [];
-  const cidadePorOrder = new Map(orders.map((o) => [o.id, extrairCidade(o.deliveryAddress)]));
-
-  const cargaPorParceiro = new Map<number, { total: number; mesmaCidade: boolean }>();
-  for (const partner of candidatos) {
-    cargaPorParceiro.set(partner.id, { total: 0, mesmaCidade: false });
-  }
-  for (const entrega of entregasAtivas) {
-    if (entrega.partnerId == null || !cargaPorParceiro.has(entrega.partnerId)) continue;
-    const info = cargaPorParceiro.get(entrega.partnerId)!;
-    info.total += 1;
-    if (cidadeDestino && cidadePorOrder.get(entrega.orderId) === cidadeDestino) {
-      info.mesmaCidade = true;
-    }
-  }
-
-  const disponiveis = candidatos.filter((p) => (cargaPorParceiro.get(p.id)?.total ?? 0) < MAX_ENTREGAS_SIMULTANEAS);
-  if (disponiveis.length === 0) return null;
-
-  disponiveis.sort((a, b) => {
-    const ca = cargaPorParceiro.get(a.id)!;
-    const cb = cargaPorParceiro.get(b.id)!;
-    if (ca.mesmaCidade !== cb.mesmaCidade) return ca.mesmaCidade ? -1 : 1; // mesma cidade primeiro
-    return ca.total - cb.total; // menos carregado primeiro
-  });
-
-  return disponiveis[0];
+async function encontrarParceiro(praca: string, cidadeDestino: string | null) {
+  const candidatos = await db.select().from(deliveryPartnersTable).where(and(
+    eq(deliveryPartnersTable.praca, praca), eq(deliveryPartnersTable.status, "disponivel"), eq(deliveryPartnersTable.documentacaoStatus, "aprovada"),
+  ));
+  if (!candidatos.length) return null;
+  const ativas = await db.select({ partnerId: deliveriesTable.partnerId, orderId: deliveriesTable.orderId }).from(deliveriesTable).where(inArray(deliveriesTable.status, STATUS_ATIVOS));
+  const carga = new Map<number, number>();
+  for (const item of ativas) if (item.partnerId) carga.set(item.partnerId, (carga.get(item.partnerId) || 0) + 1);
+  const disponiveis = candidatos.filter((p) => (carga.get(p.id) || 0) < MAX_ENTREGAS_SIMULTANEAS);
+  disponiveis.sort((a, b) => (carga.get(a.id) || 0) - (carga.get(b.id) || 0));
+  return disponiveis[0] ?? null;
 }
+
+async function ofertar(deliveryId: number) {
+  const [delivery] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, deliveryId)).limit(1);
+  if (!delivery) return null;
+  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, delivery.orderId)).limit(1);
+  const partner = await encontrarParceiro("Chapecó", order ? cidadeDoEndereco(order.deliveryAddress) : null);
+  if (!partner) return delivery;
+  const expira = new Date(Date.now() + 5 * 60_000);
+  const [updated] = await db.update(deliveriesTable).set({ partnerId: partner.id, status: "ofertada", ofertaExpiraEm: expira }).where(eq(deliveriesTable.id, delivery.id)).returning();
+  await evento(delivery.id, "ofertada", `Oferta enviada para ${partner.nome}`);
+  return updated;
+}
+
+router.post("/logistica/entregadores/cadastro", async (req, res): Promise<void> => {
+  const id = consumerId(req);
+  if (!id) return void res.status(401).json({ error: "Entre na sua conta para se cadastrar." });
+  const { cpf, documentoFotoUrl, selfieUrl, cnhUrl, veiculoDocumentoUrl, veiculoTipo, placa, praca = "Chapecó" } = req.body;
+  if (!cpf || !documentoFotoUrl || !selfieUrl || !veiculoTipo) return void res.status(400).json({ error: "CPF, documento com foto, selfie e veículo são obrigatórios." });
+  const [consumer] = await db.select().from(consumersTable).where(eq(consumersTable.id, id)).limit(1);
+  if (!consumer?.phone) return void res.status(400).json({ error: "Cadastre seu telefone em Meus dados antes de continuar." });
+  const [existing] = await db.select().from(deliveryPartnersTable).where(eq(deliveryPartnersTable.consumerId, id)).limit(1);
+  const values = { consumerId: id, nome: consumer.name, telefone: consumer.phone, cpf, documentoFotoUrl, selfieUrl, cnhUrl: cnhUrl || null, veiculoDocumentoUrl: veiculoDocumentoUrl || null, veiculoTipo, placa: placa || null, praca, documentacaoStatus: "pendente", status: "offline" };
+  const [partner] = existing
+    ? await db.update(deliveryPartnersTable).set(values).where(eq(deliveryPartnersTable.id, existing.id)).returning()
+    : await db.insert(deliveryPartnersTable).values(values).returning();
+  res.status(existing ? 200 : 201).json(partner);
+});
+
+router.get("/logistica/entregador/me", async (req, res): Promise<void> => {
+  const partner = await partnerDaSessao(req);
+  if (!partner) return void res.status(404).json({ error: "Cadastro de entregador não encontrado." });
+  const entregas = await db.select({ delivery: deliveriesTable, order: ordersTable }).from(deliveriesTable).innerJoin(ordersTable, eq(deliveriesTable.orderId, ordersTable.id)).where(eq(deliveriesTable.partnerId, partner.id)).orderBy(desc(deliveriesTable.createdAt));
+  const transacoes = await db.select().from(pracaBankTransactionsTable).where(eq(pracaBankTransactionsTable.partnerId, partner.id)).orderBy(desc(pracaBankTransactionsTable.createdAt));
+  const saldo = transacoes.filter((t) => t.status === "disponivel").reduce((sum, t) => sum + Number(t.valor), 0);
+  res.json({ partner, entregas, pracaBank: { saldo, transacoes } });
+});
+
+router.patch("/logistica/entregador/disponibilidade", async (req, res): Promise<void> => {
+  const partner = await partnerDaSessao(req);
+  if (!partner) return void res.status(404).json({ error: "Entregador não encontrado." });
+  if (partner.documentacaoStatus !== "aprovada") return void res.status(409).json({ error: "Aguarde a aprovação da documentação." });
+  const status = req.body.online ? "disponivel" : "offline";
+  const [updated] = await db.update(deliveryPartnersTable).set({ status }).where(eq(deliveryPartnersTable.id, partner.id)).returning();
+  res.json(updated);
+});
+
+router.patch("/logistica/entregador/localizacao", async (req, res): Promise<void> => {
+  const partner = await partnerDaSessao(req);
+  const { latitude, longitude } = req.body;
+  if (!partner) return void res.status(404).json({ error: "Entregador não encontrado." });
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return void res.status(400).json({ error: "Localização inválida." });
+  await db.update(deliveryPartnersTable).set({ latitude: String(latitude), longitude: String(longitude), localizacaoEm: new Date() }).where(eq(deliveryPartnersTable.id, partner.id));
+  res.json({ ok: true });
+});
+
+router.post("/logistica/entregas/:id/resposta", async (req, res): Promise<void> => {
+  const partner = await partnerDaSessao(req);
+  const deliveryId = Number(req.params.id);
+  const aceitar = req.body.aceitar === true;
+  if (!partner) return void res.status(401).json({ error: "Acesso exclusivo do entregador." });
+  const [delivery] = await db.select().from(deliveriesTable).where(and(eq(deliveriesTable.id, deliveryId), eq(deliveriesTable.partnerId, partner.id))).limit(1);
+  if (!delivery || delivery.status !== "ofertada") return void res.status(409).json({ error: "Esta oferta não está mais disponível." });
+  if (delivery.ofertaExpiraEm && delivery.ofertaExpiraEm < new Date()) return void res.status(410).json({ error: "A oferta expirou." });
+  if (!aceitar) {
+    await db.update(deliveriesTable).set({ partnerId: null, status: "aguardando_motorista", ofertaExpiraEm: null }).where(eq(deliveriesTable.id, deliveryId));
+    await evento(deliveryId, "recusada", `Oferta recusada por ${partner.nome}`);
+    const next = await ofertar(deliveryId);
+    return void res.json(next);
+  }
+  const [updated] = await db.update(deliveriesTable).set({ status: "aceita", aceitaEm: new Date(), ofertaExpiraEm: null }).where(eq(deliveriesTable.id, deliveryId)).returning();
+  await db.update(deliveryPartnersTable).set({ status: "em_entrega" }).where(eq(deliveryPartnersTable.id, partner.id));
+  await evento(deliveryId, "aceita");
+  res.json(updated);
+});
+
+router.patch("/logistica/entregas/:id/status", async (req, res): Promise<void> => {
+  const partner = await partnerDaSessao(req);
+  const deliveryId = Number(req.params.id);
+  const { status, observacao, latitude, longitude } = req.body;
+  if (!partner) return void res.status(401).json({ error: "Acesso exclusivo do entregador." });
+  const [delivery] = await db.select().from(deliveriesTable).where(and(eq(deliveriesTable.id, deliveryId), eq(deliveriesTable.partnerId, partner.id))).limit(1);
+  if (!delivery) return void res.status(404).json({ error: "Entrega não encontrada." });
+  if (!(TRANSICOES[delivery.status] || []).includes(status)) return void res.status(409).json({ error: `Não é possível passar de ${delivery.status} para ${status}.` });
+  if (status === "entregue") {
+    const [proof] = await db.select().from(deliveryProofsTable).where(eq(deliveryProofsTable.deliveryId, deliveryId)).limit(1);
+    if (!proof) return void res.status(409).json({ error: "Envie o comprovante antes de concluir." });
+  }
+  const updates: any = { status };
+  if (status === "coletada") updates.coletadaEm = new Date();
+  if (status === "entregue") updates.entregueEm = new Date();
+  const [updated] = await db.update(deliveriesTable).set(updates).where(eq(deliveriesTable.id, deliveryId)).returning();
+  await evento(deliveryId, status, observacao, latitude, longitude);
+  if (status === "em_transito") await db.update(ordersTable).set({ status: "out_for_delivery" }).where(eq(ordersTable.id, delivery.orderId));
+  if (status === "entregue") {
+    await db.update(ordersTable).set({ status: "delivered" }).where(eq(ordersTable.id, delivery.orderId));
+    const valor = delivery.valorPagoParceiro || "0";
+    await db.insert(pracaBankTransactionsTable).values({ partnerId: partner.id, deliveryId, valor, status: "disponivel", descricao: `Entrega #${deliveryId} concluída`, disponivelEm: new Date() }).onConflictDoNothing();
+    const [{ restantes }] = await db.select({ restantes: sql<number>`count(*)` }).from(deliveriesTable).where(and(eq(deliveriesTable.partnerId, partner.id), inArray(deliveriesTable.status, STATUS_ATIVOS)));
+    if (Number(restantes) === 0) await db.update(deliveryPartnersTable).set({ status: "disponivel" }).where(eq(deliveryPartnersTable.id, partner.id));
+  }
+  res.json(updated);
+});
+
+router.post("/logistica/entregas/:id/comprovante", async (req, res): Promise<void> => {
+  const partner = await partnerDaSessao(req);
+  const deliveryId = Number(req.params.id);
+  const { tipo, arquivoUrl, recebedorNome, consentimentoPessoa, observacao, latitude, longitude } = req.body;
+  if (!partner) return void res.status(401).json({ error: "Acesso exclusivo do entregador." });
+  if (!["foto_local", "documento_coletado"].includes(tipo) || !arquivoUrl) return void res.status(400).json({ error: "Selecione o tipo e envie o comprovante." });
+  const [delivery] = await db.select().from(deliveriesTable).where(and(eq(deliveriesTable.id, deliveryId), eq(deliveriesTable.partnerId, partner.id))).limit(1);
+  if (!delivery) return void res.status(404).json({ error: "Entrega não encontrada." });
+  const [proof] = await db.insert(deliveryProofsTable).values({ deliveryId, tipo, arquivoUrl, recebedorNome: recebedorNome || null, consentimentoPessoa: Boolean(consentimentoPessoa), observacao: observacao || null, latitude: latitude == null ? null : String(latitude), longitude: longitude == null ? null : String(longitude) }).returning();
+  res.status(201).json(proof);
+});
 
 router.post("/pedidos/:id/entrega", async (req, res): Promise<void> => {
-  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const orderId = parseInt(id, 10);
-  const { vendorId, supportPointId } = req.body as { vendorId?: string; supportPointId?: number };
-
-  if (isNaN(orderId) || !vendorId) {
-    res.status(400).json({ error: "Pedido e vendorId são obrigatórios." });
-    return;
-  }
-
-  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1);
-  if (!order) {
-    res.status(404).json({ error: "Pedido não encontrado" });
-    return;
-  }
-
-  const cidadeDestino = extrairCidade(order.deliveryAddress);
-  const partner = await encontrarParceiroOtimo("Chapecó", cidadeDestino);
-
-  const [delivery] = await db
-    .insert(deliveriesTable)
-    .values({
-      orderId,
-      vendorId,
-      partnerId: partner?.id ?? null,
-      supportPointId: supportPointId ?? null,
-      status: partner ? "aceita" : "aguardando",
-      aceitaEm: partner ? new Date() : null,
-    })
-    .returning();
-
-  if (partner) {
-    await db.update(deliveryPartnersTable).set({ status: "em_entrega" }).where(eq(deliveryPartnersTable.id, partner.id));
-  }
-
+  const orderId = Number(req.params.id);
+  const { vendorId, supportPointId, larguraCm, alturaCm, profundidadeCm, pesoKg, volumeFotoUrl, valorPagoParceiro } = req.body;
+  if (!orderId || !vendorId) return void res.status(400).json({ error: "Pedido e vendedor são obrigatórios." });
+  const [delivery] = await db.insert(deliveriesTable).values({ orderId, vendorId, supportPointId: supportPointId || null, status: "preparando", larguraCm: larguraCm ? String(larguraCm) : null, alturaCm: alturaCm ? String(alturaCm) : null, profundidadeCm: profundidadeCm ? String(profundidadeCm) : null, pesoKg: pesoKg ? String(pesoKg) : null, volumeFotoUrl: volumeFotoUrl || null, valorPagoParceiro: valorPagoParceiro ? String(valorPagoParceiro) : "0" }).returning();
+  await evento(delivery.id, "preparando");
   res.status(201).json(delivery);
 });
 
-router.patch("/entregas/:id/status", async (req, res): Promise<void> => {
-  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const deliveryId = parseInt(id, 10);
-  const { status } = req.body as { status?: string };
-
-  const statusValidos = ["aceita", "coletada", "a_caminho", "entregue", "cancelada"];
-  if (isNaN(deliveryId) || !status || !statusValidos.includes(status)) {
-    res.status(400).json({ error: "Status inválido." });
-    return;
-  }
-
-  const updates: Record<string, unknown> = { status };
-  if (status === "coletada") updates.coletadaEm = new Date();
-  if (status === "entregue") updates.entregueEm = new Date();
-
-  const [delivery] = await db.update(deliveriesTable).set(updates).where(eq(deliveriesTable.id, deliveryId)).returning();
-  if (!delivery) {
-    res.status(404).json({ error: "Entrega não encontrada" });
-    return;
-  }
-
-  // Reflete no status do pedido — a tela de rastreio (Sucesso, Meus Pedidos)
-  // já lê orders.status hoje.
-  if (status === "entregue") {
-    await db.update(ordersTable).set({ status: "delivered" }).where(eq(ordersTable.id, delivery.orderId));
-  } else if (status === "a_caminho") {
-    await db.update(ordersTable).set({ status: "out_for_delivery" }).where(eq(ordersTable.id, delivery.orderId));
-  }
-
-  // Libera o parceiro motorista só quando ele não tem MAIS NENHUMA entrega
-  // ativa — agora que um parceiro pode carregar até MAX_ENTREGAS_SIMULTANEAS
-  // ao mesmo tempo, marcar 'disponivel' de volta na primeira entrega
-  // concluída soltaria ele mesmo com outras encomendas ainda na mão.
-  if ((status === "entregue" || status === "cancelada") && delivery.partnerId) {
-    const [{ restantes }] = await db
-      .select({ restantes: sql<number>`count(*)` })
-      .from(deliveriesTable)
-      .where(and(eq(deliveriesTable.partnerId, delivery.partnerId), inArray(deliveriesTable.status, STATUS_ATIVOS as unknown as string[])));
-
-    if (Number(restantes) === 0) {
-      await db.update(deliveryPartnersTable).set({ status: "disponivel" }).where(eq(deliveryPartnersTable.id, delivery.partnerId));
-    }
-  }
-
-  // TODO (documentado, não implementado nesta rodada): refletir esse status
-  // também no deal do Vendor.ai (pipeline pós-venda, seção 11.7) — como o
-  // deal foi criado direto via SQL (vendorSyncService), qualquer lógica de
-  // transição de estágio que exista só em código Node do Vendor.ai não
-  // dispara automaticamente daqui. Precisa confirmar isso quando o Agent
-  // do Vendor.ai estiver disponível de novo.
-
-  res.json(delivery);
-});
-
-// Tenta de novo o matching de uma entrega presa em 'aguardando' (nenhum
-// parceiro disponível no momento da criação) — sem isso, ficava parada pra
-// sempre sem ninguém tentar de novo.
-router.post("/entregas/:id/tentar-atribuir", async (req, res): Promise<void> => {
-  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const deliveryId = parseInt(id, 10);
-  if (isNaN(deliveryId)) {
-    res.status(404).json({ error: "Entrega não encontrada" });
-    return;
-  }
-
-  const [delivery] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, deliveryId)).limit(1);
-  if (!delivery) {
-    res.status(404).json({ error: "Entrega não encontrada" });
-    return;
-  }
-  if (delivery.status !== "aguardando") {
-    res.status(409).json({ error: "Essa entrega já tem parceiro atribuído ou não está mais aguardando." });
-    return;
-  }
-
-  const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, delivery.orderId)).limit(1);
-  const cidadeDestino = order ? extrairCidade(order.deliveryAddress) : null;
-  const partner = await encontrarParceiroOtimo("Chapecó", cidadeDestino);
-
-  if (!partner) {
-    res.status(200).json({ ...delivery, atribuido: false });
-    return;
-  }
-
-  const [updated] = await db
-    .update(deliveriesTable)
-    .set({ partnerId: partner.id, status: "aceita", aceitaEm: new Date() })
-    .where(eq(deliveriesTable.id, deliveryId))
-    .returning();
-
-  await db.update(deliveryPartnersTable).set({ status: "em_entrega" }).where(eq(deliveryPartnersTable.id, partner.id));
-
-  res.json({ ...updated, atribuido: true });
+router.post("/logistica/entregas/:id/pronto", async (req, res): Promise<void> => {
+  const deliveryId = Number(req.params.id);
+  const [delivery] = await db.update(deliveriesTable).set({ status: "aguardando_motorista" }).where(and(eq(deliveriesTable.id, deliveryId), eq(deliveriesTable.status, "preparando"))).returning();
+  if (!delivery) return void res.status(409).json({ error: "Entrega não está em preparação." });
+  await evento(deliveryId, "pronto_coleta");
+  res.json(await ofertar(deliveryId));
 });
 
 router.get("/pedidos/:id/rastreio", async (req, res): Promise<void> => {
-  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const orderId = parseInt(id, 10);
-  if (isNaN(orderId)) {
-    res.status(404).json({ error: "Pedido não encontrado" });
-    return;
-  }
-
+  const orderId = Number(req.params.id);
   const [delivery] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.orderId, orderId)).limit(1);
-  if (!delivery) {
-    res.status(404).json({ error: "Nenhuma entrega associada a esse pedido ainda." });
-    return;
-  }
-
-  res.json(delivery);
+  if (!delivery) return void res.status(404).json({ error: "Nenhuma entrega associada a este pedido." });
+  const events = await db.select().from(deliveryEventsTable).where(eq(deliveryEventsTable.deliveryId, delivery.id)).orderBy(deliveryEventsTable.createdAt);
+  res.json({ ...delivery, events });
 });
+
+// Compatibilidade com integrações anteriores.
+router.patch("/entregas/:id/status", async (_req, res) => res.status(410).json({ error: "Use o fluxo autenticado /logistica/entregas/:id/status." }));
+router.post("/entregas/:id/tentar-atribuir", async (req, res) => res.json(await ofertar(Number(req.params.id))));
 
 export default router;
