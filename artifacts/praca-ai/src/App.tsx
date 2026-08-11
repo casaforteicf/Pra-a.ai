@@ -32,6 +32,7 @@ import RestauranteCardapio from '@/pages/RestauranteCardapio';
 import Marketplace from '@/pages/Marketplace';
 import DriverLogistics from '@/pages/DriverLogistics';
 import ResetPassword from '@/pages/ResetPassword';
+import EnergiaSolar from '@/pages/EnergiaSolar';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +70,7 @@ function Router() {
       <Route path="/restaurantes" component={RestaurantesListing} />
       <Route path="/restaurantes/:vendorId" component={RestauranteCardapio} />
       <Route path="/marketplace" component={Marketplace} />
+      <Route path="/energia-solar" component={EnergiaSolar} />
       <Route path="/entregador" component={DriverLogistics} />
       <Route component={NotFound} />
     </Switch>
