@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useLocation, useRoute } from "wouter"
-import { ChevronLeft, Copy, MapPin, Plus, Save, Trash2, Store } from "lucide-react"
+import { ChevronLeft, Copy, MapPin, Plus, Save, Trash2, Store, TrendingUp, BadgePercent, MousePointerClick } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/hooks/use-toast"
@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext"
 type Address = { id: string; label: string; street: string; number: string; complement?: string | null; neighborhood: string; city: string; state: string; zipCode: string; isDefault: boolean }
 type ProfileData = { name: string; email: string; phone?: string | null; cpf?: string | null; addresses: Address[] }
 type Coupon = { id?: string | number; code: string; description?: string }
-const titles = { profile: "Meus dados", addresses: "Endereços", coupons: "Meus cupons", listings: "Meus anúncios", settings: "Configurações do app", support: "Ajuda e suporte" } as const
+const titles = { profile: "Meus dados", addresses: "Endereços", coupons: "Meus cupons", listings: "Meus anúncios", influencer: "Portal do Influenciador", settings: "Configurações do app", support: "Ajuda e suporte" } as const
 const blankAddress = { label: "Casa", street: "", number: "", complement: "", neighborhood: "", city: "", state: "SC", zipCode: "", isDefault: false }
 
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
@@ -91,6 +91,7 @@ export default function Account() {
       </>}
       {section === "coupons" && (coupons.length ? coupons.map(c => <article key={c.id || c.code} className="rounded-2xl border bg-background p-4 shadow-sm"><div className="flex items-center justify-between"><div><strong className="text-lg">{c.code}</strong><p className="text-sm text-muted-foreground">{c.description || "Disponível para sua próxima compra"}</p></div><Button variant="outline" size="icon" onClick={() => { void navigator.clipboard.writeText(c.code); toast({ title: "Cupom copiado" }) }}><Copy className="h-4 w-4" /></Button></div></article>) : <Empty text="Nenhum cupom disponível agora." />)}
       {section === "listings" && <MarketplaceManager toast={toast} />}
+      {section === "influencer" && <InfluencerPortal toast={toast} />}
       {section === "settings" && <Settings />}
       {section === "support" && <Support />}
     </main>
@@ -99,6 +100,49 @@ export default function Account() {
 
 function Field({ label, value, onChange, disabled }: { label: string; value: string; onChange?: (v: string) => void; disabled?: boolean }) { return <label className="block text-sm font-semibold">{label}<Input className="mt-1" value={value} disabled={disabled} onChange={e => onChange?.(e.target.value)} /></label> }
 function Empty({ text }: { text: string }) { return <div className="rounded-2xl border border-dashed bg-background p-10 text-center text-sm text-muted-foreground">{text}</div> }
+
+type InfluencerDashboard = {
+  influencer: { codigo: string; nomePublico?: string | null; nicho?: string | null; saldoComissao: string; descontoPercentual: string; comissaoPercentual: string; status: string };
+  metrics: { clicks: number; conversions: number; totalSales: number; totalCommission: number; conversionRate: number };
+  conversions: { id: number; orderValue: string; commissionValue: string; status: string; createdAt: string }[];
+  referralLink: string;
+  couponCode: string;
+}
+
+function InfluencerPortal({ toast }: { toast: ReturnType<typeof useToast>["toast"] }) {
+  const [dashboard, setDashboard] = React.useState<InfluencerDashboard | null>(null)
+  const [loading, setLoading] = React.useState(true)
+  const [registering, setRegistering] = React.useState(false)
+  const [form, setForm] = React.useState({ nomePublico: "", codigo: "", nicho: "", cidade: "Chapecó", instagram: "", tiktok: "", youtube: "", bio: "" })
+  const load = React.useCallback(async () => {
+    setLoading(true)
+    const response = await fetch("/api/influenciadores/me/dashboard", { credentials: "include" })
+    setDashboard(response.ok ? await response.json() : null)
+    setLoading(false)
+  }, [])
+  React.useEffect(() => { void load() }, [load])
+  const register = async () => {
+    setRegistering(true)
+    try { await api("/api/embaixadores", { method: "POST", body: JSON.stringify(form) }); await load(); toast({ title: "Portal ativado", description: "Seu link e cupom já estão disponíveis." }) }
+    catch (error) { toast({ title: "Não foi possível ativar", description: (error as Error).message, variant: "destructive" }) }
+    finally { setRegistering(false) }
+  }
+  const copy = async (value: string, label: string) => { await navigator.clipboard.writeText(value); toast({ title: `${label} copiado` }) }
+  if (loading) return <div className="h-40 animate-pulse rounded-2xl bg-muted" />
+  if (!dashboard) return <div className="space-y-4">
+    <section className="rounded-2xl bg-primary p-5 text-primary-foreground"><TrendingUp className="h-8 w-8" /><h2 className="mt-3 text-2xl font-black">Transforme influência em vendas</h2><p className="mt-2 text-sm opacity-80">Crie seu cupom, compartilhe produtos e acompanhe resultados com transparência.</p></section>
+    <section className="space-y-3 rounded-2xl border bg-background p-4 shadow-sm"><Field label="Nome público" value={form.nomePublico} onChange={(nomePublico) => setForm({ ...form, nomePublico })} /><Field label="Código desejado" value={form.codigo} onChange={(codigo) => setForm({ ...form, codigo: codigo.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20) })} /><Field label="Nicho" value={form.nicho} onChange={(nicho) => setForm({ ...form, nicho })} /><Field label="Cidade" value={form.cidade} onChange={(cidade) => setForm({ ...form, cidade })} /><Field label="Instagram" value={form.instagram} onChange={(instagram) => setForm({ ...form, instagram })} /><Field label="TikTok" value={form.tiktok} onChange={(tiktok) => setForm({ ...form, tiktok })} /><Field label="YouTube" value={form.youtube} onChange={(youtube) => setForm({ ...form, youtube })} /><Field label="Apresentação" value={form.bio} onChange={(bio) => setForm({ ...form, bio })} /><Button className="w-full" disabled={registering || form.codigo.length < 4 || !form.nomePublico.trim()} onClick={register}>Criar meu portal</Button></section>
+  </div>
+  const { influencer, metrics } = dashboard
+  return <div className="space-y-4">
+    <section className="rounded-2xl bg-primary p-5 text-primary-foreground"><p className="text-xs font-black uppercase tracking-[0.18em]">Parceiro Praça.ai</p><h2 className="mt-1 text-2xl font-black">{influencer.nomePublico || "Influenciador"}</h2><p className="mt-1 text-sm opacity-80">{influencer.nicho || "Creator commerce local"}</p><div className="mt-4 grid grid-cols-2 gap-2"><button onClick={() => copy(dashboard.couponCode, "Cupom")} className="rounded-xl bg-card/15 p-3 text-left"><p className="text-[10px] uppercase opacity-70">Seu cupom</p><p className="font-black">{dashboard.couponCode}</p></button><button onClick={() => copy(dashboard.referralLink, "Link")} className="rounded-xl bg-card/15 p-3 text-left"><p className="text-[10px] uppercase opacity-70">Link rastreável</p><p className="truncate font-bold">Copiar link</p></button></div></section>
+    <div className="grid grid-cols-2 gap-3"><Metric icon={<MousePointerClick />} label="Cliques" value={String(metrics.clicks)} /><Metric icon={<BadgePercent />} label="Conversões" value={String(metrics.conversions)} /><Metric icon={<TrendingUp />} label="Vendas geradas" value={`R$ ${metrics.totalSales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} /><Metric icon={<Store />} label="Comissão" value={`R$ ${metrics.totalCommission.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`} /></div>
+    <section className="rounded-2xl border bg-background p-4 shadow-sm"><div className="flex items-center justify-between"><div><h3 className="font-black">Regras atuais</h3><p className="text-sm text-muted-foreground">Benefícios configurados para seu perfil</p></div><BadgePercent className="text-primary" /></div><div className="mt-3 grid grid-cols-2 gap-3 text-center"><div className="rounded-xl bg-muted p-3"><strong>{Number(influencer.descontoPercentual)}%</strong><p className="text-xs text-muted-foreground">desconto ao cliente</p></div><div className="rounded-xl bg-muted p-3"><strong>{Number(influencer.comissaoPercentual)}%</strong><p className="text-xs text-muted-foreground">comissão por venda</p></div></div></section>
+    <section className="rounded-2xl border bg-background p-4 shadow-sm"><h3 className="font-black">Histórico financeiro</h3>{dashboard.conversions.length ? <div className="mt-3 divide-y">{dashboard.conversions.map((item) => <div key={item.id} className="flex items-center justify-between py-3 text-sm"><div><p className="font-bold">Venda de R$ {Number(item.orderValue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</p><p className="text-xs text-muted-foreground">{new Date(item.createdAt).toLocaleDateString("pt-BR")} · {item.status}</p></div><strong className="text-primary">+ R$ {Number(item.commissionValue).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</strong></div>)}</div> : <p className="py-6 text-center text-sm text-muted-foreground">Compartilhe seu link ou cupom para gerar a primeira venda.</p>}</section>
+  </div>
+}
+
+function Metric({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) { return <div className="rounded-2xl border bg-background p-4 shadow-sm"><span className="text-primary [&>svg]:h-5 [&>svg]:w-5">{icon}</span><p className="mt-3 text-xl font-black">{value}</p><p className="text-xs text-muted-foreground">{label}</p></div> }
 
 type PersonalListing = { id: string; title: string; price: number; category: string; condition: string; imageUrls: string[]; city: string; state: string; status: "active" | "paused" | "sold" }
 const emptyListing = { title: "", description: "", price: "", category: "", condition: "good", imageUrl: "", city: "Chapecó", state: "SC" }

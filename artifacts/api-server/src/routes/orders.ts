@@ -1,11 +1,11 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES, vendorPayoutsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES, vendorPayoutsTable, ambassadorsTable, influencerConversionsTable } from "@workspace/db";
 import { getProductById, getProductsByIds } from "../lib/catalogService";
 import { vendorPool } from "../lib/vendorDb";
 import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncService";
 import { calcularFrete } from "../lib/freteService";
-import { validateCoupon } from "../lib/couponService";
+import { validateCouponWithInfluencer } from "../lib/couponService";
 import { confirmarConversaoCliente } from "./ambassadors";
 import { isAsaasConfigured, createOrGetCustomer, createCharge, getPixQrCode } from "../lib/asaas";
 
@@ -326,16 +326,22 @@ router.post("/checkout", async (req, res): Promise<void> => {
     }
   }
 
-  // Desconto: pix (10%, sempre) OU cupom (regra de negócio: um ou outro,
-  // exceto FRETEGRATIS que sempre se aplica) — agora usando a mesma
-  // validação (com expiração real checada) usada em /coupons/validate.
-  let discount = 0;
-  if (isPixPayment) {
-    discount = Math.round(subtotal * 0.1 * 100) / 100;
-  } else if (couponCode) {
-    const result = validateCoupon(couponCode, subtotal, shipping);
-    if (result.valid) discount = result.discountAmount;
+  // Pix e cupom são benefícios distintos. O cupom é revalidado no servidor
+  // e pode ser acumulado ao Pix; isso impede que o usuário altere o desconto
+  // pelo navegador e garante atribuição correta ao influenciador.
+  const pixDiscount = isPixPayment ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
+  let couponDiscount = 0;
+  let influencerId: number | undefined;
+  if (couponCode) {
+    const result = await validateCouponWithInfluencer(couponCode, subtotal, shipping);
+    if (!result.valid) {
+      res.status(422).json({ error: result.message ?? "Cupom inválido." });
+      return;
+    }
+    couponDiscount = result.discountAmount;
+    influencerId = result.influencerId;
   }
+  const discount = Math.min(subtotal + shipping, pixDiscount + couponDiscount);
 
   const total = Math.max(0, subtotal + shipping - discount);
   const orderNumber = `PCA-${Date.now().toString().slice(-8)}`;
@@ -360,6 +366,21 @@ router.post("/checkout", async (req, res): Promise<void> => {
       estimatedDelivery: new Date(Date.now() + (deliveryOption === "express" ? 1 : 3) * 86400000).toISOString().split("T")[0],
     })
     .returning();
+
+  if (influencerId) {
+    const [influencer] = await db.select().from(ambassadorsTable).where(eq(ambassadorsTable.id, influencerId)).limit(1);
+    if (influencer) {
+      const commission = Math.round(subtotal * Number(influencer.comissaoPercentual) * 100) / 10000;
+      await db.insert(influencerConversionsTable).values({
+        ambassadorId: influencer.id,
+        orderId: order.id,
+        orderValue: String(total),
+        discountValue: String(couponDiscount),
+        commissionValue: String(commission),
+      });
+      await db.update(ambassadorsTable).set({ saldoComissao: String(Number(influencer.saldoComissao) + commission) }).where(eq(ambassadorsTable.id, influencer.id));
+    }
+  }
 
   for (const item of cartItems) {
     await db.insert(orderItemsTable).values({
