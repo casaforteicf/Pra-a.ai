@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ArrowRight, BookOpen, Building2, Car, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Dumbbell, Gamepad2, Heart, Headphones, Home, Package, Plane, Search, ShieldCheck, Shirt, ShoppingBag, Smartphone, Sparkles, Store, Tag, Truck, User, UtensilsCrossed, Wrench } from "lucide-react"
+import { ArrowRight, BookOpen, Building2, Car, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Dumbbell, Gamepad2, Heart, Headphones, Home, Package, Plane, Search, ShieldCheck, Shirt, ShoppingBag, Smartphone, Sparkles, Store, Sun, Tag, Truck, User, UtensilsCrossed, Wrench } from "lucide-react"
 import { getGetHomeQueryKey, useGetHome } from "@workspace/api-client-react"
 import type { Product } from "@workspace/api-client-react"
 import { Link, useLocation } from "wouter"
@@ -24,9 +24,41 @@ const MOCK_PRODUCTS: ShowcaseProduct[] = [
   { id: "demo-tools", name: "Kit de ferramentas completo", category: "Automotivo", price: 189.9, originalPrice: 259.9, discountPct: 27, imageUrl: "https://images.unsplash.com/photo-1581166397057-235af2b3c6dd?auto=format&fit=crop&w=700&q=80", vendorName: "Ferramentas Sul", rating: 4.7, reviewCount: 345, href: "/listing?search=ferramentas" },
 ]
 
-const FILTERS = [
-  ["Todos", Package], ["Eletrônicos", Smartphone], ["Moda", Shirt], ["Casa", Home],
-  ["Games", Gamepad2], ["Livros", BookOpen], ["Esportes", Dumbbell], ["Automotivo", Car],
+const OFFICIAL_CATEGORIES = [
+  { label: "Acessórios para Veículos", href: "/listing?category=acessorios-para-veiculos", Icon: Car },
+  { label: "Agro", href: "/listing?category=agro", Icon: Package },
+  { label: "Arte, Papelaria e Armarinho", href: "/listing?category=arte-papelaria-e-armarinho", Icon: BookOpen },
+  { label: "Bebês", href: "/listing?category=bebes", Icon: Package },
+  { label: "Beleza e Cuidado Pessoal", href: "/listing?category=beleza-e-cuidado-pessoal", Icon: Sparkles },
+  { label: "Brinquedos e Hobbies", href: "/listing?category=brinquedos-e-hobbies", Icon: Gamepad2 },
+  { label: "Calçados, Roupas e Bolsas", href: "/listing?category=calcados-roupas-e-bolsas", Icon: Shirt },
+  { label: "Casa, Móveis e Decoração", href: "/listing?category=casa-moveis-e-decoracao", Icon: Home },
+  { label: "Celulares e Telefones", href: "/listing?category=celulares-e-telefones", Icon: Smartphone },
+  { label: "Construção", href: "/listing?category=construcao", Icon: Building2 },
+  { label: "Eletrodomésticos", href: "/listing?category=eletrodomesticos", Icon: Package },
+  { label: "Eletrônicos, Câmeras e Áudio", href: "/listing?category=eletronicos-cameras-e-audio", Icon: Smartphone },
+  { label: "Esportes e Fitness", href: "/listing?category=esportes-e-fitness", Icon: Dumbbell },
+  { label: "Ferramentas", href: "/listing?category=ferramentas", Icon: Wrench },
+  { label: "Festas e Lembrancinhas", href: "/listing?category=festas-e-lembrancinhas", Icon: Sparkles },
+  { label: "Games", href: "/listing?category=games", Icon: Gamepad2 },
+  { label: "Indústria e Comércio", href: "/listing?category=industria-e-comercio", Icon: Building2 },
+  { label: "Informática", href: "/listing?category=informatica", Icon: Smartphone },
+  { label: "Instrumentos Musicais", href: "/listing?category=instrumentos-musicais", Icon: Package },
+  { label: "Joias e Relógios", href: "/listing?category=joias-e-relogios", Icon: Sparkles },
+  { label: "Livros, Revistas e Comics", href: "/listing?category=livros-revistas-e-comics", Icon: BookOpen },
+  { label: "Pet Shop", href: "/listing?category=pet-shop", Icon: Package },
+  { label: "Marketplace", href: "/marketplace", Icon: Store },
+] as const
+
+const QUICK_CATEGORIES = [
+  OFFICIAL_CATEGORIES[11],
+  OFFICIAL_CATEGORIES[6],
+  OFFICIAL_CATEGORIES[7],
+  OFFICIAL_CATEGORIES[9],
+  OFFICIAL_CATEGORIES[15],
+  OFFICIAL_CATEGORIES[20],
+  OFFICIAL_CATEGORIES[12],
+  OFFICIAL_CATEGORIES[0],
 ] as const
 
 const NAV_ITEMS = [
@@ -52,7 +84,7 @@ const CATEGORY_ICONS: Record<string, typeof Package> = {
 }
 
 const FIXED_CATEGORIES = [
-  { label: "MKT Place", href: "/marketplace", Icon: Store },
+  { label: "Energia Solar", href: "/energia-solar", Icon: Sun },
   { label: "Veículos", href: "/veiculos", Icon: Car },
   { label: "Imóveis", href: "/imoveis", Icon: Building2 },
   { label: "Restaurantes", href: "/restaurantes", Icon: UtensilsCrossed },
@@ -68,7 +100,6 @@ function realProductToCard(product: Product): ShowcaseProduct {
 export default function HomePage() {
   const [, navigate] = useLocation()
   const [search, setSearch] = React.useState("")
-  const [activeFilter, setActiveFilter] = React.useState("Todos")
   const [showAllCategories, setShowAllCategories] = React.useState(false)
   const [promoIndex, setPromoIndex] = React.useState(0)
   const { data: homeData, isLoading } = useGetHome({ query: { queryKey: getGetHomeQueryKey() } })
@@ -81,10 +112,8 @@ export default function HomePage() {
   }, [homeData])
 
   const products = React.useMemo(() => {
-    const source = [...MOCK_PRODUCTS, ...realProducts]
-    if (activeFilter === "Todos") return source
-    return source.filter((product) => product.category.toLocaleLowerCase("pt-BR").includes(activeFilter.toLocaleLowerCase("pt-BR")))
-  }, [activeFilter, realProducts])
+    return [...MOCK_PRODUCTS, ...realProducts]
+  }, [realProducts])
 
   const promos = React.useMemo(() => {
     const source = realProducts.filter((product) => product.discountPct).slice(0, 4)
@@ -97,13 +126,8 @@ export default function HomePage() {
       href: category.slug === "marketplace" ? "/marketplace" : `/listing?category=${category.slug}`,
       Icon: CATEGORY_ICONS[category.icon] ?? Package,
     }))
-    const fallback = FILTERS.slice(1).map(([label, Icon]) => ({
-      label,
-      href: `/listing?search=${encodeURIComponent(label)}`,
-      Icon,
-    }))
     const unique = new Map<string, { label: string; href: string; Icon: typeof Package }>()
-    for (const category of [...dynamic, ...fallback, ...FIXED_CATEGORIES]) {
+    for (const category of [...dynamic, ...OFFICIAL_CATEGORIES, ...FIXED_CATEGORIES]) {
       const key = category.label.toLocaleLowerCase("pt-BR")
       if (!unique.has(key)) unique.set(key, category)
     }
@@ -152,20 +176,24 @@ export default function HomePage() {
 
       <div className="sticky top-[116px] z-20 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-[1360px] gap-2 overflow-x-auto px-4 py-3 lg:px-6">
-          {FILTERS.map(([label, Icon]) => (
-            <button
+          <button
+            type="button"
+            aria-expanded={showAllCategories}
+            onClick={() => setShowAllCategories((current) => !current)}
+            className="flex shrink-0 items-center gap-1.5 rounded-full border-2 border-amber-500 bg-amber-500 px-4 py-1.5 text-xs font-bold text-[#0B1B2F] transition"
+          >
+            <Package className="h-3.5 w-3.5" />Todos
+            {showAllCategories ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+          </button>
+          {QUICK_CATEGORIES.map(({ label, href, Icon }) => (
+            <Link
               key={label}
-              type="button"
-              aria-expanded={label === "Todos" ? showAllCategories : undefined}
-              onClick={() => {
-                setActiveFilter(label)
-                setShowAllCategories((current) => label === "Todos" ? !current : false)
-              }}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full border-2 px-4 py-1.5 text-xs font-bold transition ${activeFilter === label ? "border-amber-500 bg-amber-500 text-[#0B1B2F]" : "border-slate-200 bg-white text-slate-700 hover:border-amber-500 hover:text-amber-600"}`}
+              href={href}
+              onClick={() => setShowAllCategories(false)}
+              className="flex shrink-0 items-center gap-1.5 rounded-full border-2 border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-700 transition hover:border-amber-500 hover:text-amber-600"
             >
               <Icon className="h-3.5 w-3.5" />{label}
-              {label === "Todos" ? showAllCategories ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" /> : null}
-            </button>
+            </Link>
           ))}
           <span className="ml-auto hidden shrink-0 self-center text-sm text-slate-500 sm:block">{products.length} produtos</span>
         </div>
