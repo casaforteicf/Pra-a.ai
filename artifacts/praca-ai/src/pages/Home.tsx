@@ -1,6 +1,6 @@
 import * as React from "react"
-import { ArrowRight, BookOpen, Building2, Car, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Dumbbell, Gamepad2, Heart, Headphones, Home, Package, Plane, Search, ShieldCheck, Shirt, ShoppingBag, Smartphone, Sparkles, Store, Sun, Tag, Truck, User, UtensilsCrossed, Wrench } from "lucide-react"
-import { getGetHomeQueryKey, useGetHome } from "@workspace/api-client-react"
+import { ArrowRight, BadgePercent, BookOpen, Building2, Car, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CircleDollarSign, Dumbbell, Gamepad2, Heart, Headphones, Home, MapPin, Package, Plane, Search, ShieldCheck, Shirt, ShoppingBag, Smartphone, Sparkles, Store, Sun, Tag, TicketPercent, Truck, User, UtensilsCrossed, Wrench } from "lucide-react"
+import { getGetHomeQueryKey, getListProductsQueryKey, useGetHome, useListProducts } from "@workspace/api-client-react"
 import type { Product } from "@workspace/api-client-react"
 import { Link, useLocation } from "wouter"
 import { ProductCard, type ProductCardData } from "@/components/ProductCard"
@@ -8,6 +8,17 @@ import { PageLoader } from "@/components/ui/skeleton"
 import { formatMoney } from "@/lib/utils"
 
 type ShowcaseProduct = ProductCardData & { category: string; label?: string }
+const SEARCH_HISTORY_KEY = "praca-ai-search-history"
+
+function readSearchHistory(): string[] {
+  if (typeof window === "undefined") return []
+  try {
+    const value = JSON.parse(window.localStorage.getItem(SEARCH_HISTORY_KEY) ?? "[]")
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string").slice(0, 8) : []
+  } catch {
+    return []
+  }
+}
 
 const MOCK_PRODUCTS: ShowcaseProduct[] = [
   { id: "demo-smartphone", name: "Smartphone Galaxy S24 256 GB", category: "Eletrônicos", price: 3499.9, originalPrice: 4999.9, discountPct: 30, imageUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=700&q=80", vendorName: "Loja Tech", rating: 4.8, reviewCount: 1245, freeShipping: true, label: "Mais vendido", href: "/listing?search=smartphone" },
@@ -100,20 +111,56 @@ function realProductToCard(product: Product): ShowcaseProduct {
 export default function HomePage() {
   const [, navigate] = useLocation()
   const [search, setSearch] = React.useState("")
+  const [searchHistory, setSearchHistory] = React.useState<string[]>(readSearchHistory)
   const [showAllCategories, setShowAllCategories] = React.useState(false)
   const [promoIndex, setPromoIndex] = React.useState(0)
   const { data: homeData, isLoading } = useGetHome({ query: { queryKey: getGetHomeQueryKey() } })
+  const { data: catalogData, isLoading: isCatalogLoading } = useListProducts(
+    { page: 1, limit: 60 },
+    { query: { queryKey: getListProductsQueryKey({ page: 1, limit: 60 }) } },
+  )
+  const preferenceTerm = searchHistory[0]
+  const { data: preferenceData, isLoading: isPreferenceLoading } = useListProducts(
+    preferenceTerm ? { search: preferenceTerm, page: 1, limit: 12 } : undefined,
+    { query: { queryKey: getListProductsQueryKey(preferenceTerm ? { search: preferenceTerm, page: 1, limit: 12 } : undefined), enabled: Boolean(preferenceTerm) } },
+  )
 
   const realProducts = React.useMemo(() => {
-    if (!homeData) return []
-    const all = [...homeData.flashDeals, ...homeData.carousels.flatMap((item) => item.products)]
+    const all = [
+      ...(catalogData?.products ?? []),
+      ...(homeData?.featuredProducts ?? []),
+      ...(homeData?.flashDeals ?? []),
+      ...(homeData?.carousels.flatMap((item) => item.products) ?? []),
+    ]
     const unique = new Map(all.map((product) => [product.id, product]))
     return [...unique.values()].map(realProductToCard)
-  }, [homeData])
+  }, [catalogData?.products, homeData])
 
   const products = React.useMemo(() => {
-    return [...MOCK_PRODUCTS, ...realProducts]
+    return realProducts.length > 0 ? realProducts : MOCK_PRODUCTS
   }, [realProducts])
+
+  const personalizedProducts = React.useMemo(() => {
+    if (searchHistory.length === 0) return []
+    const terms = searchHistory.map((term) => term.toLocaleLowerCase("pt-BR"))
+    const candidates = [
+      ...(preferenceData?.products ?? []).map(realProductToCard),
+      ...realProducts,
+    ]
+    const unique = new Map(candidates.map((product) => [product.id, product]))
+    return [...unique.values()]
+      .map((product) => ({
+        product,
+        score: terms.reduce((total, term, index) => {
+          const haystack = `${product.name} ${product.category} ${product.vendorName}`.toLocaleLowerCase("pt-BR")
+          return total + (haystack.includes(term) ? searchHistory.length - index : 0)
+        }, 0),
+      }))
+      .filter(({ score }) => score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 12)
+      .map(({ product }) => product)
+  }, [preferenceData?.products, realProducts, searchHistory])
 
   const promos = React.useMemo(() => {
     const source = realProducts.filter((product) => product.discountPct).slice(0, 4)
@@ -143,28 +190,42 @@ export default function HomePage() {
   const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const query = search.trim()
+    if (query) {
+      const nextHistory = [query, ...searchHistory.filter((item) => item.toLocaleLowerCase("pt-BR") !== query.toLocaleLowerCase("pt-BR"))].slice(0, 8)
+      setSearchHistory(nextHistory)
+      window.localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(nextHistory))
+    }
     navigate(query ? `/listing?search=${encodeURIComponent(query)}` : "/listing")
+  }
+
+  const clearSearchHistory = () => {
+    setSearchHistory([])
+    window.localStorage.removeItem(SEARCH_HISTORY_KEY)
   }
 
   const promo = promos[promoIndex] ?? MOCK_PRODUCTS[0]
 
   return (
-    <div className="min-h-full bg-slate-100 pb-10 text-slate-950">
-      <header className="sticky top-0 z-40 bg-[#0B1B2F] px-4 py-3 text-white shadow-[0_4px_20px_rgba(0,0,0,.3)] lg:px-8">
+    <div className="min-h-full bg-[#f5f5f5] pb-10 text-slate-950">
+      <header className="sticky top-0 z-40 bg-gradient-to-b from-[#ffd91a] to-[#ffc400] px-4 pb-3 pt-4 text-[#172033] shadow-[0_4px_18px_rgba(15,23,42,.12)] lg:px-8">
         <div className="mx-auto flex max-w-[1360px] flex-wrap items-center justify-between gap-3">
-          <Link href="/" className="flex items-center gap-2 font-serif text-2xl font-extrabold sm:text-3xl">
-            <Store className="h-7 w-7 fill-amber-500 text-amber-500" /> Praça<span className="text-amber-500">.ai</span>
+          <Link href="/profile" aria-label="Abrir minha conta" className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-sm font-black shadow-sm lg:hidden">
+            PA
           </Link>
-          <form onSubmit={submitSearch} className="order-3 flex w-full rounded-full border border-white/10 bg-white/[.08] p-1 transition focus-within:border-amber-500 focus-within:bg-white/[.14] lg:order-none lg:max-w-[540px] lg:flex-1">
+          <Link href="/" className="hidden items-center gap-2 font-serif text-2xl font-extrabold sm:text-3xl lg:flex">
+            <Store className="h-7 w-7 fill-[#172033] text-[#172033]" /> Praça<span className="text-white">.ai</span>
+          </Link>
+          <form onSubmit={submitSearch} className="flex min-w-0 flex-1 rounded-full border border-black/5 bg-white p-1 shadow-sm transition focus-within:ring-2 focus-within:ring-[#172033]/15 lg:max-w-[640px]">
             <label className="sr-only" htmlFor="home-search">Buscar produtos</label>
-            <input id="home-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Busque produtos, marcas, categorias..." className="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-sm text-white outline-none placeholder:text-white/40" />
-            <button type="submit" className="flex items-center gap-2 rounded-full bg-amber-500 px-5 py-2 text-sm font-bold text-[#0B1B2F] transition hover:bg-amber-600"><Search className="h-4 w-4" /><span className="hidden sm:inline">Buscar</span></button>
+            <input id="home-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar no Praça.ai" className="min-w-0 flex-1 bg-transparent px-4 py-2.5 text-sm text-slate-800 outline-none placeholder:text-slate-400" />
+            <button type="submit" className="flex h-10 w-10 items-center justify-center rounded-full bg-[#172033] text-white transition hover:scale-105" aria-label="Buscar"><Search className="h-5 w-5" /></button>
           </form>
-          <div className="flex items-center gap-4 text-[11px] text-white/70 sm:gap-5">
-            <Link href="/favorites" className="flex flex-col items-center gap-1 hover:text-amber-500"><Heart className="h-5 w-5" /><span className="hidden sm:inline">Favoritos</span></Link>
-            <Link href="/marketplace" className="flex flex-col items-center gap-1 hover:text-amber-500"><ShoppingBag className="h-5 w-5" /><span className="hidden sm:inline">Comprar</span></Link>
-            <Link href="/profile" className="flex flex-col items-center gap-1 hover:text-amber-500"><User className="h-5 w-5" /><span className="hidden sm:inline">Conta</span></Link>
+          <div className="flex items-center gap-3 text-[11px] text-[#172033] sm:gap-5">
+            <Link href="/favorites" className="hidden flex-col items-center gap-1 hover:opacity-60 sm:flex"><Heart className="h-5 w-5" /><span className="hidden lg:inline">Favoritos</span></Link>
+            <Link href="/marketplace" className="flex flex-col items-center gap-1 hover:opacity-60"><ShoppingBag className="h-6 w-6" /><span className="hidden lg:inline">Comprar</span></Link>
+            <Link href="/profile" className="hidden flex-col items-center gap-1 hover:opacity-60 lg:flex"><User className="h-5 w-5" /><span>Conta</span></Link>
           </div>
+          <Link href="/account/endereco" className="order-4 flex w-full items-center gap-1 text-xs font-semibold text-[#172033]/80 lg:w-auto"><MapPin className="h-4 w-4" /> Entregar em Chapecó, SC <ChevronRight className="h-4 w-4" /></Link>
         </div>
       </header>
 
@@ -218,7 +279,33 @@ export default function HomePage() {
         </section>
       ) : null}
 
-      <main className="mx-auto max-w-[1360px] px-4 py-7 lg:px-6">
+      <main className="mx-auto max-w-[1360px] px-3 py-5 sm:px-4 lg:px-6">
+        <section className="mb-5 overflow-hidden rounded-3xl bg-[#172033] text-white shadow-[0_18px_45px_rgba(15,23,42,.18)]">
+          <div className="grid min-h-[190px] items-center gap-4 bg-[radial-gradient(circle_at_85%_20%,rgba(255,217,26,.35),transparent_36%)] px-6 py-7 sm:grid-cols-[1fr_auto] sm:px-10">
+            <div>
+              <span className="inline-flex rounded-full bg-[#ffd91a] px-3 py-1 text-[11px] font-black uppercase tracking-wide text-[#172033]">Compre de parceiros locais</span>
+              <h1 className="mt-4 max-w-xl font-serif text-3xl font-black leading-tight sm:text-4xl">Tudo o que você procura, em um só lugar.</h1>
+              <p className="mt-2 max-w-lg text-sm text-white/70">Produtos reais das lojas conectadas ao Vendor.ai, com estoque e preço atualizados.</p>
+            </div>
+            <Link href="/listing" className="inline-flex items-center justify-center gap-2 rounded-full bg-[#ffd91a] px-6 py-3 text-sm font-black text-[#172033] transition hover:scale-[1.02]">Explorar ofertas <ArrowRight className="h-4 w-4" /></Link>
+          </div>
+        </section>
+
+        <section className="hide-scrollbar mb-6 flex gap-3 overflow-x-auto pb-1" aria-label="Atalhos do marketplace">
+          {[
+            [BadgePercent, "Ofertas", "/listing?sort=offers", "bg-rose-50 text-rose-600"],
+            [TicketPercent, "Cupons", "/profile", "bg-blue-50 text-blue-600"],
+            [CircleDollarSign, "Praça Coins", "/profile", "bg-emerald-50 text-emerald-600"],
+            [Store, "Lojas", "/listing", "bg-amber-50 text-amber-700"],
+            [Truck, "Fretes", "/fretes", "bg-violet-50 text-violet-600"],
+          ].map(([Icon, label, href, color]) => (
+            <Link key={label as string} href={href as string} className="flex min-w-[84px] flex-col items-center gap-2 rounded-2xl bg-white px-3 py-4 text-center shadow-sm transition hover:-translate-y-0.5">
+              <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${color as string}`}><Icon className="h-6 w-6" /></span>
+              <span className="text-xs font-bold text-slate-700">{label as string}</span>
+            </Link>
+          ))}
+        </section>
+
         <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_20px_48px_rgba(11,27,47,.12)]">
           <div className="flex flex-wrap items-center justify-between gap-2 bg-[#0B1B2F] px-5 py-4 text-white sm:px-7">
             <h1 className="flex items-center gap-2 font-serif text-xl font-bold"><Sparkles className="h-5 w-5 text-amber-500" /> Promoções do dia</h1>
@@ -242,15 +329,44 @@ export default function HomePage() {
           </div>
         </section>
 
+        {searchHistory.length > 0 ? (
+          <section className="mt-8 rounded-[28px] bg-white p-4 shadow-sm sm:p-6" aria-labelledby="preferences-title">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <span className="text-xs font-black uppercase tracking-[.16em] text-amber-600">Suas preferências</span>
+                <h2 id="preferences-title" className="mt-1 font-serif text-2xl font-bold text-[#172033]">Baseado nas suas pesquisas</h2>
+                <p className="mt-1 text-sm text-slate-500">A vitrine se adapta ao que você procura no Praça.ai.</p>
+              </div>
+              <button type="button" onClick={clearSearchHistory} className="shrink-0 text-xs font-bold text-slate-500 underline-offset-4 hover:text-slate-900 hover:underline">Limpar</button>
+            </div>
+            <div className="hide-scrollbar mb-5 flex gap-2 overflow-x-auto">
+              {searchHistory.map((term) => (
+                <Link key={term} href={`/listing?search=${encodeURIComponent(term)}`} className="shrink-0 rounded-full bg-amber-50 px-4 py-2 text-xs font-bold text-amber-800">{term}</Link>
+              ))}
+            </div>
+            {isPreferenceLoading && personalizedProducts.length === 0 ? <PageLoader /> : null}
+            {personalizedProducts.length > 0 ? (
+              <div className="hide-scrollbar -mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
+                {personalizedProducts.map((product) => (
+                  <div key={product.id} className="w-[46%] min-w-[160px] max-w-[220px] snap-start sm:w-[220px]"><ProductCard product={product} className="h-full" compact /></div>
+                ))}
+              </div>
+            ) : !isPreferenceLoading ? (
+              <div className="rounded-2xl bg-slate-50 px-4 py-5 text-sm text-slate-500">Ainda não encontramos itens relacionados. Continue pesquisando para melhorar suas recomendações.</div>
+            ) : null}
+          </section>
+        ) : null}
+
         <section className="mt-8">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-            <div><h2 className="flex items-center gap-2 font-serif text-3xl font-bold"><Store className="h-6 w-6 text-amber-500" /> Todos os produtos</h2><p className="mt-1 text-sm text-slate-500">Itens demonstrativos e ofertas disponíveis no catálogo</p></div>
+            <div><h2 className="flex items-center gap-2 font-serif text-3xl font-bold"><Store className="h-6 w-6 text-amber-500" /> Produtos para você</h2><p className="mt-1 text-sm text-slate-500">Catálogo publicado pelas lojas parceiras do Vendor.ai</p></div>
             <Link href="/listing" className="flex items-center gap-1 text-sm font-bold text-amber-600 hover:text-amber-700">Ver catálogo <ArrowRight className="h-4 w-4" /></Link>
           </div>
-          {isLoading && realProducts.length === 0 ? <PageLoader /> : null}
+          {(isLoading || isCatalogLoading) && realProducts.length === 0 ? <PageLoader /> : null}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-            {products.map((product) => <div key={product.id} className="relative"><span className="absolute left-3 top-3 z-10 rounded-full bg-[#0B1B2F]/90 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-white">{product.id.startsWith("demo-") ? "Demonstração" : "Catálogo"}</span><ProductCard product={product} className="h-full" /></div>)}
+            {products.map((product) => <div key={product.id} className="relative"><span className="absolute right-3 top-3 z-10 max-w-[58%] truncate rounded-full bg-[#0B1B2F]/90 px-2 py-1 text-[9px] font-bold uppercase tracking-wide text-white">{product.id.startsWith("demo-") ? "Demonstração" : product.vendorName}</span><ProductCard product={product} className="h-full" /></div>)}
           </div>
+          {catalogData?.hasMore ? <div className="mt-6 text-center"><Link href="/listing" className="inline-flex items-center gap-2 rounded-full border-2 border-[#172033] px-6 py-3 text-sm font-black text-[#172033]">Ver todos os {catalogData.total} produtos <ArrowRight className="h-4 w-4" /></Link></div> : null}
         </section>
       </main>
 
