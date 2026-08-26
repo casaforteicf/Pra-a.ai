@@ -76,7 +76,7 @@ router.get("/influenciadores/me/dashboard", async (req, res): Promise<void> => {
     influencer,
     metrics: { clicks: influencer.cliques, conversions: conversions.length, totalSales, totalCommission, conversionRate: influencer.cliques > 0 ? (conversions.length / influencer.cliques) * 100 : 0 },
     conversions,
-    referralLink: `${req.protocol}://${req.get("host")}/?ref=${influencer.codigo}`,
+    referralLink: `${(process.env.APP_BASE_URL || `${req.protocol}://${req.get("host")}`).replace(/\/$/, "")}/?ref=${influencer.codigo}`,
     couponCode: influencer.codigo,
   });
 });
