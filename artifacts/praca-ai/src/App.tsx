@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -6,7 +7,6 @@ import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import { PhoneFrame } from '@/components/layout/PhoneFrame';
 import { AuthProvider } from '@/contexts/AuthContext';
 
-// Import pages
 import HomePage from '@/pages/Home';
 import ListingPage from '@/pages/Listing';
 import ProductDetail from '@/pages/ProductDetail';
@@ -35,13 +35,45 @@ import ResetPassword from '@/pages/ResetPassword';
 import EnergiaSolar from '@/pages/EnergiaSolar';
 
 const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: false,
-    },
-  },
+  defaultOptions: { queries: { refetchOnWindowFocus: false, retry: false } },
 });
+
+const NOINDEX_PREFIXES = ['/checkout', '/success', '/profile', '/login', '/reset-password', '/orders', '/favorites', '/account', '/admin', '/entregador'];
+
+function SeoManager() {
+  const [location] = useLocation();
+
+  React.useEffect(() => {
+    const noindex = NOINDEX_PREFIXES.some((prefix) => location === prefix || location.startsWith(`${prefix}/`));
+    const robots = document.querySelector('meta[name="robots"]') || document.head.appendChild(document.createElement('meta'));
+    robots.setAttribute('name', 'robots');
+    robots.setAttribute('content', noindex ? 'noindex, nofollow' : 'index, follow');
+
+    let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
+    if (!canonical) {
+      canonical = document.createElement('link');
+      canonical.rel = 'canonical';
+      document.head.appendChild(canonical);
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const category = params.get('category');
+    const canonicalPath = location === '/listing' && category
+      ? `/listing?category=${encodeURIComponent(category)}`
+      : location || '/';
+    canonical.href = `https://www.pracaai.com.br${canonicalPath}`;
+
+    let ogUrl = document.querySelector('meta[property="og:url"]');
+    if (!ogUrl) {
+      ogUrl = document.createElement('meta');
+      ogUrl.setAttribute('property', 'og:url');
+      document.head.appendChild(ogUrl);
+    }
+    ogUrl.setAttribute('content', canonical.href);
+  }, [location]);
+
+  return null;
+}
 
 function Router() {
   return (
@@ -79,33 +111,28 @@ function Router() {
 
 function AppShell() {
   const [location] = useLocation();
-  // Painel de admin é tela cheia (uso desktop pelo Marcos), não faz sentido
-  // dentro da moldura de celular usada no resto do app (experiência de
-  // consumidor final).
   const isAdmin = location.startsWith('/admin');
 
-  if (isAdmin) {
-    return (
-      <Switch>
-        <Route path="/admin" component={AdminPanel} />
-      </Switch>
-    );
-  }
-
   return (
-    <PhoneFrame>
-      <Router />
-    </PhoneFrame>
+    <>
+      <SeoManager />
+      {isAdmin ? (
+        <Switch><Route path="/admin" component={AdminPanel} /></Switch>
+      ) : (
+        <PhoneFrame><Router /></PhoneFrame>
+      )}
+    </>
   );
 }
 
 function App() {
   React.useEffect(() => {
-    const ref = new URLSearchParams(window.location.search).get('ref')?.toUpperCase()
-    if (!ref) return
-    localStorage.setItem('praca-influencer-coupon', ref)
-    fetch(`/api/influenciadores/${encodeURIComponent(ref)}/clique`, { method: 'POST' }).catch(() => undefined)
-  }, [])
+    const ref = new URLSearchParams(window.location.search).get('ref')?.toUpperCase();
+    if (!ref) return;
+    localStorage.setItem('praca-influencer-coupon', ref);
+    fetch(`/api/influenciadores/${encodeURIComponent(ref)}/clique`, { method: 'POST' }).catch(() => undefined);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
@@ -121,4 +148,3 @@ function App() {
 }
 
 export default App;
-import * as React from 'react';
