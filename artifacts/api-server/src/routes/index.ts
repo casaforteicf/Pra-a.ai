@@ -30,11 +30,13 @@ import fretesRouter from "./fretes";
 import restauranteRouter from "./restaurante";
 import variedadesRouter from "./variedades";
 import marketplaceRouter from "./marketplace";
+import seoRouter from "./seo";
 
 const router: IRouter = Router();
 
 router.use(authRouter);
 router.use(healthRouter);
+router.use(seoRouter);
 router.use(homeRouter);
 router.use(categoriesRouter);
 router.use(productsRouter);
