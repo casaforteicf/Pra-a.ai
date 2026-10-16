@@ -1,6 +1,6 @@
 import * as React from "react"
-import { useLocation } from "wouter"
-import { ChevronLeft, Eye, EyeOff, ShoppingBag } from "lucide-react"
+import { Link, useLocation } from "wouter"
+import { ChevronLeft, ClipboardList, Eye, EyeOff, ShoppingBag } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +19,9 @@ export default function Login() {
   const [forgotPassword, setForgotPassword] = React.useState(false)
   const [forgotEmail, setForgotEmail] = React.useState("")
   const [forgotSent, setForgotSent] = React.useState(false)
+  const params = new URLSearchParams(window.location.search)
+  const returnTo = params.get("returnTo")?.startsWith("/") ? params.get("returnTo")! : "/"
+  const quoteIntent = params.get("intent") === "cotacao"
 
   // Login form
   const [loginEmail, setLoginEmail] = React.useState("")
@@ -36,7 +39,7 @@ export default function Login() {
     setIsLoading(true)
     try {
       await login(loginEmail.trim(), loginPassword)
-      setLocation("/")
+      setLocation(returnTo)
     } catch (err: any) {
       toast({ title: "Erro ao entrar", description: err.message, variant: "destructive" })
     } finally {
@@ -50,7 +53,7 @@ export default function Login() {
     setIsLoading(true)
     try {
       await register(regName.trim(), regEmail.trim(), regPhone.trim() || undefined, regPassword)
-      setLocation("/")
+      setLocation(returnTo)
     } catch (err: any) {
       toast({ title: "Erro ao cadastrar", description: err.message, variant: "destructive" })
     } finally {
@@ -92,9 +95,9 @@ export default function Login() {
             {forgotPassword ? "Vamos recuperar\nsua conta" : tab === "login" ? "Bem-vindo\nde volta!" : "Crie sua\nconta"}
           </h1>
           <p className="text-white/70 text-sm mt-2">
-            {forgotPassword ? "Enviaremos um link seguro para o seu e-mail." : tab === "login"
-              ? "Entre para acessar seus pedidos e favoritos."
-              : "Compre dos melhores comércios de Chapecó."}
+            {forgotPassword ? "Enviaremos um link seguro para o seu e-mail." : quoteIntent
+              ? "Entre ou crie uma conta para salvar e acompanhar sua cotação."
+              : tab === "login" ? "Entre para acessar seus pedidos e favoritos." : "Compre, anuncie e negocie na sua região."}
           </p>
         </div>
       </div>
@@ -120,6 +123,7 @@ export default function Login() {
             Cadastrar
           </button>
         </div>}
+        {!forgotPassword && !quoteIntent ? <Link href="/cotacao" className="mb-6 flex items-center gap-3 rounded-2xl border border-[#ffc400]/50 bg-[#fff8d8] p-4 text-left"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#ffc400]"><ClipboardList className="h-5 w-5" /></span><span><strong className="block text-sm">Solicitar uma cotação</strong><span className="text-xs text-muted-foreground">Comece sem ser cliente do AppVendor.ai</span></span></Link> : null}
 
         <AnimatePresence mode="wait">
           {forgotPassword ? (
