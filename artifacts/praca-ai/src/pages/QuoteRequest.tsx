@@ -6,10 +6,33 @@ import { useAuth } from "@/contexts/AuthContext"
 const DRAFT_KEY = "praca-ai-quote-draft"
 const UNITS = ["un", "cx", "kg", "m", "m²", "m³", "L", "saco", "rolo", "serviço"]
 
-type QuoteItem = { id: string; quantity: string; unit: string; description: string }
+type QuoteItem = { id: string; quantity: string; unit: string; description: string; brand: string }
 type QuoteDraft = { category?: string; title?: string; description?: string; location?: string; date?: string; items?: QuoteItem[] }
+type CatalogProduct = { id: string; name: string; specs?: { label: string; value: string }[]; vendorName?: string }
 
-const newItem = (description = "", quantity = "1", unit = "un"): QuoteItem => ({ id: crypto.randomUUID(), quantity, unit, description })
+const newItem = (description = "", quantity = "1", unit = "un"): QuoteItem => ({ id: crypto.randomUUID(), quantity, unit, description, brand: "" })
+
+function ProductDescriptionCell({ item, index, onChange, onSelect }: { item: QuoteItem; index: number; onChange: (value: string) => void; onSelect: (product: CatalogProduct) => void }) {
+  const [suggestions, setSuggestions] = React.useState<CatalogProduct[]>([])
+  const [open, setOpen] = React.useState(false)
+  const query = item.description.trim()
+
+  React.useEffect(() => {
+    if (query.length < 2) { setSuggestions([]); setOpen(false); return }
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => {
+      fetch(`/api/products?search=${encodeURIComponent(query)}&limit=6`, { signal: controller.signal })
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error("search failed")))
+        .then((data) => { setSuggestions(data.products ?? []); setOpen(true) })
+        .catch((cause) => { if (cause instanceof Error && cause.name !== "AbortError") setSuggestions([]) })
+    }, 300)
+    return () => { window.clearTimeout(timer); controller.abort() }
+  }, [query])
+
+  return <div className="relative"><input aria-label={`Descrição do item ${index+1}`} role="combobox" aria-expanded={open && suggestions.length > 0} aria-controls={`product-suggestions-${item.id}`} autoComplete="off" value={item.description} onFocus={()=>suggestions.length && setOpen(true)} onBlur={()=>window.setTimeout(()=>setOpen(false),150)} onChange={(event)=>onChange(event.target.value)} placeholder="Digite para buscar no catálogo" className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#0870c9] focus:outline-none" />
+    {open && suggestions.length ? <div id={`product-suggestions-${item.id}`} role="listbox" className="absolute left-0 right-0 top-11 z-30 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{suggestions.map((product)=>{ const brand = product.specs?.find((spec)=>spec.label.toLowerCase()==="marca")?.value; return <button key={product.id} type="button" role="option" aria-selected="false" onMouseDown={(event)=>event.preventDefault()} onClick={()=>{onSelect(product);setOpen(false)}} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-blue-50"><span className="block text-sm font-bold text-[#0b2742]">{product.name}</span><span className="block text-xs text-slate-500">{[brand,product.vendorName].filter(Boolean).join(" · ")}</span></button>})}</div> : null}
+  </div>
+}
 
 function textToItems(text: string): QuoteItem[] {
   const ignored = /^(orçamento|orcamento|lista|item|descrição|descricao|produto|quantidade|qtd|unidade|valor|total|subtotal|cliente|fornecedor|cnpj|cpf|data)\b/i
@@ -59,9 +82,13 @@ export default function QuoteRequest() {
   const [form, setForm] = React.useState<QuoteDraft>(() => {
     try { return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "{}") as QuoteDraft } catch { return {} }
   })
-  const items = form.items ?? []
+  const items = (form.items ?? []).map((item) => ({ ...item, brand: item.brand ?? "" }))
   const update = (field: keyof QuoteDraft, value: QuoteDraft[keyof QuoteDraft]) => setForm((current) => ({ ...current, [field]: value }))
   const updateItem = (id: string, field: keyof QuoteItem, value: string) => update("items", items.map((item) => item.id === id ? { ...item, [field]: value } : item))
+  const selectProduct = (id: string, product: CatalogProduct) => {
+    const brand = product.specs?.find((spec) => spec.label.toLowerCase() === "marca")?.value ?? ""
+    update("items", items.map((item) => item.id === id ? { ...item, description: product.name, brand } : item))
+  }
 
   const importFile = async (file?: File) => {
     if (!file) return
@@ -106,10 +133,10 @@ export default function QuoteRequest() {
           {error ? <div role="alert" className="flex items-start justify-between gap-3 rounded-xl bg-red-50 p-3 text-sm text-red-700"><span>{error}</span><button type="button" aria-label="Fechar aviso" onClick={()=>setError("")}><X className="h-4 w-4" /></button></div> : null}
           <div className="space-y-3"><div className="flex items-end justify-between"><div><h3 className="font-extrabold">Tabela de itens</h3><p className="text-xs text-slate-500">Revise e edite diretamente nas células.</p></div><span className="rounded-full bg-[#fff4bd] px-3 py-1 text-xs font-extrabold">{items.length} {items.length === 1 ? "item" : "itens"}</span></div>
             <div className="overflow-x-auto rounded-2xl border border-slate-200">
-              <table className="w-full min-w-[620px] border-collapse text-left text-sm">
-                <thead className="bg-[#092943] text-white"><tr><th scope="col" className="w-12 px-3 py-3 text-center text-xs font-extrabold">Nº</th><th scope="col" className="w-24 px-3 py-3 text-xs font-extrabold">Quantidade</th><th scope="col" className="w-28 px-3 py-3 text-xs font-extrabold">Unidade</th><th scope="col" className="px-3 py-3 text-xs font-extrabold">Descrição do item</th><th scope="col" className="w-14 px-3 py-3 text-center text-xs font-extrabold">Ação</th></tr></thead>
+              <table className="w-full min-w-[790px] border-collapse text-left text-sm">
+                <thead className="bg-[#092943] text-white"><tr><th scope="col" className="w-12 px-3 py-3 text-center text-xs font-extrabold">Nº</th><th scope="col" className="w-24 px-3 py-3 text-xs font-extrabold">Quantidade</th><th scope="col" className="w-24 px-3 py-3 text-xs font-extrabold">Unidade</th><th scope="col" className="px-3 py-3 text-xs font-extrabold">Descrição do item</th><th scope="col" className="w-36 px-3 py-3 text-xs font-extrabold">Marca</th><th scope="col" className="w-14 px-3 py-3 text-center text-xs font-extrabold">Ação</th></tr></thead>
                 <tbody className="divide-y divide-slate-200">
-                  {items.length ? items.map((item,index)=><tr key={item.id} className="bg-white hover:bg-slate-50"><td className="px-3 py-2 text-center font-bold text-slate-500">{index+1}</td><td className="p-2"><input aria-label={`Quantidade do item ${index+1}`} inputMode="decimal" value={item.quantity} onChange={(event)=>updateItem(item.id,"quantity",event.target.value)} className="h-10 w-full rounded-lg border border-slate-300 px-2 text-sm text-slate-900 focus:border-[#0870c9] focus:outline-none" /></td><td className="p-2"><select aria-label={`Unidade do item ${index+1}`} value={item.unit} onChange={(event)=>updateItem(item.id,"unit",event.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 focus:border-[#0870c9] focus:outline-none">{UNITS.map((unit)=><option key={unit}>{unit}</option>)}</select></td><td className="p-2"><input aria-label={`Descrição do item ${index+1}`} value={item.description} onChange={(event)=>updateItem(item.id,"description",event.target.value)} placeholder="Ex.: cimento CP-II 50 kg" className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#0870c9] focus:outline-none" /></td><td className="p-2 text-center"><button type="button" aria-label={`Excluir item ${index+1}`} onClick={()=>update("items",items.filter((current)=>current.id!==item.id))} className="inline-grid h-10 w-10 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></td></tr>) : <tr><td colSpan={5} className="h-32 bg-slate-50 px-4 text-center"><FileText className="mx-auto h-7 w-7 text-slate-400" /><p className="mt-2 font-bold text-slate-600">Nenhum item adicionado</p><p className="text-xs text-slate-400">Importe um documento, tire uma foto ou adicione manualmente.</p></td></tr>}
+                  {items.length ? items.map((item,index)=><tr key={item.id} className="bg-white hover:bg-slate-50"><td className="px-3 py-2 text-center font-bold text-slate-500">{index+1}</td><td className="p-2"><input aria-label={`Quantidade do item ${index+1}`} inputMode="decimal" value={item.quantity} onChange={(event)=>updateItem(item.id,"quantity",event.target.value)} className="h-10 w-full rounded-lg border border-slate-300 px-2 text-sm text-slate-900 focus:border-[#0870c9] focus:outline-none" /></td><td className="p-2"><select aria-label={`Unidade do item ${index+1}`} value={item.unit} onChange={(event)=>updateItem(item.id,"unit",event.target.value)} className="h-10 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-900 focus:border-[#0870c9] focus:outline-none">{UNITS.map((unit)=><option key={unit}>{unit}</option>)}</select></td><td className="p-2"><ProductDescriptionCell item={item} index={index} onChange={(value)=>updateItem(item.id,"description",value)} onSelect={(product)=>selectProduct(item.id,product)} /></td><td className="p-2"><input aria-label={`Marca do item ${index+1}`} value={item.brand} onChange={(event)=>updateItem(item.id,"brand",event.target.value)} placeholder="Opcional" className="h-10 w-full rounded-lg border border-slate-300 px-2 text-sm text-slate-900 focus:border-[#0870c9] focus:outline-none" /></td><td className="p-2 text-center"><button type="button" aria-label={`Excluir item ${index+1}`} onClick={()=>update("items",items.filter((current)=>current.id!==item.id))} className="inline-grid h-10 w-10 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></td></tr>) : <tr><td colSpan={6} className="h-32 bg-slate-50 px-4 text-center"><FileText className="mx-auto h-7 w-7 text-slate-400" /><p className="mt-2 font-bold text-slate-600">Nenhum item adicionado</p><p className="text-xs text-slate-400">Importe um documento, tire uma foto ou adicione manualmente.</p></td></tr>}
                 </tbody>
               </table>
             </div>
