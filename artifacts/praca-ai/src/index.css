@@ -58,11 +58,7 @@
   --radius-2xl: calc(var(--radius) + 8px);
 }
 
-/* NEON GREEN — fundo escuro de propósito: neon só "acende" contra
-   escuro. Verde vibrante (#39FF14-ish) é o protagonista — usado com
-   moderação (botões primários, bordas ativas, glow), não em toda
-   superfície, pra não cansar. Acento secundário é um ciano-verde
-   (spring green) pra dar variedade sem sair da família neon. */
+/* Praça.ai — identidade oficial. Tokens compartilhados por todas as telas. */
 :root {
   --praca-navy: #0B2240;
   --praca-blue: #0077FF;

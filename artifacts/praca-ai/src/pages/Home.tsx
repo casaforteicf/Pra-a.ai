@@ -6,6 +6,7 @@ import { Link, useLocation } from "wouter"
 import { ProductCard, type ProductCardData } from "@/components/ProductCard"
 import { PageLoader } from "@/components/ui/skeleton"
 import { buildArqdorPreProjectUrl } from "@/lib/arqdor"
+import { PracaLogo } from "@/components/brand/PracaLogo"
 
 const NAV_ITEMS = [["Ofertas do dia", "/listing?sort=offers"], ["Imóveis", "/imoveis"], ["Construção", "/listing?category=construcao"], ["Casa e decoração", "/listing?category=casa-moveis-e-decoracao"], ["Eletrônicos", "/listing?category=eletronicos-cameras-e-audio"], ["Veículos", "/veiculos"], ["Serviços", "/servicos"], ["Negócios B2B", "/cotacao"]] as const
 const ARQDOR_PROJECTS_URL = buildArqdorPreProjectUrl()
@@ -20,7 +21,7 @@ const HERO_IMAGE = "https://images.unsplash.com/photo-1600585154340-be6161a56a0c
 function toCard(product: Product): ProductCardData { return { ...product } }
 
 function Brand() {
-  return <Link href="/" aria-label="Praça.ai — página inicial" className="flex shrink-0 items-center gap-2 font-[Manrope] text-xl font-extrabold tracking-tight text-white sm:text-2xl"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#10D3B8] text-[#0B2240]"><span className="text-lg">P</span></span><span>Praça<span className="text-[#10D3B8]">.ai</span><small className="block text-[9px] font-medium tracking-normal text-white/60">Tudo para seus negócios</small></span></Link>
+  return <Link href="/" aria-label="Praça.ai — página inicial" className="shrink-0"><PracaLogo inverse /></Link>
 }
 
 function SectionHeading({ icon: Icon, title, subtitle, href, action }: { icon: React.ComponentType<{ className?: string }>; title: string; subtitle: string; href: string; action: string }) {

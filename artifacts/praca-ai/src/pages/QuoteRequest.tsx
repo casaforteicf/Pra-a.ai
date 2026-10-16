@@ -2,6 +2,7 @@ import * as React from "react"
 import { ArrowLeft, ArrowRight, CalendarDays, Camera, Check, ClipboardList, FileText, Image, LoaderCircle, MapPin, Package, Plus, Sparkles, Trash2, Upload, UserRound, X } from "lucide-react"
 import { Link, useLocation } from "wouter"
 import { useAuth } from "@/contexts/AuthContext"
+import { PracaLogo } from "@/components/brand/PracaLogo"
 
 const DRAFT_KEY = "praca-ai-quote-draft"
 const UNITS = ["un", "cx", "kg", "m", "m²", "m³", "L", "saco", "rolo", "serviço"]
@@ -116,7 +117,7 @@ export default function QuoteRequest() {
   }
 
   return <div className="min-h-full bg-[#F8FAFC] text-[#0B2240]">
-    <header className="border-b border-[#E5EAF0] bg-white"><div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4"><Link href="/" className="flex items-center gap-2 font-[Manrope] font-extrabold"><span className="grid h-9 w-9 place-items-center rounded-xl bg-[#0077FF] text-white"><span className="text-lg">P</span></span>Praça<span className="-ml-2 text-[#0077FF]">.ai</span></Link><Link href="/" className="flex items-center gap-2 text-sm font-bold text-slate-600"><ArrowLeft className="h-4 w-4" />Voltar</Link></div></header>
+    <header className="border-b border-[#E5EAF0] bg-white"><div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4"><Link href="/" aria-label="Praça.ai — página inicial"><PracaLogo /></Link><Link href="/" className="flex items-center gap-2 text-sm font-bold text-slate-600"><ArrowLeft className="h-4 w-4" />Voltar</Link></div></header>
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[.72fr_1.28fr] lg:py-12">
       <aside className="rounded-3xl bg-[#0B2240] p-7 text-white lg:sticky lg:top-8 lg:h-fit"><span className="inline-flex rounded-full bg-[#10D3B8] px-3 py-1 text-xs font-extrabold text-[#0B2240]">Aberto para todos</span><h1 className="mt-5 font-[Manrope] text-3xl font-extrabold leading-tight">Peça uma cotação na sua região.</h1><p className="mt-3 text-sm leading-relaxed text-white/75">Importe um orçamento, envie sua lista ou tire uma foto. O Praça.ai organiza os itens para você revisar antes de consultar fornecedores.</p><ol className="mt-7 space-y-5 text-sm">{[[Sparkles,"Importe ou fotografe sua lista"],[ClipboardList,"Revise quantidades e itens"],[UserRound,"Identifique-se para acompanhar"]].map(([Icon,text],index)=><li key={text as string} className="flex items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10"><Icon className="h-4 w-4" /></span><span><strong className="mr-2 text-[#10D3B8]">{index+1}.</strong>{text as string}</span></li>)}</ol></aside>
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(11,39,66,.08)] sm:p-8">
