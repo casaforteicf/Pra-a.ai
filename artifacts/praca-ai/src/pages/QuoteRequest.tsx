@@ -1,21 +1,89 @@
 import * as React from "react"
-import { ArrowLeft, ArrowRight, Building2, CalendarDays, Check, ClipboardList, MapPin, Package, UserRound } from "lucide-react"
+import { ArrowLeft, ArrowRight, Building2, CalendarDays, Camera, Check, ClipboardList, FileText, Image, LoaderCircle, MapPin, Package, Plus, Sparkles, Trash2, Upload, UserRound, X } from "lucide-react"
 import { Link, useLocation } from "wouter"
 import { useAuth } from "@/contexts/AuthContext"
 
 const DRAFT_KEY = "praca-ai-quote-draft"
+const UNITS = ["un", "cx", "kg", "m", "m²", "m³", "L", "saco", "rolo", "serviço"]
+
+type QuoteItem = { id: string; quantity: string; unit: string; description: string }
+type QuoteDraft = { category?: string; title?: string; description?: string; location?: string; date?: string; items?: QuoteItem[] }
+
+const newItem = (description = "", quantity = "1", unit = "un"): QuoteItem => ({ id: crypto.randomUUID(), quantity, unit, description })
+
+function textToItems(text: string): QuoteItem[] {
+  const ignored = /^(orçamento|orcamento|lista|item|descrição|descricao|produto|quantidade|qtd|unidade|valor|total|subtotal|cliente|fornecedor|cnpj|cpf|data)\b/i
+  return text.split(/\r?\n/).map((line) => line.replace(/[|;\t]+/g, " ").replace(/\s{2,}/g, " ").trim()).filter((line) => line.length > 2 && !ignored.test(line) && !/^r?\$?\s*[\d.,]+$/i.test(line)).slice(0, 80).map((line) => {
+    const clean = line.replace(/^\d+[.)-]\s*/, "").replace(/\s+r?\$\s*[\d.,]+(?:\s+r?\$\s*[\d.,]+)?$/i, "").trim()
+    const match = clean.match(/^(\d+(?:[.,]\d+)?)\s*(un|und|unid|cx|caixa|kg|g|m²|m2|m³|m3|m|l|lt|litros?|sacos?|rolos?|serviços?)?\s*[-–x:]?\s*(.+)$/i)
+    if (!match) return newItem(clean)
+    const normalizedUnit = match[2]?.toLowerCase().replace("und", "un").replace("unid", "un").replace("caixa", "cx").replace("m2", "m²").replace("m3", "m³").replace(/^lt$|^litros?$/, "L").replace(/sacos?/, "saco").replace(/rolos?/, "rolo").replace(/serviços?/, "serviço") ?? "un"
+    return newItem(match[3].trim(), match[1].replace(",", "."), normalizedUnit)
+  }).filter((item) => item.description.length > 1)
+}
+
+async function readPdf(file: File) {
+  const pdfjs = await import("pdfjs-dist")
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString()
+  const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise
+  const pages: string[] = []
+  for (let pageNumber = 1; pageNumber <= Math.min(pdf.numPages, 20); pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber)
+    const content = await page.getTextContent()
+    const lines = new Map<number, string[]>()
+    for (const item of content.items) {
+      if (!("str" in item) || !("transform" in item)) continue
+      const row = Math.round(item.transform[5] / 4) * 4
+      lines.set(row, [...(lines.get(row) ?? []), item.str])
+    }
+    pages.push([...lines.entries()].sort(([first], [second]) => second - first).map(([, words]) => words.join(" ")).join("\n"))
+  }
+  return pages.join("\n")
+}
+
+async function readImage(file: File, onProgress: (value: number) => void) {
+  const { createWorker } = await import("tesseract.js")
+  const worker = await createWorker("por", undefined, { logger: (message) => message.status === "recognizing text" && onProgress(Math.round(message.progress * 100)) })
+  try { return (await worker.recognize(file)).data.text } finally { await worker.terminate() }
+}
 
 export default function QuoteRequest() {
   const [, navigate] = useLocation()
   const { user } = useAuth()
+  const fileInput = React.useRef<HTMLInputElement>(null)
+  const cameraInput = React.useRef<HTMLInputElement>(null)
   const [saved, setSaved] = React.useState(false)
-  const [form, setForm] = React.useState(() => {
-    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "{}") as Record<string, string> } catch { return {} }
+  const [processing, setProcessing] = React.useState("")
+  const [progress, setProgress] = React.useState(0)
+  const [error, setError] = React.useState("")
+  const [form, setForm] = React.useState<QuoteDraft>(() => {
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "{}") as QuoteDraft } catch { return {} }
   })
-  const update = (field: string, value: string) => setForm((current) => ({ ...current, [field]: value }))
+  const items = form.items ?? []
+  const update = (field: keyof QuoteDraft, value: QuoteDraft[keyof QuoteDraft]) => setForm((current) => ({ ...current, [field]: value }))
+  const updateItem = (id: string, field: keyof QuoteItem, value: string) => update("items", items.map((item) => item.id === id ? { ...item, [field]: value } : item))
+
+  const importFile = async (file?: File) => {
+    if (!file) return
+    setError(""); setProgress(0); setProcessing(file.name)
+    try {
+      let text = ""
+      if (file.type.startsWith("image/")) text = await readImage(file, setProgress)
+      else if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) text = await readPdf(file)
+      else text = await file.text()
+      const extracted = textToItems(text)
+      if (!extracted.length) throw new Error("Não encontrei itens legíveis. Tente uma foto mais nítida ou adicione os itens manualmente.")
+      update("items", [...items, ...extracted])
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Não foi possível ler esse arquivo.") }
+    finally { setProcessing(""); setProgress(0); if (fileInput.current) fileInput.current.value = ""; if (cameraInput.current) cameraInput.current.value = "" }
+  }
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(form))
+    const completeItems = items.filter((item) => item.description.trim())
+    if (!completeItems.length) { setError("Adicione pelo menos um item à lista."); return }
+    const draft = { ...form, items: completeItems }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
     if (!user) { navigate("/login?returnTo=/cotacao&intent=cotacao"); return }
     setSaved(true)
   }
@@ -23,15 +91,27 @@ export default function QuoteRequest() {
   return <div className="min-h-full bg-[#f4f7fa] text-[#0b2742]">
     <header className="border-b bg-white"><div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4"><Link href="/" className="flex items-center gap-2 font-extrabold"><span className="grid h-9 w-9 place-items-center rounded-lg bg-[#ffc400]"><Building2 className="h-5 w-5" /></span>Praça.ai</Link><Link href="/" className="flex items-center gap-2 text-sm font-bold text-slate-600"><ArrowLeft className="h-4 w-4" />Voltar</Link></div></header>
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[.72fr_1.28fr] lg:py-12">
-      <aside className="rounded-3xl bg-[#092943] p-7 text-white lg:sticky lg:top-8 lg:h-fit"><span className="inline-flex rounded-full bg-[#ffc400] px-3 py-1 text-xs font-extrabold text-[#092943]">Aberto para todos</span><h1 className="mt-5 text-3xl font-extrabold leading-tight">Peça uma cotação na sua região.</h1><p className="mt-3 text-sm leading-relaxed text-white/75">Você não precisa ser cliente do AppVendor.ai. Descreva o que precisa e crie sua conta somente para salvar, acompanhar respostas e conversar com fornecedores.</p><ol className="mt-7 space-y-5 text-sm">{[[Package,"Conte o que precisa"],[MapPin,"Informe onde será entregue ou executado"],[UserRound,"Identifique-se para acompanhar"]].map(([Icon,text],index)=><li key={text as string} className="flex items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10"><Icon className="h-4 w-4" /></span><span><strong className="mr-2 text-[#ffc400]">{index+1}.</strong>{text as string}</span></li>)}</ol></aside>
+      <aside className="rounded-3xl bg-[#092943] p-7 text-white lg:sticky lg:top-8 lg:h-fit"><span className="inline-flex rounded-full bg-[#ffc400] px-3 py-1 text-xs font-extrabold text-[#092943]">Aberto para todos</span><h1 className="mt-5 text-3xl font-extrabold leading-tight">Peça uma cotação na sua região.</h1><p className="mt-3 text-sm leading-relaxed text-white/75">Importe um orçamento, envie sua lista ou tire uma foto. O Praça.ai organiza os itens para você revisar antes de consultar fornecedores.</p><ol className="mt-7 space-y-5 text-sm">{[[Sparkles,"Importe ou fotografe sua lista"],[ClipboardList,"Revise quantidades e itens"],[UserRound,"Identifique-se para acompanhar"]].map(([Icon,text],index)=><li key={text as string} className="flex items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10"><Icon className="h-4 w-4" /></span><span><strong className="mr-2 text-[#ffc400]">{index+1}.</strong>{text as string}</span></li>)}</ol></aside>
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(11,39,66,.08)] sm:p-8">
-        {saved ? <div className="flex min-h-[440px] flex-col items-center justify-center text-center"><span className="grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-700"><Check className="h-8 w-8" /></span><h2 className="mt-5 text-2xl font-extrabold">Solicitação preparada</h2><p className="mt-2 max-w-md text-sm text-slate-600">Seu rascunho está salvo. A distribuição automática para fornecedores será habilitada na próxima etapa da central de cotações.</p><Link href="/" className="mt-6 rounded-xl bg-[#ffc400] px-5 py-3 text-sm font-extrabold">Voltar ao início</Link></div> : <form onSubmit={submit} className="space-y-6">
-          <div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#0870c9]">Nova solicitação</p><h2 className="mt-1 text-2xl font-extrabold">O que você precisa cotar?</h2><p className="mt-1 text-sm text-slate-500">Preencha o essencial agora. Você poderá complementar depois.</p></div>
-          <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-bold">Categoria<select required value={form.category ?? ""} onChange={(event)=>update("category",event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-3 font-normal"><option value="">Selecione</option><option>Produtos e materiais</option><option>Imóveis</option><option>Construção e reforma</option><option>Serviços</option><option>Veículos</option><option>Agro</option><option>Outro</option></select></label><label className="text-sm font-bold">Título da necessidade<input required value={form.title ?? ""} onChange={(event)=>update("title",event.target.value)} placeholder="Ex.: materiais para reforma" className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-3 font-normal" /></label></div>
-          <label className="block text-sm font-bold">Descrição<textarea required value={form.description ?? ""} onChange={(event)=>update("description",event.target.value)} placeholder="Itens, quantidades, medidas ou detalhes importantes" className="mt-2 min-h-32 w-full rounded-xl border border-slate-300 p-3 font-normal" /></label>
+        {saved ? <div className="flex min-h-[440px] flex-col items-center justify-center text-center"><span className="grid h-16 w-16 place-items-center rounded-full bg-emerald-100 text-emerald-700"><Check className="h-8 w-8" /></span><h2 className="mt-5 text-2xl font-extrabold">Solicitação preparada</h2><p className="mt-2 max-w-md text-sm text-slate-600">Sua lista com {items.length} {items.length === 1 ? "item está salva" : "itens está salva"}. A distribuição automática para fornecedores será habilitada na próxima etapa da central de cotações.</p><Link href="/" className="mt-6 rounded-xl bg-[#ffc400] px-5 py-3 text-sm font-extrabold">Voltar ao início</Link></div> : <form onSubmit={submit} className="space-y-6">
+          <div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#0870c9]">Nova solicitação</p><h2 className="mt-1 text-2xl font-extrabold">Monte sua lista de cotação</h2><p className="mt-1 text-sm text-slate-500">Comece por um arquivo, uma foto ou adicione os itens manualmente.</p></div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <button type="button" onClick={()=>fileInput.current?.click()} className="flex min-h-24 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-250 bg-slate-50 px-3 text-center text-sm font-bold hover:border-[#0870c9] hover:bg-blue-50"><Upload className="mb-2 h-6 w-6 text-[#0870c9]" />Importar orçamento<span className="mt-1 text-[11px] font-normal text-slate-500">PDF, CSV ou TXT</span></button>
+            <button type="button" onClick={()=>cameraInput.current?.click()} className="flex min-h-24 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-250 bg-slate-50 px-3 text-center text-sm font-bold hover:border-[#0870c9] hover:bg-blue-50"><Camera className="mb-2 h-6 w-6 text-[#0870c9]" />Tirar foto<span className="mt-1 text-[11px] font-normal text-slate-500">Lista escrita ou impressa</span></button>
+            <button type="button" onClick={()=>update("items", [...items, newItem()])} className="flex min-h-24 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-250 bg-slate-50 px-3 text-center text-sm font-bold hover:border-[#0870c9] hover:bg-blue-50"><Plus className="mb-2 h-6 w-6 text-[#0870c9]" />Adicionar item<span className="mt-1 text-[11px] font-normal text-slate-500">Preencher manualmente</span></button>
+            <input ref={fileInput} type="file" className="hidden" accept=".pdf,.csv,.txt,text/plain,text/csv,application/pdf,image/*" onChange={(event)=>void importFile(event.target.files?.[0])} />
+            <input ref={cameraInput} type="file" className="hidden" accept="image/*" capture="environment" onChange={(event)=>void importFile(event.target.files?.[0])} />
+          </div>
+          {processing ? <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4"><div className="flex items-center gap-3"><LoaderCircle className="h-5 w-5 animate-spin text-[#0870c9]" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-bold">Lendo {processing}</p><p className="text-xs text-slate-500">{progress ? `Reconhecendo texto: ${progress}%` : "Extraindo e organizando os itens…"}</p></div></div>{progress ? <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-blue-100"><div className="h-full bg-[#0870c9] transition-all" style={{ width: `${progress}%` }} /></div> : null}</div> : null}
+          {error ? <div role="alert" className="flex items-start justify-between gap-3 rounded-xl bg-red-50 p-3 text-sm text-red-700"><span>{error}</span><button type="button" aria-label="Fechar aviso" onClick={()=>setError("")}><X className="h-4 w-4" /></button></div> : null}
+          <div className="space-y-3"><div className="flex items-end justify-between"><div><h3 className="font-extrabold">Itens da cotação</h3><p className="text-xs text-slate-500">Revise o que foi identificado antes de continuar.</p></div><span className="rounded-full bg-[#fff4bd] px-3 py-1 text-xs font-extrabold">{items.length} {items.length === 1 ? "item" : "itens"}</span></div>
+            {items.length ? <div className="space-y-2">{items.map((item,index)=><div key={item.id} className="grid grid-cols-[3.5rem_4.5rem_1fr_2.5rem] gap-2 rounded-xl border border-slate-200 p-2"><label className="text-[10px] font-bold text-slate-500">QTD<input aria-label={`Quantidade do item ${index+1}`} value={item.quantity} onChange={(event)=>updateItem(item.id,"quantity",event.target.value)} className="mt-1 h-10 w-full rounded-lg border px-2 text-sm font-normal text-slate-900" /></label><label className="text-[10px] font-bold text-slate-500">UN.<select aria-label={`Unidade do item ${index+1}`} value={item.unit} onChange={(event)=>updateItem(item.id,"unit",event.target.value)} className="mt-1 h-10 w-full rounded-lg border bg-white px-1 text-sm font-normal text-slate-900">{UNITS.map((unit)=><option key={unit}>{unit}</option>)}</select></label><label className="text-[10px] font-bold text-slate-500">DESCRIÇÃO<input aria-label={`Descrição do item ${index+1}`} value={item.description} onChange={(event)=>updateItem(item.id,"description",event.target.value)} placeholder="Ex.: cimento CP-II 50 kg" className="mt-1 h-10 w-full rounded-lg border px-2 text-sm font-normal text-slate-900" /></label><button type="button" aria-label={`Excluir item ${index+1}`} onClick={()=>update("items",items.filter((current)=>current.id!==item.id))} className="mt-5 grid h-10 place-items-center rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-600"><Trash2 className="h-4 w-4" /></button></div>)}</div> : <div className="grid min-h-32 place-items-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 text-center"><div><FileText className="mx-auto h-7 w-7 text-slate-400" /><p className="mt-2 text-sm font-bold text-slate-600">Sua lista aparecerá aqui</p><p className="text-xs text-slate-400">Importe um documento, uma imagem ou crie o primeiro item.</p></div></div>}
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-bold">Categoria<select required value={form.category ?? ""} onChange={(event)=>update("category",event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-300 bg-white px-3 font-normal"><option value="">Selecione</option><option>Produtos e materiais</option><option>Construção e reforma</option><option>Serviços</option><option>Veículos</option><option>Agro</option><option>Outro</option></select></label><label className="text-sm font-bold">Título da necessidade<input required value={form.title ?? ""} onChange={(event)=>update("title",event.target.value)} placeholder="Ex.: materiais para reforma" className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-3 font-normal" /></label></div>
+          <label className="block text-sm font-bold">Observações <span className="font-normal text-slate-400">(opcional)</span><textarea value={form.description ?? ""} onChange={(event)=>update("description",event.target.value)} placeholder="Marcas preferidas, medidas ou detalhes importantes" className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 p-3 font-normal" /></label>
           <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-bold"><MapPin className="mr-1 inline h-4 w-4" />Cidade ou região<input required value={form.location ?? "Chapecó, SC"} onChange={(event)=>update("location",event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-3 font-normal" /></label><label className="text-sm font-bold"><CalendarDays className="mr-1 inline h-4 w-4" />Quando precisa?<input type="date" value={form.date ?? ""} onChange={(event)=>update("date",event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-3 font-normal" /></label></div>
-          <div className="rounded-2xl bg-[#f4f7fa] p-4 text-sm text-slate-600"><ClipboardList className="mr-2 inline h-4 w-4 text-[#0870c9]" />Seu rascunho fica neste dispositivo. Criar uma conta permite continuar e acompanhar as respostas.</div>
-          <button type="submit" className="flex h-13 w-full items-center justify-center gap-2 rounded-xl bg-[#ffc400] px-5 py-3.5 font-extrabold shadow-[0_8px_22px_rgba(255,196,0,.28)]">{user ? "Salvar solicitação" : "Continuar e identificar-me"}<ArrowRight className="h-4 w-4" /></button>
+          <div className="rounded-2xl bg-[#f4f7fa] p-4 text-sm text-slate-600"><Image className="mr-2 inline h-4 w-4 text-[#0870c9]" />Fotos e documentos são processados neste dispositivo. Seu rascunho fica salvo localmente.</div>
+          <button type="submit" disabled={Boolean(processing)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#ffc400] px-5 py-3.5 font-extrabold shadow-[0_8px_22px_rgba(255,196,0,.28)] disabled:cursor-wait disabled:opacity-60">{user ? "Salvar solicitação" : "Continuar e identificar-me"}<ArrowRight className="h-4 w-4" /></button>
         </form>}
       </section>
     </main>
