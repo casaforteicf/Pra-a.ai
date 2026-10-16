@@ -40,7 +40,7 @@ export default function Profile() {
   return (
     <div className="flex flex-col w-full min-h-full bg-muted/30">
       {/* Header Profile Area */}
-      <div className="bg-primary px-4 pt-12 pb-8 rounded-b-[32px] text-white shadow-lg relative overflow-hidden">
+      <div className="bg-[#0B2240] px-4 pt-5 pb-6 rounded-b-2xl text-white shadow-sm relative overflow-hidden md:pt-12 md:pb-8 md:rounded-b-[32px] md:shadow-lg">
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-card/10 rounded-full blur-2xl" />
 
         {user ? (
@@ -48,12 +48,12 @@ export default function Profile() {
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="w-20 h-20 rounded-[24px] bg-card text-primary flex items-center justify-center font-black text-2xl shadow-xl rotate-3 shrink-0"
+              className="w-14 h-14 rounded-full bg-white text-[#0B2240] flex items-center justify-center font-black text-xl shadow-sm shrink-0 md:h-20 md:w-20 md:rounded-[24px] md:text-2xl md:shadow-xl md:rotate-3"
             >
               {initials}
             </motion.div>
             <div className="flex flex-col min-w-0">
-              <h1 className="text-2xl font-black truncate">{user.name}</h1>
+              <h1 className="text-xl font-extrabold truncate md:text-2xl">{user.name}</h1>
               <p className="text-white/80 text-sm font-medium flex items-center gap-1 mt-1">
                 <MapPin className="w-3.5 h-3.5 shrink-0" /> {user.email}
               </p>
@@ -82,7 +82,7 @@ export default function Profile() {
       </div>
 
       {/* Menu List */}
-      <div className="p-4 flex flex-col gap-3 -mt-4 relative z-20">
+      <div className="p-3 flex flex-col gap-3 -mt-2 relative z-20 md:p-4 md:-mt-4">
         <div className="bg-background rounded-2xl shadow-sm border p-2 flex flex-col">
           <MenuRow
             icon={<Package className="text-primary" />}
