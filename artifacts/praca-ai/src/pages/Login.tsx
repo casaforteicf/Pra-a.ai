@@ -123,7 +123,7 @@ export default function Login() {
             Cadastrar
           </button>
         </div>}
-        {!forgotPassword && !quoteIntent ? <Link href="/cotacao" className="mb-6 flex items-center gap-3 rounded-2xl border border-[#ffc400]/50 bg-[#fff8d8] p-4 text-left"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#ffc400]"><ClipboardList className="h-5 w-5" /></span><span><strong className="block text-sm">Solicitar uma cotação</strong><span className="text-xs text-muted-foreground">Comece sem ser cliente do AppVendor.ai</span></span></Link> : null}
+        {!forgotPassword && !quoteIntent ? <Link href="/cotacao" className="mb-6 flex items-center gap-3 rounded-2xl border border-[#10D3B8]/50 bg-[#EEFCF9] p-4 text-left"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#10D3B8] text-[#0B2240]"><ClipboardList className="h-5 w-5" /></span><span><strong className="block text-sm">Solicitar uma cotação</strong><span className="text-xs text-muted-foreground">Comece sem ser cliente do AppVendor.ai</span></span></Link> : null}
 
         <AnimatePresence mode="wait">
           {forgotPassword ? (
