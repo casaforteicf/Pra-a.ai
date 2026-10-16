@@ -1,5 +1,6 @@
+import * as React from "react"
 import { Link } from "wouter"
-import { ArrowRight, Star, Truck } from "lucide-react"
+import { ArrowRight, ImageOff, Star, Truck } from "lucide-react"
 import { formatMoney, cn } from "@/lib/utils"
 import { Card } from "@/components/ui/card"
 
@@ -26,16 +27,19 @@ export interface ProductCardData {
  */
 export function ProductCard({ product, className, compact = false }: { product: ProductCardData; className?: string; compact?: boolean }) {
   const hasRating = (product.reviewCount ?? 0) > 0
+  const [imageFailed, setImageFailed] = React.useState(false)
+
+  React.useEffect(() => setImageFailed(false), [product.imageUrl])
 
   return (
     <Link href={product.href ?? `/product/${product.id}`} className={cn("block", className)}>
       <Card className="group h-full overflow-hidden rounded-[20px] border border-slate-200 bg-card shadow-[0_8px_24px_rgba(11,27,47,.06)] transition-all duration-300 hover:-translate-y-1.5 hover:border-secondary hover:shadow-[0_20px_48px_rgba(11,27,47,.12)] active:scale-95">
         <div className={cn("relative overflow-hidden bg-gradient-to-br from-slate-50 to-slate-200", compact ? "aspect-[1.18/1] sm:aspect-square" : "aspect-square")}>
-          <img
-            src={product.imageUrl ?? undefined}
-            alt={product.name}
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
+          {product.imageUrl && !imageFailed ? (
+            <img src={product.imageUrl} alt={product.name} onError={() => setImageFailed(true)} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground" role="img" aria-label={`${product.name} sem imagem disponível`}><ImageOff className="h-8 w-8" /><span className="text-[11px] font-semibold">Imagem indisponível</span></div>
+          )}
           {product.discountPct && (
             <div className="absolute left-2 top-2 rounded-full bg-secondary px-2.5 py-1 text-xs font-black text-secondary-foreground shadow-md">
               -{product.discountPct}%
