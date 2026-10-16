@@ -25,7 +25,7 @@ export function BottomNav() {
     <>
     <nav aria-label="Navegação principal mobile" className="absolute inset-x-0 bottom-0 z-40 grid h-[calc(64px+env(safe-area-inset-bottom))] grid-cols-5 border-t border-[#E5EAF0] bg-white pb-[env(safe-area-inset-bottom)] text-[#0B2240] shadow-sm lg:hidden">
       {mobileItems.map(item => {
-        const active = location === item.href || (item.href !== "/" && location.startsWith(item.href.split("?")[0]))
+        const active = location === item.href || (item.href !== "/" && !item.href.includes("?") && location.startsWith(item.href))
         return <Link key={item.label} href={item.href} className={cn("flex min-w-0 flex-col items-center justify-center gap-1 text-[10px]",active ? "font-bold text-[#008878]" : "text-[#64748B]")}><item.icon className="h-5 w-5" strokeWidth={active ? 2.5 : 1.9} />{item.label}</Link>
       })}
     </nav>
