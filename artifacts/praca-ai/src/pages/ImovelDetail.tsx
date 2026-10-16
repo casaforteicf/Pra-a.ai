@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useLocation, useRoute } from "wouter"
-import { ChevronLeft, Home as HomeIcon, Calendar } from "lucide-react"
+import { ChevronLeft, Home as HomeIcon, Calendar, DraftingCompass, ExternalLink } from "lucide-react"
 import { useQuery, useMutation } from "@tanstack/react-query"
 import { formatMoney } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/skeleton"
@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
+import { buildArqdorPreProjectUrl } from "@/lib/arqdor"
 
 interface Imovel {
   id: string
@@ -79,6 +80,17 @@ export default function ImovelDetail() {
     </div>
   )
 
+  const isTerrain = imovel.tipo.toLowerCase().includes("terreno")
+  const preProjectUrl = buildArqdorPreProjectUrl({
+    type: "terreno",
+    id: imovel.id,
+    title: imovel.titulo,
+    image: imovel.fotos?.[0],
+    areaM2: imovel.areaM2,
+    description: imovel.descricao,
+    category: imovel.tipo,
+  })
+
   return (
     <div className="flex flex-col w-full min-h-full pb-24 bg-background">
       <header className="sticky top-0 inset-x-0 bg-background/95 backdrop-blur-md z-30 px-4 pt-4 pb-3 border-b">
@@ -124,6 +136,23 @@ export default function ImovelDetail() {
         </div>
 
         {imovel.descricao && <p className="text-sm text-muted-foreground">{imovel.descricao}</p>}
+
+        {isTerrain && (
+          <Card className="overflow-hidden border-[#B9EDE6] bg-gradient-to-br from-[#E9FBF8] to-white p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#10D3B8] text-[#0B2240]">
+                <DraftingCompass className="h-6 w-6" />
+              </span>
+              <div>
+                <h2 className="text-lg font-black text-[#0B2240]">Projete sua casa neste terreno</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Abra o Pré-projeto no ARQDOR com a foto, a área e a referência deste anúncio.</p>
+              </div>
+            </div>
+            <a href={preProjectUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0B2240] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#12345c]">
+              Projetar minha casa <ExternalLink className="h-4 w-4" />
+            </a>
+          </Card>
+        )}
 
         <Card className="p-4 space-y-3">
           <h3 className="font-bold flex items-center gap-2"><Calendar className="w-4 h-4" /> Agendar Visita</h3>

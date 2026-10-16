@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useRoute, useLocation } from "wouter"
-import { ChevronLeft, Heart, Share2, Star, ShieldCheck, MapPin, Store, CheckCircle2, Truck, MessageCircle, Send } from "lucide-react"
+import { ChevronLeft, Heart, Share2, Star, ShieldCheck, MapPin, Store, CheckCircle2, Truck, MessageCircle, Send, DraftingCompass, ExternalLink } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useGetProduct, getGetProductQueryKey, useAddToCart, useListProductReviews, getListProductReviewsQueryKey } from "@workspace/api-client-react"
 import { formatMoney } from "@/lib/utils"
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/AuthContext"
 import { ProductCard } from "@/components/ProductCard"
 import { motion } from "framer-motion"
+import { buildArqdorPreProjectUrl, isFurnitureProduct } from "@/lib/arqdor"
 
 interface ProductQuestion {
   id: number
@@ -120,6 +121,17 @@ export default function ProductDetail() {
 
   if (isLoading) return <PageLoader />
   if (!product) return <div className="p-8 text-center text-muted-foreground font-bold">Produto não encontrado.</div>
+
+  const canDesignEnvironment = isFurnitureProduct(product.category, product.name)
+  const preProjectUrl = buildArqdorPreProjectUrl({
+    type: "ambiente",
+    id: product.id,
+    title: product.name,
+    image: product.images?.[selectedImageIndex] ?? product.imageUrl,
+    description: product.description,
+    category: product.category,
+    specs: product.specs,
+  })
 
   return (
     <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col bg-card pb-32">
@@ -257,6 +269,23 @@ export default function ProductDetail() {
         )}
 
         {/* Trust Seal */}
+        {canDesignEnvironment && (
+          <div className="rounded-2xl border border-[#B9EDE6] bg-gradient-to-br from-[#E9FBF8] to-white p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#10D3B8] text-[#0B2240]">
+                <DraftingCompass className="h-6 w-6" />
+              </span>
+              <div>
+                <h2 className="text-lg font-black text-[#0B2240]">Projete seu ambiente</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Visualize este móvel no seu projeto usando o Pré-projeto do ARQDOR.</p>
+              </div>
+            </div>
+            <a href={preProjectUrl} target="_blank" rel="noreferrer" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0B2240] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#12345c]">
+              Projetar meu ambiente <ExternalLink className="h-4 w-4" />
+            </a>
+          </div>
+        )}
+
         <div className="bg-primary/5 rounded-2xl p-4 flex items-start gap-3">
           <ShieldCheck className="w-6 h-6 text-primary shrink-0 mt-0.5" />
           <div className="flex flex-col text-sm">
