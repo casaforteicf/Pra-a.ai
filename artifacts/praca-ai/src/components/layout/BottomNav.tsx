@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Link, useLocation } from "wouter"
-import { Home, Search, Heart, User } from "lucide-react"
+import { Home, Search, Heart, User, Grid2X2, Package } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PracaLogo } from "@/components/brand/PracaLogo"
 
@@ -14,8 +14,22 @@ export function BottomNav() {
     { href: "/profile", icon: User, label: "Conta" },
   ]
 
+  const mobileItems = [
+    { href: "/", icon: Home, label: "Início" },
+    { href: "/listing", icon: Grid2X2, label: "Categorias" },
+    { href: "/listing?focus=search", icon: Search, label: "Buscar" },
+    { href: "/orders", icon: Package, label: "Pedidos" },
+    { href: "/profile", icon: User, label: "Conta" },
+  ]
   return (
-    <nav className="absolute bottom-0 inset-x-0 z-40 flex h-[88px] items-center justify-between border-t border-white/10 bg-[#0B2240] px-6 pb-6 pt-2 text-white shadow-[0_-10px_30px_rgba(11,34,64,.16)] lg:top-0 lg:bottom-auto lg:h-[72px] lg:border-b lg:border-t-0 lg:px-8 lg:py-0">
+    <>
+    <nav aria-label="Navegação principal mobile" className="absolute inset-x-0 bottom-0 z-40 grid h-[calc(64px+env(safe-area-inset-bottom))] grid-cols-5 border-t border-[#E5EAF0] bg-white pb-[env(safe-area-inset-bottom)] text-[#0B2240] shadow-sm lg:hidden">
+      {mobileItems.map(item => {
+        const active = location === item.href || (item.href !== "/" && location.startsWith(item.href.split("?")[0]))
+        return <Link key={item.label} href={item.href} className={cn("flex min-w-0 flex-col items-center justify-center gap-1 text-[10px]",active ? "font-bold text-[#008878]" : "text-[#64748B]")}><item.icon className="h-5 w-5" strokeWidth={active ? 2.5 : 1.9} />{item.label}</Link>
+      })}
+    </nav>
+    <nav className="absolute bottom-0 inset-x-0 z-40 hidden h-[88px] items-center justify-between border-t border-white/10 bg-[#0B2240] px-6 pb-6 pt-2 text-white shadow-[0_-10px_30px_rgba(11,34,64,.16)] lg:flex lg:top-0 lg:bottom-auto lg:h-[72px] lg:border-b lg:border-t-0 lg:px-8 lg:py-0">
       <Link href="/" className="hidden items-center gap-2 lg:flex">
         <PracaLogo inverse />
       </Link>
@@ -41,5 +55,6 @@ export function BottomNav() {
       })}
       </div>
     </nav>
+    </>
   )
 }
