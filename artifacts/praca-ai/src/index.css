@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&family=Playfair+Display:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..800&family=Manrope:wght@500;600;700;800&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @plugin "@tailwindcss/typography";
@@ -64,8 +64,16 @@
    superfície, pra não cansar. Acento secundário é um ciano-verde
    (spring green) pra dar variedade sem sair da família neon. */
 :root {
-  --background: 210 40% 96%;
-  --foreground: 212 63% 11%;
+  --praca-navy: #0B2240;
+  --praca-blue: #0077FF;
+  --praca-teal: #10D3B8;
+  --praca-green: #00DB98;
+  --praca-background: #F8FAFC;
+  --praca-text: #4B5563;
+  --praca-surface: #FFFFFF;
+  --praca-border: #E5EAF0;
+  --background: 210 40% 98%;
+  --foreground: 213 71% 15%;
   --card: 0 0% 100%;
   --card-foreground: 212 63% 11%;
   --card-border: 214 32% 91%;
@@ -73,29 +81,30 @@
   --popover-foreground: 242 36% 15%;
   --popover-border: 230 24% 88%;
 
-  --primary: 212 63% 11%;
+  --primary: 213 71% 15%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 38 92% 50%;
-  --secondary-foreground: 212 63% 11%;
+  --secondary: 212 100% 50%;
+  --secondary-foreground: 0 0% 100%;
 
-  --terracota: 38 92% 50%;
-  --terracota-foreground: 212 63% 11%;
+  --terracota: 171 86% 45%;
+  --terracota-foreground: 213 71% 15%;
 
   --muted: 210 40% 96%;
   --muted-foreground: 215 16% 47%;
 
-  --accent: 48 96% 89%;
-  --accent-foreground: 32 95% 34%;
+  --accent: 171 72% 93%;
+  --accent-foreground: 213 71% 15%;
 
   --destructive: 348 100% 58%;
   --destructive-foreground: 0 0% 100%;
 
   --border: 214 32% 91%;
   --input: 214 32% 91%;
-  --ring: 38 92% 50%;
+  --ring: 212 100% 50%;
 
   --app-font-sans: 'Inter', sans-serif;
-  --app-font-serif: 'Playfair Display', Georgia, serif;
+  --app-font-serif: 'Manrope', 'Inter', sans-serif;
+  --app-font-display: 'Manrope', 'Inter', sans-serif;
   --app-font-mono: Menlo, monospace;
   --radius: 1rem;
 
