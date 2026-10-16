@@ -31,6 +31,7 @@ import restauranteRouter from "./restaurante";
 import variedadesRouter from "./variedades";
 import marketplaceRouter from "./marketplace";
 import seoRouter from "./seo";
+import quotesRouter from "./quotes";
 
 const router: IRouter = Router();
 
@@ -66,5 +67,6 @@ router.use(fretesRouter);
 router.use(restauranteRouter);
 router.use(variedadesRouter);
 router.use(marketplaceRouter);
+router.use(quotesRouter);
 
 export default router;

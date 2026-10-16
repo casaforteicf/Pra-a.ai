@@ -12,6 +12,8 @@ export interface ProductCardData {
   discountPct?: number | null
   imageUrl: string | null
   vendorName: string
+  vendorId?: string
+  vendorLogoUrl?: string | null
   rating?: number
   reviewCount?: number
   freeShipping?: boolean

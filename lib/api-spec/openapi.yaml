@@ -169,6 +169,11 @@ paths:
           in: query
           schema:
             type: ["string", "null"]
+        - name: vendorId
+          in: query
+          description: Filtra produtos por uma loja específica.
+          schema:
+            type: ["string", "null"]
         - name: sort
           in: query
           schema:

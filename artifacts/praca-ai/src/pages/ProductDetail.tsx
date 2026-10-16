@@ -2,7 +2,7 @@ import * as React from "react"
 import { useRoute, useLocation } from "wouter"
 import { ChevronLeft, Heart, Share2, Star, ShieldCheck, MapPin, Store, CheckCircle2, Truck, MessageCircle, Send, DraftingCompass, ExternalLink } from "lucide-react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { useGetProduct, getGetProductQueryKey, useAddToCart, useListProductReviews, getListProductReviewsQueryKey } from "@workspace/api-client-react"
+import { useGetProduct, getGetProductQueryKey, useAddToCart, useListProductReviews, getListProductReviewsQueryKey, useToggleFavorite, getListFavoritesQueryKey } from "@workspace/api-client-react"
 import { formatMoney } from "@/lib/utils"
 import { PageLoader } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
@@ -39,6 +39,7 @@ export default function ProductDetail() {
 
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const toggleFavorite = useToggleFavorite()
 
   const { data: questions } = useQuery<ProductQuestion[]>({
     queryKey: ["product-questions", productId],
@@ -119,6 +120,33 @@ export default function ProductDetail() {
     })
   }
 
+  const handleFavorite = () => {
+    if (!user) {
+      setLocation(`/login?returnTo=${encodeURIComponent(`/product/${productId}`)}`)
+      return
+    }
+    toggleFavorite.mutate({ productId }, {
+      onSuccess: (data) => {
+        setIsLiked(Boolean(data.isFavorited))
+        queryClient.invalidateQueries({ queryKey: getListFavoritesQueryKey() })
+      },
+      onError: () => toast({ title: "Não foi possível atualizar o favorito", variant: "destructive" }),
+    })
+  }
+
+  const handleShare = async () => {
+    const shareData = { title: product?.name ?? "Praça.ai", text: product?.name, url: window.location.href }
+    try {
+      if (navigator.share) await navigator.share(shareData)
+      else {
+        await navigator.clipboard.writeText(window.location.href)
+        toast({ title: "Link copiado" })
+      }
+    } catch (error) {
+      if ((error as DOMException)?.name !== "AbortError") toast({ title: "Não foi possível compartilhar", variant: "destructive" })
+    }
+  }
+
   if (isLoading) return <PageLoader />
   if (!product) return <div className="p-8 text-center text-muted-foreground font-bold">Produto não encontrado.</div>
 
@@ -144,11 +172,13 @@ export default function ProductDetail() {
           <ChevronLeft className="w-6 h-6 text-foreground" />
         </button>
         <div className="flex items-center gap-2 pointer-events-auto">
-          <button className="w-10 h-10 rounded-full bg-card/80 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-95">
+          <button onClick={()=>void handleShare()} aria-label="Compartilhar produto" className="w-10 h-10 rounded-full bg-card/80 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-95">
             <Share2 className="w-5 h-5 text-foreground" />
           </button>
           <button 
-            onClick={() => setIsLiked(!isLiked)}
+            onClick={handleFavorite}
+            disabled={toggleFavorite.isPending}
+            aria-label={isLiked ? "Remover dos favoritos" : "Adicionar aos favoritos"}
             className="w-10 h-10 rounded-full bg-card/80 backdrop-blur-md flex items-center justify-center shadow-sm active:scale-95"
           >
             <motion.div animate={isLiked ? { scale: [1, 1.2, 1] } : {}}>
@@ -219,7 +249,7 @@ export default function ProductDetail() {
         </div>
 
         {/* Vendor Chip */}
-        <div className="flex items-center justify-between p-4 bg-background border rounded-2xl">
+        <button type="button" onClick={()=>setLocation(`/listing?vendorId=${encodeURIComponent(product.vendorId)}`)} className="flex w-full items-center justify-between p-4 bg-background border rounded-2xl text-left hover:border-primary/40">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center overflow-hidden">
               {product.vendorLogoUrl ? (
@@ -244,7 +274,7 @@ export default function ProductDetail() {
             </div>
           </div>
           <ChevronLeft className="w-5 h-5 rotate-180 text-muted-foreground" />
-        </div>
+        </button>
 
         {/* Variations (Sizes) */}
         {product.sizes && product.sizes.length > 0 && (

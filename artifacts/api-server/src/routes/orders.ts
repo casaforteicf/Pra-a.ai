@@ -229,6 +229,11 @@ router.post("/checkout", async (req, res): Promise<void> => {
   }
 
   const isPixPayment = paymentMethod === "pix";
+  const requiresAsaas = paymentMethod === "pix" || paymentMethod === "boleto" || paymentMethod === "credit_card";
+  if (requiresAsaas && !isAsaasConfigured()) {
+    res.status(503).json({ error: "Pagamento temporariamente indisponível. Nenhum pedido foi criado ou cobrado." });
+    return;
+  }
 
   // Get cart items
   let cartItems: any[] = [];
@@ -517,9 +522,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
         `[checkout] falha ao criar cobrança Asaas pro pedido ${orderNumber} (pedido já confirmado, sem cobrança real):`,
         asaasErr instanceof Error ? asaasErr.message : asaasErr,
       );
-      if (asaasBillingType === "CREDIT_CARD") {
-        await db.update(ordersTable).set({ status: "payment_pending" }).where(eq(ordersTable.id, order.id));
-      }
+      await db.update(ordersTable).set({ status: "payment_pending" }).where(eq(ordersTable.id, order.id));
     }
   }
 
@@ -658,24 +661,22 @@ router.post("/checkout", async (req, res): Promise<void> => {
     .from(orderItemsTable)
     .where(eq(orderItemsTable.orderId, order.id));
 
-  const formattedOrder = formatOrder(order, savedItems);
+  const [latestOrder] = await db.select().from(ordersTable).where(eq(ordersTable.id, order.id)).limit(1);
+  const formattedOrder = formatOrder(latestOrder ?? order, savedItems);
 
   const result: any = { order: formattedOrder };
 
   if (isPixPayment) {
-    // Usa o PIX real gerado pelo Asaas quando a cobrança deu certo
-    // (ver bloco acima); se falhou ou Asaas não está configurado, cai
-    // pro código simulado antigo — melhor que travar o checkout, mas
-    // deixa claro no log que esse pedido não tem cobrança real.
+    // Só devolve o PIX real gerado pelo Asaas. Falhas deixam o pedido
+    // pendente e nunca produzem um código de pagamento fictício.
     if (formattedOrder.pixPayload) {
       result.pixCode = formattedOrder.pixPayload;
       result.pixQrCodeUrl = formattedOrder.pixQrcodeImage
         ? `data:image/png;base64,${formattedOrder.pixQrcodeImage}`
         : null;
     } else {
-      console.warn(`[checkout] pedido ${order.orderNumber} sem cobrança Asaas real — usando PIX simulado`);
-      result.pixCode = "00020126580014BR.GOV.BCB.PIX0136praca-ai@mercadopago.com.br5204000053039865406189.905802BR5913PRACA AI6009CHAPECOSC63044F2B";
-      result.pixQrCodeUrl = null;
+      res.status(502).json({ error: "Não foi possível gerar o PIX. O pedido ficou pendente e nenhuma cobrança simulada foi criada.", order: formattedOrder });
+      return;
     }
   }
 
@@ -685,8 +686,8 @@ router.post("/checkout", async (req, res): Promise<void> => {
     if (formattedOrder.pixPayload) {
       result.boletoUrl = formattedOrder.pixPayload;
     } else {
-      console.warn(`[checkout] pedido ${order.orderNumber} sem cobrança Asaas real — usando boleto simulado`);
-      result.boletoUrl = "https://praca.ai/boleto/mock";
+      res.status(502).json({ error: "Não foi possível gerar o boleto. O pedido ficou pendente e nenhum boleto simulado foi criado.", order: formattedOrder });
+      return;
     }
   }
 

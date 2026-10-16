@@ -318,6 +318,7 @@ export default function ListingPage() {
   const [, setLocation] = useLocation()
   const searchParams = new URLSearchParams(window.location.search)
   const categorySlug = searchParams.get("category") || undefined
+  const vendorId = searchParams.get("vendorId") || undefined
   const initialSearch = searchParams.get("search") || ""
   const isStationery = categorySlug === STATIONERY_SLUG
   const isBaby = categorySlug === BABY_SLUG
@@ -362,7 +363,7 @@ export default function ListingPage() {
   const [returnDate, setReturnDate] = React.useState("")
   const [passengers, setPassengers] = React.useState("1 passageiro")
 
-  const requestParams = { category: categorySlug, search: submittedSearch || undefined, sort, limit: 40 }
+  const requestParams = { category: categorySlug, search: submittedSearch || undefined, vendorId, sort, limit: 40 }
   const { data: listData, isLoading, isError } = useListProducts(requestParams, {
     query: { queryKey: getListProductsQueryKey(requestParams) },
   })

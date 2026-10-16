@@ -42,6 +42,47 @@ CREATE TABLE IF NOT EXISTS consumer_addresses (
 );
 CREATE INDEX IF NOT EXISTS idx_consumer_addresses_consumer ON consumer_addresses (consumer_id);
 
+CREATE TABLE IF NOT EXISTS quote_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  protocol text NOT NULL UNIQUE,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
+  category text NOT NULL,
+  title text NOT NULL,
+  description text,
+  location text NOT NULL,
+  needed_at date,
+  status text NOT NULL DEFAULT 'distribuida',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_quote_requests_consumer ON quote_requests (consumer_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS quote_request_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  quote_request_id uuid NOT NULL REFERENCES quote_requests(id) ON DELETE CASCADE,
+  quantity numeric(12,3) NOT NULL DEFAULT 1,
+  unit text NOT NULL,
+  description text NOT NULL,
+  brand text,
+  product_id text
+);
+
+CREATE TABLE IF NOT EXISTS quote_recipients (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  quote_request_id uuid NOT NULL REFERENCES quote_requests(id) ON DELETE CASCADE,
+  vendor_id text NOT NULL,
+  status text NOT NULL DEFAULT 'enviada',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (quote_request_id, vendor_id)
+);
+
+CREATE TABLE IF NOT EXISTS feed_likes (
+  id serial PRIMARY KEY,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
+  product_id text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (consumer_id, product_id)
+);
+
 CREATE TABLE IF NOT EXISTS cart_items (
   id serial PRIMARY KEY,
   cart_id integer NOT NULL REFERENCES carts(id) ON DELETE CASCADE,
