@@ -123,6 +123,11 @@ export default function Checkout() {
   const grandTotal = (cart.subtotal ?? 0) + shipping - totalDiscount
 
   const handleSubmit = () => {
+    if (!address.street.trim() || !address.number.trim() || !address.neighborhood.trim() || !address.city.trim() || !/^[A-Za-z]{2}$/.test(address.state.trim()) || address.zipCode.replace(/\D/g, '').length !== 8) {
+      toast({ title: "Endereço incompleto", description: "Confira os dados de entrega antes de finalizar.", variant: "destructive" })
+      setStep(1)
+      return
+    }
     if (isGuest && (!guestName.trim() || !guestPhone.trim())) {
       toast({
         title: "Faltam seus dados",
