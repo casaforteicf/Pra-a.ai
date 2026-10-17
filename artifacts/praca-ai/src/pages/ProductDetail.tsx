@@ -162,7 +162,7 @@ export default function ProductDetail() {
   })
 
   return (
-    <div className="mx-auto flex min-h-full w-full max-w-6xl flex-col bg-card pb-32">
+    <div className="praca-mobile-product mx-auto flex min-h-full w-full max-w-6xl flex-col bg-card pb-32">
       {/* Absolute Header overlay */}
       <header className="absolute top-0 inset-x-0 z-30 flex items-center justify-between px-4 pt-4 pointer-events-none">
         <button 

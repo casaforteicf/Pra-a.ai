@@ -1,0 +1,12 @@
+/* Praça.ai: refinamento exclusivo para telas mobile; desktop preservado. */
+@media (max-width: 767px) {
+  .praca-mobile-home { background: #f8fafc; }
+  .praca-mobile-home main > div.space-y-8 { row-gap: 1.25rem; }
+  .praca-mobile-home main section .grid.grid-cols-2 { gap: .625rem; }
+  .praca-mobile-home main section .grid.grid-cols-2 > * { min-width: 0; }
+  .praca-mobile-product { background: #fff; padding-bottom: calc(140px + env(safe-area-inset-bottom)); }
+  .praca-mobile-product h1 { font-family: Manrope, Inter, sans-serif; font-weight: 800; letter-spacing: -.025em; line-height: 1.25; }
+  .praca-mobile-product button { touch-action: manipulation; }
+  .praca-mobile-account { background: #f8fafc; }
+  .praca-mobile-account button { touch-action: manipulation; }
+}

@@ -4,6 +4,7 @@ import { setBaseUrl } from '@workspace/api-client-react';
 import App from './App';
 
 import './index.css';
+import './mobile-marketplace.css';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 if (apiUrl) {

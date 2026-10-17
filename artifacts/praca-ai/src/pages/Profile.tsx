@@ -28,7 +28,7 @@ export default function Profile() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col w-full min-h-full bg-muted/30">
+      <div className="praca-mobile-account flex flex-col w-full min-h-full bg-muted/30">
         <div className="bg-primary px-4 pt-12 pb-8 rounded-b-[32px] animate-pulse">
           <div className="h-20 w-20 bg-card/20 rounded-[24px] mb-3" />
           <div className="h-6 w-40 bg-card/20 rounded" />
