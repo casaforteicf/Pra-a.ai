@@ -35,13 +35,13 @@ export default function Checkout() {
 
   // Form State
   const [address, setAddress] = React.useState({
-    zipCode: '89801-000',
-    street: 'Av. Getúlio Vargas',
-    number: '123N',
-    complement: 'Apto 402',
-    neighborhood: 'Centro',
-    city: 'Chapecó',
-    state: 'SC'
+    zipCode: '',
+    street: '',
+    number: '',
+    complement: '',
+    neighborhood: '',
+    city: '',
+    state: ''
   })
 
   const [deliveryOption, setDeliveryOption] = React.useState<'express' | 'standard'>('express')
@@ -97,7 +97,20 @@ export default function Checkout() {
     )
   }
 
-  const handleNext = () => setStep(prev => Math.min(prev + 1, 3))
+  const handleNext = () => {
+    if (step === 1) {
+      const required = [address.zipCode, address.street, address.number, address.neighborhood, address.city, address.state]
+      if (required.some(value => !value.trim()) || address.zipCode.replace(/\D/g, '').length !== 8 || !/^[A-Za-z]{2}$/.test(address.state.trim())) {
+        toast({ title: "Endereço incompleto", description: "Informe CEP, rua, número, bairro, cidade e UF válidos.", variant: "destructive" })
+        return
+      }
+      if (isGuest && (!guestName.trim() || !guestPhone.trim())) {
+        toast({ title: "Dados de contato obrigatórios", description: "Preencha nome e telefone.", variant: "destructive" })
+        return
+      }
+    }
+    setStep(prev => Math.min(prev + 1, 3))
+  }
   const handleBack = () => {
     if (step > 1) setStep(prev => prev - 1)
     else window.history.back()
@@ -110,6 +123,11 @@ export default function Checkout() {
   const grandTotal = (cart.subtotal ?? 0) + shipping - totalDiscount
 
   const handleSubmit = () => {
+    if (!address.street.trim() || !address.number.trim() || !address.neighborhood.trim() || !address.city.trim() || !/^[A-Za-z]{2}$/.test(address.state.trim()) || address.zipCode.replace(/\D/g, '').length !== 8) {
+      toast({ title: "Endereço incompleto", description: "Confira os dados de entrega antes de finalizar.", variant: "destructive" })
+      setStep(1)
+      return
+    }
     if (isGuest && (!guestName.trim() || !guestPhone.trim())) {
       toast({
         title: "Faltam seus dados",
