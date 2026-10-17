@@ -1,0 +1,12 @@
+/* Camada mobile da jornada de compra Praça.ai. Não altera desktop. */
+@media (max-width: 767px) {
+  .praca-mobile-product { width: 100%; }
+  .praca-mobile-product input,
+  .praca-mobile-product select,
+  .praca-mobile-product textarea { font-size: 16px; }
+  .praca-mobile-product img { max-width: 100%; }
+  .praca-mobile-account { padding-bottom: env(safe-area-inset-bottom); }
+  body:has(a[href="/checkout"][aria-current="page"]) { overscroll-behavior-y: contain; }
+  [role="dialog"] { max-width: 100vw; }
+  input[type="search"] { font-size: 16px; }
+}
