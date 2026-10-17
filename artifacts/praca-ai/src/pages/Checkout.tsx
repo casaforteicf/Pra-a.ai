@@ -100,7 +100,7 @@ export default function Checkout() {
   const handleNext = () => {
     if (step === 1) {
       const required = [address.zipCode, address.street, address.number, address.neighborhood, address.city, address.state]
-      if (required.some(value => !value.trim()) || address.zipCode.replace(/\\D/g, '').length !== 8 || !/^[A-Za-z]{2}$/.test(address.state.trim())) {
+      if (required.some(value => !value.trim()) || address.zipCode.replace(/\D/g, '').length !== 8 || !/^[A-Za-z]{2}$/.test(address.state.trim())) {
         toast({ title: "Endereço incompleto", description: "Informe CEP, rua, número, bairro, cidade e UF válidos.", variant: "destructive" })
         return
       }
