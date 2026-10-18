@@ -131,9 +131,12 @@ router.get("/rounds", async (req,res):Promise<void>=>{
   try {
     await closeExpired();
     const category=typeof req.query.category==="string"?req.query.category.slice(0,120):null;
+    const city=typeof req.query.city==="string"?req.query.city.trim().slice(0,100):"";
+    const state=typeof req.query.state==="string"?req.query.state.trim().toUpperCase().slice(0,2):"";
+    if (!city || !state) return void res.json([]);
     const result=await pool.query(
-      "SELECT r.id,r.code,r.category,r.item_name,r.specification,r.unit,r.city,r.state,r.needed_at,r.closes_at,COALESCE(sum(p.quantity),0)::text AS total_quantity FROM buying_rounds r LEFT JOIN buying_round_participants p ON p.round_id=r.id WHERE r.status='open' AND r.closes_at>now() AND ($1::text IS NULL OR lower(r.category)=lower($1)) GROUP BY r.id ORDER BY r.closes_at ASC LIMIT 100",
-      [category],
+      "SELECT r.id,r.code,r.category,r.item_name,r.specification,r.unit,r.city,r.state,r.needed_at,r.closes_at,COALESCE(sum(p.quantity),0)::text AS total_quantity FROM buying_rounds r LEFT JOIN buying_round_participants p ON p.round_id=r.id WHERE r.status='open' AND r.closes_at>now() AND lower(r.city)=lower($1) AND upper(r.state)=upper($2) AND ($3::text IS NULL OR lower(r.category)=lower($3)) GROUP BY r.id ORDER BY r.closes_at ASC LIMIT 100",
+      [city,state,category],
     );
     res.json(result.rows.map((r:any)=>({id:r.id,code:r.code,category:r.category,itemName:r.item_name,specification:r.specification,unit:r.unit,city:r.city,state:r.state,neededAt:r.needed_at,closesAt:r.closes_at,totalQuantity:Number(r.total_quantity)})));
   } catch(error) {
