@@ -227,7 +227,7 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
   const days = allowedDays.has(requestedDays) ? requestedDays : 30;
 
   try {
-    const tables = await (await import("@workspace/db")).pool.query<{
+    const tables = await pool.query<{
       quotes: string | null;
       recipients: string | null;
       offers: string | null;
@@ -254,7 +254,7 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
     const categoryRows: Array<{ category: string; total: number }> = [];
 
     if (quoteTablesReady) {
-      const result = await (await import("@workspace/db")).pool.query(`
+      const result = await pool.query(`
         WITH period_quotes AS (
           SELECT q.id, q.category, q.status, q.created_at
           FROM quote_requests q
@@ -296,7 +296,7 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
         averageFirstResponseHours: row.averageFirstResponseHours == null ? null : Number(row.averageFirstResponseHours),
       };
 
-      const coverageResult = await (await import("@workspace/db")).pool.query(`
+      const coverageResult = await pool.query(`
         WITH period_quotes AS (
           SELECT id FROM quote_requests WHERE created_at >= now() - ($1::int * interval '1 day')
         )
@@ -307,7 +307,7 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
       coverage.vendorsReceivingQuotes = Number(coverageResult.rows[0]?.vendorsReceivingQuotes ?? 0);
       coverage.vendorsSendingOffers = Number(coverageResult.rows[0]?.vendorsSendingOffers ?? 0);
 
-      const cats = await (await import("@workspace/db")).pool.query<{ category: string; total: number }>(`
+      const cats = await pool.query<{ category: string; total: number }>(`
         SELECT category, count(*)::int AS total
         FROM quote_requests
         WHERE created_at >= now() - ($1::int * interval '1 day')
@@ -317,7 +317,7 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
     }
 
     if (roundsReady) {
-      const result = await (await import("@workspace/db")).pool.query(`
+      const result = await pool.query(`
         SELECT
           count(*) FILTER (WHERE r.status='open' AND r.closes_at > now())::int AS open,
           count(*) FILTER (WHERE r.status='closed')::int AS closed,
@@ -347,13 +347,15 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
         buyerAccepted: Number(row.buyerAccepted ?? 0), buyerDeclined: Number(row.buyerDeclined ?? 0),
       };
 
-      const vendorCount = await (await import("@workspace/db")).pool.query<{ total: number }>(`
-        SELECT count(DISTINCT vendor_id)::int AS total FROM buying_round_bids
-        WHERE created_at >= now() - ($1::int * interval '1 day')
+      const vendorCount = await pool.query<{ total: number }>(`
+        SELECT count(DISTINCT b.vendor_id)::int AS total
+        FROM buying_round_bids b
+        JOIN buying_rounds r ON r.id=b.round_id
+        WHERE r.created_at >= now() - ($1::int * interval '1 day')
       `, [days]);
       coverage.vendorsBiddingRounds = Number(vendorCount.rows[0]?.total ?? 0);
 
-      const cats = await (await import("@workspace/db")).pool.query<{ category: string; total: number }>(`
+      const cats = await pool.query<{ category: string; total: number }>(`
         SELECT category, count(*)::int AS total FROM buying_rounds
         WHERE created_at >= now() - ($1::int * interval '1 day')
         GROUP BY category
