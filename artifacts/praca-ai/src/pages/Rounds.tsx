@@ -135,7 +135,7 @@ export default function RoundsPage() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-white/75">Lojistas enviam propostas decrescentes sem ver seu nome ou contato. No encerramento, você recebe uma proposta individual para aceitar ou recusar.</p>
         </article>
         <div className="grid gap-3">
-          <div className="flex items-center gap-3 rounded-2xl border border-[#E5EAF0] bg-white p-4"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#E8F2FF] text-[#0077FF]"><ShieldCheck className="h-5 w-5"/></span><div><h2 className="text-sm font-extrabold">Identidade protegida</h2><p className="text-xs text-[#64748B]">A loja só recebe seu contato se você aceitar.</p></div></div>
+          <div className="flex items-center gap-3 rounded-2xl border border-[#E5EAF0] bg-white p-4"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#E8F2FF] text-[#0077FF]"><ShieldCheck className="h-5 w-5"/></span><div><h2 className="text-sm font-extrabold">Identidade protegida</h2><p className="text-xs text-[#64748B]">A loja só recebe seu contato depois da confirmação do pagamento.</p></div></div>
           <div className="flex items-center gap-3 rounded-2xl border border-[#E5EAF0] bg-white p-4"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#E8F2FF] text-[#0077FF]"><CircleDollarSign className="h-5 w-5"/></span><div><h2 className="text-sm font-extrabold">Decisão individual</h2><p className="text-xs text-[#64748B]">Cada comprador aceita e formaliza seu próprio pedido.</p></div></div>
         </div>
       </section>
