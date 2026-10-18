@@ -56,7 +56,7 @@ async function ensureRoundLead(params: { roundId: string; vendorId: string; code
       "UPDATE leads SET nome=$3,telefone=$4,email=$5,source='praca_ai_rodada' WHERE id=$1 AND tenant_id=$2",
       [leadId, params.vendorId, params.buyer.name, params.buyer.phone, params.buyer.email],
     );
-    await vendorPool.query(
+    await pool.query(
       "UPDATE buying_round_vendor_leads SET identity_revealed_at=COALESCE(identity_revealed_at,now()) WHERE round_id=$1 AND vendor_id=$2",
       [params.roundId, params.vendorId],
     );
