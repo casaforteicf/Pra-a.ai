@@ -17,7 +17,7 @@ export default function QuoteHistory() {
       .finally(()=>{if(active)setLoading(false);});
     return()=>{active=false;};
   },[]);
-  const status=(value:string)=>value==="aceita"?"Proposta aceita":value==="distribuida"?"Aguardando propostas":"Aguardando fornecedores";
+  const status=(value:string)=>value==="awaiting_payment"?"Aguardando pagamento":["paid","delivered","released"].includes(value)?"Pagamento confirmado":value==="aceita"?"Proposta aceita":value==="distribuida"?"Aguardando propostas":"Aguardando fornecedores";
   const date=(value:string)=>new Intl.DateTimeFormat("pt-BR",{dateStyle:"medium"}).format(new Date(value));
   return <div className="min-h-full bg-[#F8FAFC] text-[#0B2240]">
     <header className="border-b border-[#E5EAF0] bg-white"><div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4"><Link href="/" className="font-[Manrope] text-xl font-extrabold">Praça<span className="text-[#10BFA9]">.ai</span></Link><Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-600"><ArrowLeft className="h-4 w-4"/>Início</Link></div></header>
