@@ -134,9 +134,6 @@ router.post("/quotes", async (req, res): Promise<void> => {
   }
 });
 
-export default router;
-
-
 const CONTACT_PATTERN = /(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?\d[\s().-]*){10,})/i;
 const ADDRESS_PATTERN = /\b(rua|avenida|av\.|rodovia|travessa|bairro|apartamento|apto|cep|casa|quadra|lote)\b|\b\d{5}-?\d{3}\b/i;
 let directQuoteTablesReady: Promise<void> | null = null;
