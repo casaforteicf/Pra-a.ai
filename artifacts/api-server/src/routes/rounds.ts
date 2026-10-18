@@ -370,6 +370,7 @@ router.post("/round-orders/:id/confirm-delivery",async(req,res):Promise<void>=>{
        FROM buying_round_participants p WHERE o.participant_id=p.id AND o.id=$1 AND p.consumer_id=$2 AND o.status='paid'
          AND EXISTS (SELECT 1 FROM praca_marketplace_fulfillments f WHERE f.order_type='round' AND f.order_id=o.id AND f.vendor_id=o.vendor_id AND f.status IN ('ready','shipped'))
          AND NOT EXISTS (SELECT 1 FROM praca_order_disputes d WHERE d.order_type='round' AND d.order_id=o.id AND d.consumer_id=p.consumer_id AND d.status IN ('aberta','em_analise','aguardando_comprador'))
+         AND NOT EXISTS (SELECT 1 FROM praca_order_cancellations x WHERE x.order_type='round' AND x.order_id=o.id AND x.consumer_id=p.consumer_id AND x.status IN ('solicitada','em_analise'))
        RETURNING o.id`,
       [req.params.id,consumer],
     );
@@ -379,6 +380,8 @@ router.post("/round-orders/:id/confirm-delivery",async(req,res):Promise<void>=>{
       return void res.json({id:req.params.id,status:existing.rows[0].status,payoutStatus:existing.rows[0].status==="released"?"released":"pending"});
     }
     const dispute=await pool.query("SELECT status FROM praca_order_disputes WHERE order_type='round' AND order_id=$1 AND consumer_id=$2 AND status IN ('aberta','em_analise','aguardando_comprador') LIMIT 1",[req.params.id,consumer]);
+    const cancellation=await pool.query("SELECT status FROM praca_order_cancellations WHERE order_type='round' AND order_id=$1 AND consumer_id=$2 AND status IN ('solicitada','em_analise') LIMIT 1",[req.params.id,consumer]);
+    if(cancellation.rows[0]) return void res.status(409).json({error:"A confirmação da entrega está suspensa enquanto a solicitação de cancelamento estiver em análise."});
     if(dispute.rows[0]) return void res.status(409).json({error:"A confirmação da entrega está suspensa enquanto a disputa estiver em análise."});
     return void res.status(409).json({error:"A entrega pode ser confirmada depois que o vendedor informar que o pedido está pronto ou saiu para entrega."});
   } catch(error) {

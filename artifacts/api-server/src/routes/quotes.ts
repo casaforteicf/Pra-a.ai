@@ -510,6 +510,9 @@ router.post("/quotes/:id/confirm-delivery", async (req, res): Promise<void> => {
        ) AND NOT EXISTS (
          SELECT 1 FROM praca_order_disputes d WHERE d.order_type='quote' AND d.order_id=q.id AND d.consumer_id=q.consumer_id
            AND d.status IN ('aberta','em_analise','aguardando_comprador')
+       ) AND NOT EXISTS (
+         SELECT 1 FROM praca_order_cancellations x WHERE x.order_type='quote' AND x.order_id=q.id AND x.consumer_id=q.consumer_id
+           AND x.status IN ('solicitada','em_analise')
        ) RETURNING q.id`,
       [req.params.id, buyer],
     );
@@ -520,6 +523,8 @@ router.post("/quotes/:id/confirm-delivery", async (req, res): Promise<void> => {
     }
     const dispute = await pool.query("SELECT status FROM praca_order_disputes WHERE order_type='quote' AND order_id=$1 AND consumer_id=$2 AND status IN ('aberta','em_analise','aguardando_comprador') LIMIT 1", [req.params.id, buyer]);
     if (dispute.rows[0]) return void res.status(409).json({ error: "A confirmação da entrega está suspensa enquanto a disputa estiver em análise." });
+    const cancellation = await pool.query("SELECT status FROM praca_order_cancellations WHERE order_type='quote' AND order_id=$1 AND consumer_id=$2 AND status IN ('solicitada','em_analise') LIMIT 1", [req.params.id, buyer]);
+    if (cancellation.rows[0]) return void res.status(409).json({ error: "A confirmação da entrega está suspensa enquanto a solicitação de cancelamento estiver em análise." });
     return void res.status(409).json({ error: "A entrega pode ser confirmada depois que o vendedor informar que o pedido está pronto ou saiu para entrega." });
   } catch (error) {
     console.error("[quotes] delivery confirmation failed:", error);

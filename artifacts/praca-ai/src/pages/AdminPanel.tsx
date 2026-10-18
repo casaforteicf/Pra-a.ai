@@ -157,6 +157,7 @@ const DISPUTA_STATUS_COLOR: Record<string, "default" | "secondary" | "destructiv
 function DisputasTab() {
   const [statusFilter, setStatusFilter] = useState("todos");
   const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
+  const [cancellationNotes, setCancellationNotes] = useState<Record<string, string>>({});
   const qc = useQueryClient();
   const { toast } = useToast();
 
@@ -170,6 +171,10 @@ function DisputasTab() {
   const { data: marketplaceDisputas = [], isLoading: marketplaceLoading } = useQuery<any[]>({
     queryKey: ["admin-marketplace-disputas", statusFilter],
     queryFn: () => fetch(`/api/admin/marketplace-disputas${statusFilter !== "todos" ? `?status=${statusFilter}` : ""}`, { headers: adminHeaders() }).then((r) => r.json()),
+  });
+  const { data: marketplaceCancellations = [], isLoading: cancellationLoading } = useQuery<any[]>({
+    queryKey: ["admin-marketplace-cancelamentos"],
+    queryFn: () => fetch("/api/admin/marketplace-cancelamentos", { headers: adminHeaders() }).then((r) => r.json()),
   });
   const updateMarketplaceDispute = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
@@ -188,7 +193,24 @@ function DisputasTab() {
     onError: (error: Error) => toast({ title: "Não foi possível atualizar", description: error.message, variant: "destructive" }),
   });
 
-  if (isLoading || marketplaceLoading) return <Loader2 className="h-5 w-5 animate-spin mx-auto mt-8" />;
+  const updateMarketplaceCancellation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const resolutionNote = cancellationNotes[id] ?? "";
+      const response = await fetch(`/api/admin/marketplace-cancelamentos/${encodeURIComponent(id)}`, {
+        method: "PATCH", headers: adminHeaders(), body: JSON.stringify({ status, resolutionNote }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Não foi possível atualizar a solicitação.");
+      return body;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["admin-marketplace-cancelamentos"] });
+      toast({ title: "Solicitação de cancelamento atualizada" });
+    },
+    onError: (error: Error) => toast({ title: "Não foi possível atualizar", description: error.message, variant: "destructive" }),
+  });
+
+  if (isLoading || marketplaceLoading || cancellationLoading) return <Loader2 className="h-5 w-5 animate-spin mx-auto mt-8" />;
 
   return (
     <div className="space-y-4">
@@ -258,6 +280,32 @@ function DisputasTab() {
                       {d.status === "em_analise" && <div className="flex flex-wrap gap-1"><Button size="sm" variant="outline" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "aguardando_comprador" })}>Pedir retorno</Button><Button size="sm" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "resolvida" })}>Resolver</Button><Button size="sm" variant="destructive" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "rejeitada" })}>Rejeitar</Button></div>}
                       {d.status === "aguardando_comprador" && <div className="flex gap-1"><Button size="sm" variant="outline" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "em_analise" })}>Retomar análise</Button><Button size="sm" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "resolvida" })}>Resolver</Button></div>}
                     </> : <span className="text-xs text-muted-foreground">Concluída · {d.resolved_at ? new Date(d.resolved_at).toLocaleString("pt-BR") : ""}</span>}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Solicitações de cancelamento</CardTitle><p className="text-sm text-muted-foreground">A conclusão registra o resultado do atendimento. O estorno precisa ser executado e conciliado separadamente.</p></CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader><TableRow><TableHead>Pedido</TableHead><TableHead>Comprador</TableHead><TableHead>Motivo</TableHead><TableHead>Status</TableHead><TableHead>Atendimento</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {marketplaceCancellations.length === 0 ? <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Nenhuma solicitação de cancelamento.</TableCell></TableRow> : marketplaceCancellations.map((item: any) => (
+                <TableRow key={item.id}>
+                  <TableCell className="min-w-36"><b>{item.order_code ?? item.order_id.slice(0, 8)}</b><p className="text-xs text-muted-foreground">{item.order_type === "quote" ? "Cotação" : "Rodada"} · {item.item_title}</p></TableCell>
+                  <TableCell>{item.buyer_name}<p className="text-xs text-muted-foreground">{item.buyer_email}</p></TableCell>
+                  <TableCell className="min-w-52"><b>{item.reason}</b><p className="whitespace-pre-wrap text-sm">{item.description}</p></TableCell>
+                  <TableCell><Badge variant={item.status === "solicitada" ? "destructive" : item.status === "atendida" ? "default" : "secondary"}>{item.status}</Badge>{item.resolution_note && <p className="mt-1 max-w-48 whitespace-pre-wrap text-xs">{item.resolution_note}</p>}</TableCell>
+                  <TableCell className="min-w-56 space-y-2">
+                    {!['atendida','recusada'].includes(item.status) ? <>
+                      <Input value={cancellationNotes[item.id] ?? ""} onChange={(event) => setCancellationNotes((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Resultado / nota para o histórico" />
+                      {item.status === "solicitada" && <Button size="sm" variant="outline" disabled={updateMarketplaceCancellation.isPending} onClick={() => updateMarketplaceCancellation.mutate({ id: item.id, status: "em_analise" })}>Iniciar análise</Button>}
+                      {item.status === "em_analise" && <div className="flex flex-wrap gap-1"><Button size="sm" disabled={updateMarketplaceCancellation.isPending} onClick={() => updateMarketplaceCancellation.mutate({ id: item.id, status: "atendida" })}>Concluir atendimento</Button><Button size="sm" variant="destructive" disabled={updateMarketplaceCancellation.isPending} onClick={() => updateMarketplaceCancellation.mutate({ id: item.id, status: "recusada" })}>Recusar</Button></div>}
+                    </> : <span className="text-xs text-muted-foreground">Concluída · {item.resolved_at ? new Date(item.resolved_at).toLocaleString("pt-BR") : ""}</span>}
                   </TableCell>
                 </TableRow>
               ))}

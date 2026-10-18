@@ -203,6 +203,38 @@ CREATE TABLE IF NOT EXISTS praca_order_dispute_events (
 );
 CREATE INDEX IF NOT EXISTS idx_praca_order_dispute_events_dispute
   ON praca_order_dispute_events (dispute_id, created_at);
+
+-- Solicitações de cancelamento pós-pagamento são triadas pela plataforma;
+-- registrar o fluxo não executa nem confirma estorno no Asaas.
+CREATE TABLE IF NOT EXISTS praca_order_cancellations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_type text NOT NULL CHECK (order_type IN ('quote','round')),
+  order_id uuid NOT NULL,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE RESTRICT,
+  vendor_id text NOT NULL,
+  reason text NOT NULL CHECK (reason IN ('mudanca_de_ideia','prazo','preco','erro_no_pedido','outro')),
+  description text NOT NULL,
+  status text NOT NULL DEFAULT 'solicitada' CHECK (status IN ('solicitada','em_analise','atendida','recusada')),
+  resolution_note text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  resolved_at timestamptz,
+  UNIQUE (order_type, order_id, consumer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_praca_order_cancellations_status_created
+  ON praca_order_cancellations (status, created_at DESC);
+CREATE TABLE IF NOT EXISTS praca_order_cancellation_events (
+  id bigserial PRIMARY KEY,
+  cancellation_id uuid NOT NULL REFERENCES praca_order_cancellations(id) ON DELETE CASCADE,
+  from_status text,
+  to_status text NOT NULL,
+  actor_type text NOT NULL CHECK (actor_type IN ('buyer','admin')),
+  actor_consumer_id integer REFERENCES consumers(id) ON DELETE SET NULL,
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_praca_order_cancellation_events_case
+  ON praca_order_cancellation_events (cancellation_id, created_at, id);
 DO $$
 BEGIN
   IF EXISTS (

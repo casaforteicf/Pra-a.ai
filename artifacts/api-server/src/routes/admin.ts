@@ -189,6 +189,66 @@ router.patch("/admin/marketplace-disputas/:id", async (req, res): Promise<void> 
   } finally { client.release(); }
 });
 
+router.get("/admin/marketplace-cancelamentos", async (req, res): Promise<void> => {
+  const status = typeof req.query.status === "string" ? req.query.status : "";
+  const allowed = ["solicitada", "em_analise", "atendida", "recusada"];
+  if (status && !allowed.includes(status)) return void res.status(422).json({ error: "Filtro de status inválido." });
+  const result = await pool.query(
+    `SELECT x.id,x.order_type,x.order_id,x.reason,x.description,x.status,x.resolution_note,x.created_at,x.updated_at,x.resolved_at,
+            x.vendor_id,c.name AS buyer_name,c.email AS buyer_email,
+            COALESCE(q.protocol,r.code) AS order_code,
+            COALESCE(q.title,r.item_name) AS item_title,
+            COALESCE(q.location,concat(r.city,', ',r.state)) AS location
+       FROM praca_order_cancellations x
+       JOIN consumers c ON c.id=x.consumer_id
+       LEFT JOIN quote_requests q ON x.order_type='quote' AND q.id=x.order_id
+       LEFT JOIN buying_round_orders o ON x.order_type='round' AND o.id=x.order_id
+       LEFT JOIN buying_rounds r ON r.id=o.round_id
+      WHERE ($1='' OR x.status=$1)
+      ORDER BY CASE WHEN x.status IN ('solicitada','em_analise') THEN 0 ELSE 1 END,x.created_at DESC
+      LIMIT 300`, [status],
+  );
+  res.set("Cache-Control", "no-store").json(result.rows);
+});
+
+router.patch("/admin/marketplace-cancelamentos/:id", async (req, res): Promise<void> => {
+  const id = String(req.params.id ?? ""), status = String(req.body?.status ?? "");
+  const note = typeof req.body?.resolutionNote === "string" ? req.body.resolutionNote.trim().slice(0, 2000) : "";
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !["em_analise", "atendida", "recusada"].includes(status)) {
+    return void res.status(422).json({ error: "Atualização de solicitação inválida." });
+  }
+  if (["atendida", "recusada"].includes(status) && note.length < 8) {
+    return void res.status(422).json({ error: "Registre o resultado do atendimento antes de concluir a solicitação." });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const existing = await client.query("SELECT status FROM praca_order_cancellations WHERE id=$1 FOR UPDATE", [id]);
+    if (!existing.rows[0]) { await client.query("ROLLBACK"); return void res.status(404).json({ error: "Solicitação não encontrada." }); }
+    const fromStatus = String(existing.rows[0].status);
+    const transitions: Record<string, string[]> = { solicitada: ["em_analise"], em_analise: ["atendida", "recusada"] };
+    if (!(transitions[fromStatus] ?? []).includes(status)) {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "Esta solicitação já foi concluída ou a transição não é permitida." });
+    }
+    const updated = await client.query(
+      `UPDATE praca_order_cancellations SET status=$2,resolution_note=$3,updated_at=now(),
+         resolved_at=CASE WHEN $2 IN ('atendida','recusada') THEN now() ELSE NULL END
+       WHERE id=$1 RETURNING id,status,resolution_note,updated_at,resolved_at`, [id, status, note || null],
+    );
+    await client.query(
+      `INSERT INTO praca_order_cancellation_events(cancellation_id,from_status,to_status,actor_type,note)
+       VALUES($1,$2,$3,'admin',$4)`, [id, fromStatus, status, note || null],
+    );
+    await client.query("COMMIT");
+    res.json(updated.rows[0]);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("[admin] marketplace cancellation update failed:", error);
+    res.status(500).json({ error: "Não foi possível atualizar a solicitação." });
+  } finally { client.release(); }
+});
+
 /**
  * Razão de repasses por lojista — ver lib/db/src/schema/vendorPayouts.ts.
  * Não é split automático (sem subconta Asaas por lojista ainda): isso

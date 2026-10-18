@@ -39,11 +39,13 @@ router.get("/internal/vendor-orders", async (req, res): Promise<void> => {
                 COALESCE((SELECT json_agg(json_build_object(
                   'description',qi.description,'quantity',qi.quantity,'unit',qi.unit,'brand',qi.brand
                 ) ORDER BY qi.id) FROM quote_request_items qi WHERE qi.quote_request_id=q.id),'[]'::json) AS items,
-                f.status AS fulfillment_status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at
+                f.status AS fulfillment_status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at,
+                cx.status AS cancellation_status,cx.reason AS cancellation_reason,cx.description AS cancellation_description
          FROM quote_requests q
          JOIN quote_offers o ON o.quote_request_id=q.id AND o.status='aceita' AND o.vendor_id=$1
          JOIN consumers c ON c.id=q.consumer_id
          LEFT JOIN praca_marketplace_fulfillments f ON f.order_type='quote' AND f.order_id=q.id AND f.vendor_id=$1
+         LEFT JOIN praca_order_cancellations cx ON cx.order_type='quote' AND cx.order_id=q.id AND cx.status IN ('solicitada','em_analise')
          WHERE q.status IN ('paid','delivered','released')
          ORDER BY COALESCE(q.paid_at,q.created_at) DESC LIMIT 100`,
         [vendorId],
@@ -57,12 +59,14 @@ router.get("/internal/vendor-orders", async (req, res): Promise<void> => {
                   'description',r.item_name,'specification',r.specification,
                   'quantity',o.quantity,'unit',r.unit
                 )) AS items,
-                f.status AS fulfillment_status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at
+                f.status AS fulfillment_status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at,
+                cx.status AS cancellation_status,cx.reason AS cancellation_reason,cx.description AS cancellation_description
          FROM buying_round_orders o
          JOIN buying_rounds r ON r.id=o.round_id
          JOIN buying_round_participants p ON p.id=o.participant_id
          JOIN consumers c ON c.id=p.consumer_id
          LEFT JOIN praca_marketplace_fulfillments f ON f.order_type='round' AND f.order_id=o.id AND f.vendor_id=$1
+         LEFT JOIN praca_order_cancellations cx ON cx.order_type='round' AND cx.order_id=o.id AND cx.status IN ('solicitada','em_analise')
          WHERE o.vendor_id=$1 AND o.status IN ('paid','delivered','released')
          ORDER BY COALESCE(o.paid_at,o.created_at) DESC LIMIT 100`,
         [vendorId],
@@ -123,6 +127,16 @@ router.patch("/internal/vendor-orders/:type/:id/fulfillment", async (req, res): 
     if (["delivered", "released"].includes(String(order.rows[0].status))) {
       await client.query("ROLLBACK");
       return void res.status(409).json({ error: "A expedição não pode ser alterada depois da confirmação de entrega." });
+    }
+    if (status === "shipped") {
+      const cancellation = await client.query(
+        "SELECT 1 FROM praca_order_cancellations WHERE order_type=$1 AND order_id=$2 AND status IN ('solicitada','em_analise') LIMIT 1",
+        [orderType, orderId],
+      );
+      if (cancellation.rows.length) {
+        await client.query("ROLLBACK");
+        return void res.status(409).json({ error: "A saída para entrega está suspensa enquanto houver uma solicitação de cancelamento em análise." });
+      }
     }
     const previous = await client.query(
       "SELECT status FROM praca_marketplace_fulfillments WHERE order_type=$1 AND order_id=$2 AND vendor_id=$3 FOR UPDATE",
