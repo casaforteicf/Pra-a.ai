@@ -45,6 +45,18 @@ router.post("/quotes", async (req, res): Promise<void> => {
     return;
   }
 
+  try {
+    const privateText = [category, title, description, location, ...cleanItems.flatMap((item: any) => [item.description, item.brand])];
+    if (await buyerNameAppears(consumerId, privateText)) {
+      res.status(422).json({ error: "Remova seu nome dos detalhes; sua identificação será compartilhada com a loja apenas após aceitar uma proposta." });
+      return;
+    }
+  } catch (error) {
+    console.error("[quotes] não foi possível validar dados privados:", error);
+    res.status(500).json({ error: "Não foi possível validar a cotação agora." });
+    return;
+  }
+
   const searchable = cleanItems.map((item: any) => item.description).join(" ").slice(0, 1500);
   let vendorIds: string[] = [];
   try {
@@ -183,6 +195,18 @@ function validVendorToken(req: any, res: any): boolean {
 function consumerId(req: any): number | null {
   const id = Number(req.session?.consumerId);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function normalizePrivateText(value: string): string {
+  return value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+async function buyerNameAppears(consumer: number, values: unknown[]): Promise<boolean> {
+  const result = await pool.query<{ name: string | null }>("SELECT name FROM consumers WHERE id=$1", [consumer]);
+  const buyerName = normalizePrivateText(String(result.rows[0]?.name ?? ""));
+  if (buyerName.length < 8 || buyerName.split(" ").filter(Boolean).length < 2) return false;
+  const phrase = " " + buyerName + " ";
+  return values.some((value) => typeof value === "string" && (" " + normalizePrivateText(value) + " ").includes(phrase));
 }
 
 function numberValue(value: unknown): number | null {
