@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { randomUUID, timingSafeEqual } from "node:crypto";
+import { createOrGetCustomer, createCharge, getPixQrCode, isAsaasConfigured } from "../lib/asaas";
 import { sendChatMessage } from "../lib/vendorSyncService";
 import { pool } from "@workspace/db";
 import { vendorPool } from "../lib/vendorDb";
