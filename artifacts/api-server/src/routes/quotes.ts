@@ -376,7 +376,6 @@ router.post("/quotes/:id/accept", async (req, res): Promise<void> => {
   const offerId = String(req.body?.offerId ?? "");
   if (!/^[0-9a-f-]{36}$/i.test(offerId)) return void res.status(422).json({ error: "Selecione uma proposta válida." });
   const client = await pool.connect();
-  let vendorId = "";
   try {
     await ensureDirectQuoteTables();
     await client.query("BEGIN");
@@ -385,7 +384,6 @@ router.post("/quotes/:id/accept", async (req, res): Promise<void> => {
     if (locked.rows[0].status === "aceita") { await client.query("ROLLBACK"); return void res.status(409).json({ error: "Você já aceitou uma proposta desta cotação." }); }
     const selected = await client.query("SELECT id,vendor_id FROM quote_offers WHERE id=$1 AND quote_request_id=$2 AND status='enviada' FOR UPDATE", [offerId, req.params.id]);
     if (!selected.rows[0]) { await client.query("ROLLBACK"); return void res.status(409).json({ error: "Esta proposta não está mais disponível." }); }
-    vendorId = String(selected.rows[0].vendor_id);
     await client.query("UPDATE quote_offers SET status=CASE WHEN id=$2 THEN 'aceita' ELSE 'recusada' END,accepted_at=CASE WHEN id=$2 THEN now() ELSE accepted_at END,updated_at=now() WHERE quote_request_id=$1", [req.params.id, offerId]);
     await client.query("UPDATE quote_requests SET status='awaiting_payment' WHERE id=$1", [req.params.id]);
     await client.query("COMMIT");
