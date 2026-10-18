@@ -66,6 +66,7 @@ import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 import { useMarketplaceCity } from "@/lib/marketplace-city"
+import { MarketplaceCityPicker } from "@/components/MarketplaceCityPicker"
 
 const STATIONERY_SLUG = "arte-papelaria-e-armarinho"
 const BABY_SLUG = "bebes"
@@ -378,6 +379,18 @@ export default function ListingPage() {
   const selectDepartment = (departmentSearch: string) => {
     setSearch(departmentSearch)
     setSubmittedSearch(departmentSearch)
+  }
+
+  if (!city) {
+    return <main className="grid min-h-[70vh] place-items-center bg-[#F8FAFC] px-4 py-12 text-[#0B2240]">
+      <section className="w-full max-w-xl rounded-2xl border border-[#E5EAF0] bg-white p-6 text-center shadow-sm sm:p-10">
+        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#E8F2FF] text-[#0077FF]"><MapPin className="h-6 w-6" /></span>
+        <h1 className="mt-4 font-[Manrope] text-2xl font-extrabold">Escolha sua cidade</h1>
+        <p className="mt-2 text-sm text-[#64748B]">O catálogo e os fornecedores mudam conforme o município. Selecione onde deseja comprar para ver as opções disponíveis.</p>
+        <div className="mt-5 flex justify-center"><MarketplaceCityPicker /></div>
+        <Link href="/" className="mt-5 inline-flex text-sm font-bold text-[#0077FF]">Voltar ao início</Link>
+      </section>
+    </main>
   }
 
   if (isAutoAccessories) {
