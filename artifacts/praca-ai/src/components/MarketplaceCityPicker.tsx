@@ -2,7 +2,7 @@ import * as React from "react"
 import { MapPin, ChevronDown } from "lucide-react"
 import { useMarketplaceCity } from "@/lib/marketplace-city"
 
-export function MarketplaceCityPicker({ compact = false }: { compact?: boolean }) {
+export function MarketplaceCityPicker({ compact = false, inverse = false }: { compact?: boolean; inverse?: boolean }) {
   const { city, state, setLocation } = useMarketplaceCity()
   const [open, setOpen] = React.useState(false)
   const [draftCity, setDraftCity] = React.useState(city)
@@ -17,9 +17,9 @@ export function MarketplaceCityPicker({ compact = false }: { compact?: boolean }
   return <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)} className="relative shrink-0">
     <summary className={compact
       ? "flex h-8 cursor-pointer list-none items-center gap-2 bg-[#F8FAFC] px-4 text-xs text-[#0B2240]"
-      : "flex cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-2 text-left text-xs text-white/85 hover:bg-white/10"}>
+       : inverse ? "flex cursor-pointer list-none items-center gap-2 rounded-lg px-2 py-2 text-left text-xs text-white/85 hover:bg-white/10" : "flex cursor-pointer list-none items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-xs text-[#0B2240] shadow-sm hover:bg-slate-50"}>
       <MapPin className={compact ? "h-3.5 w-3.5" : "h-5 w-5 text-[#10D3B8]"} />
-      <span>{compact ? "Entregas para " : "Entregar em"}<strong className={compact ? "ml-1" : "mt-0.5 block text-white"}>{label}</strong></span>
+      <span>{compact ? "Entregas para " : "Entregar em"}<strong className={compact ? "ml-1" : inverse ? "mt-0.5 block text-white" : "mt-0.5 block text-[#0B2240]"}>{label}</strong></span>
       {!compact && <ChevronDown className="h-3.5 w-3.5" />}
     </summary>
     <form onSubmit={(event) => {
