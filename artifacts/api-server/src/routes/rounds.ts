@@ -72,7 +72,7 @@ async function ensureRoundLead(params: { roundId: string; vendorId: string; code
     await sendChatMessage({
       tenantId: params.vendorId, leadId,
       conteudo: "Praça.ai — novo lead anônimo de rodada. " + params.demand +
-        " Identificação e contato do comprador serão liberados somente depois que ele aceitar a oferta vencedora.",
+        " Identificação e contato do comprador serão liberados somente depois que o pagamento for confirmado.",
     });
     await pool.query(
       "UPDATE buying_round_vendor_leads SET crm_notified=true WHERE round_id=$1 AND vendor_id=$2",
@@ -349,9 +349,11 @@ router.get("/internal/rounds",async(req,res):Promise<void>=>{
   if(!tenantId) return void res.status(422).json({error:"Tenant obrigatório."});
   try {
     await closeExpired();
-    const enabled=await vendorPool.query("SELECT id FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[tenantId]);
+    const enabled=await vendorPool.query("SELECT id,cidade,estado FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[tenantId]);
     if(!enabled.rows[0]) return void res.status(403).json({error:"Loja não habilitada no Praça.ai."});
-    const result=await pool.query("SELECT r.id,r.code,r.category,r.item_name,r.specification,r.unit,r.city,r.state,r.needed_at,r.closes_at,COALESCE(sum(p.quantity),0)::text AS total_quantity,mine.unit_price::text AS my_price,mine.freight_total::text AS my_freight,best.unit_price::text AS best_price,best.freight_total::text AS best_freight FROM buying_rounds r JOIN buying_round_participants p ON p.round_id=r.id LEFT JOIN buying_round_bids mine ON mine.round_id=r.id AND mine.vendor_id=$1 LEFT JOIN LATERAL (SELECT b.unit_price,b.freight_total FROM buying_round_bids b WHERE b.round_id=r.id ORDER BY b.unit_price + b.freight_total / NULLIF((SELECT sum(quantity) FROM buying_round_participants WHERE round_id=r.id),0),b.updated_at ASC LIMIT 1) best ON true WHERE r.status='open' AND r.closes_at>now() GROUP BY r.id,mine.unit_price,mine.freight_total,best.unit_price,best.freight_total ORDER BY r.closes_at ASC LIMIT 100",[tenantId]);
+    const sellerCity=String(enabled.rows[0].cidade??"").trim(),sellerState=String(enabled.rows[0].estado??"").trim().toUpperCase();
+    if(!sellerCity||!/^[A-Z]{2}$/.test(sellerState)) return void res.status(409).json({error:"Cadastre cidade e UF no perfil do AppVendor.ai para acessar rodadas."});
+    const result=await pool.query("SELECT r.id,r.code,r.category,r.item_name,r.specification,r.unit,r.city,r.state,r.needed_at,r.closes_at,COALESCE(sum(p.quantity),0)::text AS total_quantity,mine.unit_price::text AS my_price,mine.freight_total::text AS my_freight,best.unit_price::text AS best_price,best.freight_total::text AS best_freight FROM buying_rounds r JOIN buying_round_participants p ON p.round_id=r.id LEFT JOIN buying_round_bids mine ON mine.round_id=r.id AND mine.vendor_id=$1 LEFT JOIN LATERAL (SELECT b.unit_price,b.freight_total FROM buying_round_bids b WHERE b.round_id=r.id ORDER BY b.unit_price + b.freight_total / NULLIF((SELECT sum(quantity) FROM buying_round_participants WHERE round_id=r.id),0),b.updated_at ASC LIMIT 1) best ON true WHERE r.status='open' AND r.closes_at>now() AND lower(trim(r.city))=lower($2) AND upper(trim(r.state))=upper($3) GROUP BY r.id,mine.unit_price,mine.freight_total,best.unit_price,best.freight_total ORDER BY r.closes_at ASC LIMIT 100",[tenantId,sellerCity,sellerState]);
     res.json(result.rows.map((r:any)=>({id:r.id,code:r.code,category:r.category,itemName:r.item_name,specification:r.specification,unit:r.unit,city:r.city,state:r.state,neededAt:r.needed_at,closesAt:r.closes_at,totalQuantity:Number(r.total_quantity),myOffer:r.my_price?{unitPrice:Number(r.my_price),freight:Number(r.my_freight??0)}:null,bestOffer:r.best_price?{unitPrice:Number(r.best_price),freight:Number(r.best_freight??0)}:null})));
   } catch(error){console.error("[rounds] internal list failed:",error);res.status(500).json({error:"Não foi possível carregar oportunidades."});}
 });
@@ -363,13 +365,16 @@ router.post("/internal/rounds/:id/bids",async(req,res):Promise<void>=>{
   const terms=typeof req.body?.terms==="string"?req.body.terms.trim().slice(0,1000):"";
   if(!tenantId||!Number.isFinite(unitPrice)||unitPrice<=0||!Number.isFinite(freight)||freight<0||!Number.isInteger(deliveryDays)||deliveryDays<0||containsContact(terms)) return void res.status(422).json({error:"Informe preço, frete e prazo válidos. Não inclua contatos nas condições."});
   try {
-    const enabled=await vendorPool.query("SELECT id FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[tenantId]);
+    const enabled=await vendorPool.query("SELECT id,cidade,estado FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[tenantId]);
     if(!enabled.rows[0]) return void res.status(403).json({error:"Loja não habilitada no Praça.ai."});
+    const sellerCity=String(enabled.rows[0].cidade??"").trim(),sellerState=String(enabled.rows[0].estado??"").trim().toUpperCase();
+    if(!sellerCity||!/^[A-Z]{2}$/.test(sellerState)) return void res.status(409).json({error:"Cadastre cidade e UF no perfil do AppVendor.ai para enviar lances."});
     const client=await pool.connect();
     try {
       await client.query("BEGIN");
       const round=await client.query("SELECT id,code,category,item_name,specification,unit,city,state,needed_at,status,closes_at FROM buying_rounds WHERE id=$1 FOR UPDATE",[req.params.id]);
       if(!round.rows[0]||round.rows[0].status!=="open"||new Date(round.rows[0].closes_at).getTime()<=Date.now()){await client.query("ROLLBACK");return void res.status(409).json({error:"Rodada encerrada."});}
+      if(String(round.rows[0].city).trim().toLowerCase()!==sellerCity.toLowerCase()||String(round.rows[0].state).trim().toUpperCase()!==sellerState){await client.query("ROLLBACK");return void res.status(403).json({error:"Esta rodada pertence a outro município."});}
       const deliveryDeadline=new Date(round.rows[0].needed_at).getTime()+24*60*60*1000;
       const availableAfterClose=deliveryDeadline-new Date(round.rows[0].closes_at).getTime();
       if(deliveryDays*24*60*60*1000>availableAfterClose){await client.query("ROLLBACK");return void res.status(422).json({error:"O prazo de entrega precisa caber antes da data solicitada pelo comprador."});}
