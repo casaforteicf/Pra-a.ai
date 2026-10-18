@@ -16,7 +16,7 @@ type Quote = {
 
 export default function QuoteTracking() {
   const [match, params] = useRoute("/cotacao/:id");
-  const id = match ? params.id : "";
+  const id = params?.id ?? "";
   const [quote, setQuote] = React.useState<Quote | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState("");
