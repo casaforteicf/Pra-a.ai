@@ -251,6 +251,17 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
     let quotes = { total: 0, awaitingSuppliers: 0, withOffers: 0, accepted: 0, unanswered: 0, offers: 0, averageFirstResponseHours: null as number | null };
     let coverage = { vendorsReceivingQuotes: 0, vendorsSendingOffers: 0, vendorsBiddingRounds: 0 };
     let rounds = { open: 0, closed: 0, noOffers: 0, participants: 0, bids: 0, buyerAccepted: 0, buyerDeclined: 0 };
+    // Alertas de fila atual: independem do período histórico selecionado acima.
+    const operations = {
+      quotesWithoutSuppliers: 0,
+      quotesWithoutOffer24h: 0,
+      quotesPastNeededDate: 0,
+      roundsClosingWithin2h: 0,
+      roundsPastNeededDate: 0,
+      roundsAwaitingBuyer: 0,
+      roundsAwaitingPayment: 0,
+      roundsCrmSyncFailures: 0,
+    };
     const orderStats = await db.select({
       total: sql<number>`count(*)::int`,
       delivered: sql<number>`count(*) FILTER (WHERE ${ordersTable.status} = 'delivered')::int`,
@@ -327,6 +338,22 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
         GROUP BY category
       `, [days]);
       categoryRows.push(...cats.rows.map((row) => ({ category: String(row.category), total: Number(row.total) })));
+
+      const quoteOperations = await pool.query(`
+        SELECT
+          count(*) FILTER (WHERE q.status='aguardando_fornecedores')::int AS "quotesWithoutSuppliers",
+          count(*) FILTER (
+            WHERE q.status='distribuida'
+              AND q.created_at <= now() - interval '24 hours'
+              AND NOT EXISTS (SELECT 1 FROM quote_offers o WHERE o.quote_request_id=q.id)
+          )::int AS "quotesWithoutOffer24h",
+          count(*) FILTER (WHERE q.needed_at < current_date AND q.status <> 'aceita')::int AS "quotesPastNeededDate"
+        FROM quote_requests q
+      `);
+      const quoteOps = quoteOperations.rows[0] ?? {};
+      operations.quotesWithoutSuppliers = Number(quoteOps.quotesWithoutSuppliers ?? 0);
+      operations.quotesWithoutOffer24h = Number(quoteOps.quotesWithoutOffer24h ?? 0);
+      operations.quotesPastNeededDate = Number(quoteOps.quotesPastNeededDate ?? 0);
     }
 
     if (roundsReady) {
@@ -367,6 +394,24 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
         WHERE r.created_at >= now() - ($1::int * interval '1 day')
       `, [days]);
       coverage.vendorsBiddingRounds = Number(vendorCount.rows[0]?.total ?? 0);
+
+      const roundOperations = await pool.query(`
+        SELECT
+          (SELECT count(*)::int FROM buying_rounds
+           WHERE status='open' AND closes_at > now() AND closes_at <= now() + interval '2 hours') AS "roundsClosingWithin2h",
+          (SELECT count(*)::int FROM buying_rounds
+           WHERE status='open' AND needed_at < current_date) AS "roundsPastNeededDate",
+          count(*) FILTER (WHERE status='awaiting_buyer')::int AS "roundsAwaitingBuyer",
+          count(*) FILTER (WHERE status='awaiting_payment')::int AS "roundsAwaitingPayment",
+          count(*) FILTER (WHERE crm_sync_status='failed')::int AS "roundsCrmSyncFailures"
+        FROM buying_round_orders
+      `);
+      const roundOps = roundOperations.rows[0] ?? {};
+      operations.roundsClosingWithin2h = Number(roundOps.roundsClosingWithin2h ?? 0);
+      operations.roundsPastNeededDate = Number(roundOps.roundsPastNeededDate ?? 0);
+      operations.roundsAwaitingBuyer = Number(roundOps.roundsAwaitingBuyer ?? 0);
+      operations.roundsAwaitingPayment = Number(roundOps.roundsAwaitingPayment ?? 0);
+      operations.roundsCrmSyncFailures = Number(roundOps.roundsCrmSyncFailures ?? 0);
 
       const cats = await pool.query<{ category: string; total: number }>(`
         SELECT category, count(*)::int AS total FROM buying_rounds
@@ -422,6 +467,7 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
       quotes,
       rounds,
       orders,
+      operations,
       coverage,
       demandByCategory,
     });
