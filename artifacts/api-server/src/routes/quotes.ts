@@ -18,7 +18,7 @@ router.post("/quotes", async (req, res): Promise<void> => {
     res.status(422).json({ error: "Preencha categoria, título, região e pelo menos um item." });
     return;
   }
-  if (date && (typeof date !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T12:00:00Z")) ||
+  if (date && (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T12:00:00Z")) ||
       new Date(date + "T12:00:00Z").toISOString().slice(0, 10) !== date ||
       date < new Date().toISOString().slice(0, 10))) {
     res.status(422).json({ error: "Informe uma data de compra válida, de hoje em diante." });
@@ -119,7 +119,7 @@ router.post("/quotes", async (req, res): Promise<void> => {
 export default router;
 
 
-const CONTACT_PATTERN = /(?:[\\w.+-]+@[\\w.-]+\\.[a-z]{2,}|(?:\\+?\\d[\\s().-]*){10,})/i;
+const CONTACT_PATTERN = /(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?\d[\s().-]*){10,})/i;
 let directQuoteTablesReady: Promise<void> | null = null;
 
 function ensureDirectQuoteTables(): Promise<void> {
