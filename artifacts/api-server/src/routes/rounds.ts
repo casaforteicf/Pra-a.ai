@@ -22,35 +22,41 @@ function authorizedVendor(req: any, res: any): boolean {
 }
 
 async function ensureRoundLead(params: { roundId: string; vendorId: string; code: string; demand: string; buyer?: { name: string; email: string | null; phone: string | null } }): Promise<string> {
-  const existing = await pool.query(
-    "SELECT crm_lead_id,crm_notified FROM buying_round_vendor_leads WHERE round_id=$1 AND vendor_id=$2",
-    [params.roundId, params.vendorId],
-  );
-  let leadId = existing.rows[0]?.crm_lead_id as string | undefined;
-  let notified = Boolean(existing.rows[0]?.crm_notified);
-  if (!leadId) {
-    leadId = randomUUID();
-    await vendorPool.query(
-      "INSERT INTO leads(id,tenant_id,nome,telefone,email,endereco,source,status,tipo) VALUES($1,$2,$3,NULL,NULL,NULL,'praca_ai_rodada','novo','cliente')",
-      [leadId, params.vendorId, "Demanda anônima Praça.ai · " + params.code],
-    );
-    await pool.query(
-      "INSERT INTO buying_round_vendor_leads(round_id,vendor_id,crm_lead_id) VALUES($1,$2,$3) ON CONFLICT(round_id,vendor_id) DO NOTHING",
-      [params.roundId, params.vendorId, leadId],
-    );
-    const persisted = await pool.query(
+  const mapClient = await pool.connect();
+  let leadId = "";
+  let notified = false;
+  try {
+    await mapClient.query("BEGIN");
+    await mapClient.query("SELECT pg_advisory_xact_lock(hashtext($1))", [params.roundId + ":" + params.vendorId]);
+    const existing = await mapClient.query(
       "SELECT crm_lead_id,crm_notified FROM buying_round_vendor_leads WHERE round_id=$1 AND vendor_id=$2",
       [params.roundId, params.vendorId],
     );
-    leadId = persisted.rows[0].crm_lead_id;
-    notified = Boolean(persisted.rows[0].crm_notified);
-  }
+    leadId = existing.rows[0]?.crm_lead_id as string | undefined ?? "";
+    notified = Boolean(existing.rows[0]?.crm_notified);
+    if (!leadId) {
+      leadId = randomUUID();
+      await vendorPool.query(
+        "INSERT INTO leads(id,tenant_id,nome,telefone,email,endereco,source,status,tipo) VALUES($1,$2,$3,NULL,NULL,NULL,'praca_ai_rodada','novo','cliente')",
+        [leadId, params.vendorId, "Demanda anônima Praça.ai · " + params.code],
+      );
+      await mapClient.query(
+        "INSERT INTO buying_round_vendor_leads(round_id,vendor_id,crm_lead_id) VALUES($1,$2,$3)",
+        [params.roundId, params.vendorId, leadId],
+      );
+    }
+    await mapClient.query("COMMIT");
+  } catch (error) {
+    await mapClient.query("ROLLBACK");
+    throw error;
+  } finally { mapClient.release(); }
+
   if (params.buyer) {
     await vendorPool.query(
       "UPDATE leads SET nome=$3,telefone=$4,email=$5,source='praca_ai_rodada' WHERE id=$1 AND tenant_id=$2",
       [leadId, params.vendorId, params.buyer.name, params.buyer.phone, params.buyer.email],
     );
-    await pool.query(
+    await vendorPool.query(
       "UPDATE buying_round_vendor_leads SET identity_revealed_at=COALESCE(identity_revealed_at,now()) WHERE round_id=$1 AND vendor_id=$2",
       [params.roundId, params.vendorId],
     );
@@ -60,6 +66,7 @@ async function ensureRoundLead(params: { roundId: string; vendorId: string; code
         (params.buyer.phone ? " · Telefone: " + params.buyer.phone : "") +
         (params.buyer.email ? " · E-mail: " + params.buyer.email : "") + ". " + params.demand,
     });
+    await pool.query("UPDATE buying_round_vendor_leads SET crm_notified=true WHERE round_id=$1 AND vendor_id=$2", [params.roundId, params.vendorId]);
   } else if (!notified) {
     await sendChatMessage({
       tenantId: params.vendorId, leadId,
@@ -73,7 +80,6 @@ async function ensureRoundLead(params: { roundId: string; vendorId: string; code
   }
   return leadId;
 }
-
 function qty(value: unknown): number | null {
   const n = Number(String(value ?? "").replace(",", "."));
   return Number.isFinite(n) && n > 0 && n <= 1_000_000 ? n : null;
@@ -208,8 +214,11 @@ router.post("/round-orders/:id/accept",async(req,res):Promise<void>=>{
     const found=await client.query("SELECT o.id,o.status,o.round_id,o.vendor_id,o.quantity::text,o.total::text,r.code,r.item_name,r.unit,p.consumer_id FROM buying_round_orders o JOIN buying_rounds r ON r.id=o.round_id JOIN buying_round_participants p ON p.id=o.participant_id WHERE o.id=$1 FOR UPDATE OF o",[req.params.id]);
     order=found.rows[0];
     if(!order||Number(order.consumer_id)!==consumer){await client.query("ROLLBACK");return void res.status(404).json({error:"Proposta não encontrada."});}
-    if(order.status!=="awaiting_buyer"){await client.query("ROLLBACK");return void res.status(409).json({error:"Esta proposta não está mais disponível."});}
-    await client.query("UPDATE buying_round_orders SET status='awaiting_payment',accepted_at=now() WHERE id=$1",[order.id]);
+    if(order.status==="awaiting_buyer"){
+      await client.query("UPDATE buying_round_orders SET status='awaiting_payment',accepted_at=now() WHERE id=$1",[order.id]);
+    } else if(order.status!=="awaiting_payment"){
+      await client.query("ROLLBACK");return void res.status(409).json({error:"Esta proposta não está mais disponível."});
+    }
     await client.query("COMMIT");
   } catch(error) {
     await client.query("ROLLBACK"); console.error("[rounds] accept failed:",error); return void res.status(500).json({error:"Não foi possível aceitar a proposta agora."});
