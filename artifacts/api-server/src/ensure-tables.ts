@@ -75,6 +75,90 @@ CREATE TABLE IF NOT EXISTS quote_recipients (
   UNIQUE (quote_request_id, vendor_id)
 );
 
+CREATE TABLE IF NOT EXISTS buying_rounds (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code text NOT NULL UNIQUE,
+  category text NOT NULL,
+  item_name text NOT NULL,
+  specification text,
+  unit text NOT NULL,
+  city text NOT NULL,
+  state text NOT NULL,
+  needed_at date NOT NULL,
+  closes_at timestamptz NOT NULL,
+  status text NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed','no_offers','cancelled')),
+  created_by_consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE RESTRICT,
+  winning_bid_id uuid,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  closed_at timestamptz,
+  CHECK (closes_at > created_at),
+  CHECK (needed_at >= created_at::date)
+);
+CREATE INDEX IF NOT EXISTS idx_buying_rounds_open
+  ON buying_rounds (status, closes_at, state, city);
+
+CREATE TABLE IF NOT EXISTS buying_round_participants (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  round_id uuid NOT NULL REFERENCES buying_rounds(id) ON DELETE CASCADE,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE RESTRICT,
+  quantity numeric(12,3) NOT NULL CHECK (quantity > 0),
+  joined_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (round_id, consumer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_buying_round_participants_consumer
+  ON buying_round_participants (consumer_id, joined_at DESC);
+
+CREATE TABLE IF NOT EXISTS buying_round_bids (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  round_id uuid NOT NULL REFERENCES buying_rounds(id) ON DELETE CASCADE,
+  vendor_id text NOT NULL,
+  unit_price numeric(12,2) NOT NULL CHECK (unit_price > 0),
+  freight_total numeric(12,2) NOT NULL DEFAULT 0 CHECK (freight_total >= 0),
+  delivery_days integer NOT NULL CHECK (delivery_days >= 0),
+  terms text,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (round_id, vendor_id)
+);
+
+CREATE TABLE IF NOT EXISTS buying_round_bid_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  bid_id uuid NOT NULL REFERENCES buying_round_bids(id) ON DELETE CASCADE,
+  unit_price numeric(12,2) NOT NULL CHECK (unit_price > 0),
+  freight_total numeric(12,2) NOT NULL DEFAULT 0 CHECK (freight_total >= 0),
+  delivery_days integer NOT NULL CHECK (delivery_days >= 0),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_buying_round_bid_events_bid
+  ON buying_round_bid_events (bid_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS buying_round_vendor_leads (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  round_id uuid NOT NULL REFERENCES buying_rounds(id) ON DELETE CASCADE,
+  vendor_id text NOT NULL,
+  crm_lead_id text NOT NULL,
+  crm_notified boolean NOT NULL DEFAULT false,
+  identity_revealed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (round_id, vendor_id),
+  UNIQUE (vendor_id, crm_lead_id)
+);
+CREATE TABLE IF NOT EXISTS buying_round_orders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  round_id uuid NOT NULL REFERENCES buying_rounds(id) ON DELETE RESTRICT,
+  participant_id uuid NOT NULL UNIQUE REFERENCES buying_round_participants(id) ON DELETE RESTRICT,
+  bid_id uuid NOT NULL REFERENCES buying_round_bids(id) ON DELETE RESTRICT,
+  vendor_id text NOT NULL,
+  quantity numeric(12,3) NOT NULL CHECK (quantity > 0),
+  total numeric(12,2) NOT NULL CHECK (total >= 0),
+  status text NOT NULL DEFAULT 'awaiting_buyer' CHECK (status IN ('awaiting_buyer','accepted','declined','awaiting_payment','paid','cancelled')),
+  crm_sync_status text NOT NULL DEFAULT 'pending' CHECK (crm_sync_status IN ('pending','synced','failed')),
+  crm_lead_id text,
+  accepted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_buying_round_orders_vendor
+  ON buying_round_orders (vendor_id, status, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS feed_likes (
   id serial PRIMARY KEY,
   consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,
