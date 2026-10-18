@@ -49,7 +49,7 @@ router.post("/quotes", async (req, res): Promise<void> => {
   try {
     const privateText = [category, title, description, location, ...cleanItems.flatMap((item: any) => [item.description, item.brand])];
     if (await buyerNameAppears(consumerId, privateText)) {
-      res.status(422).json({ error: "Remova seu nome dos detalhes; sua identificação será compartilhada com a loja apenas após aceitar uma proposta." });
+      res.status(422).json({ error: "Remova seu nome dos detalhes; sua identificação será compartilhada com a loja apenas após a confirmação do pagamento." });
       return;
     }
   } catch (error) {
