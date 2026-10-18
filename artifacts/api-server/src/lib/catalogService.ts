@@ -155,7 +155,7 @@ export async function getProductById(id: string) {
   return mapCatalogRow(result.rows[0]);
 }
 
-export async function getRealCategories(limit?: number, city?: string) {
+export async function getRealCategories(limit?: number, city?: string, state?: string) {
   const categoryHierarchy = ITEM_CATEGORIES.flatMap((department) =>
     expandCategorySlugs([slugify(department)]).map((subcategorySlug) => ({
       department,
@@ -179,7 +179,7 @@ export async function getRealCategories(limit?: number, city?: string) {
        WHERE t.vende_no_praca_ai = true
          AND pc.ativo = true
          AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
-         AND ($3::text IS NULL OR lower(t.cidade)=lower($3))
+         AND ($3::text IS NULL OR ($4::text IS NOT NULL AND lower(trim(t.cidade))=lower($3) AND upper(trim(t.estado))=upper($4)))
        GROUP BY hierarquia.department
      )
      SELECT categoria.nome AS categoria_nome, COALESCE(contagens.product_count, 0)::int AS product_count
@@ -187,7 +187,7 @@ export async function getRealCategories(limit?: number, city?: string) {
      LEFT JOIN contagens ON lower(contagens.nome) = lower(categoria.nome)
      ORDER BY categoria.ordem
      ${limit ? `LIMIT ${Number(limit)}` : ""}`,
-    [ITEM_CATEGORIES, JSON.stringify(categoryHierarchy), city?.trim() || null],
+    [ITEM_CATEGORIES, JSON.stringify(categoryHierarchy), city?.trim() || null, state?.trim() || null],
   );
 
   return result.rows
@@ -204,17 +204,17 @@ export async function getRealCategories(limit?: number, city?: string) {
     });
 }
 
-export async function getFeaturedProducts(limit = 6, city?: string) {
+export async function getFeaturedProducts(limit = 6, city?: string, state?: string) {
   const result = await vendorPool.query(
     `SELECT pc.*, cp.nome AS categoria_nome, t.nome_empresa
      FROM produtos_catalogo pc
      JOIN tenants t ON t.id = pc.tenant_id
      LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
      WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true) AND pc.destaque = true
-       AND ($2::text IS NULL OR lower(t.cidade)=lower($2))
+       AND ($2::text IS NULL OR ($3::text IS NOT NULL AND lower(trim(t.cidade))=lower($2) AND upper(trim(t.estado))=upper($3)))
      ORDER BY pc.created_at DESC
      LIMIT $1`,
-    [limit, city?.trim() || null],
+    [limit, city?.trim() || null, state?.trim() || null],
   );
   return result.rows.map(mapCatalogRow);
 }
@@ -226,7 +226,7 @@ export async function getFeaturedProducts(limit = 6, city?: string) {
  * escrita. Já existe e já está conectada no catálogo (mapCatalogRow), só
  * faltava essa consulta específica.
  */
-export async function getPromotedProducts(limit = 8, city?: string) {
+export async function getPromotedProducts(limit = 8, city?: string, state?: string) {
   const result = await vendorPool.query(
     `SELECT pc.*, cp.nome AS categoria_nome, t.nome_empresa
      FROM produtos_catalogo pc
@@ -244,7 +244,7 @@ export async function getPromotedProducts(limit = 8, city?: string) {
   return result.rows.map(mapCatalogRow);
 }
 
-export async function getProductsByCategoryName(categoriaNome: string, limit = 4, city?: string) {
+export async function getProductsByCategoryName(categoriaNome: string, limit = 4, city?: string, state?: string) {
   const categorySlugs = expandCategorySlugs([slugify(categoriaNome)]);
   const result = await vendorPool.query(
     `SELECT pc.*, cp.nome AS categoria_nome, t.nome_empresa
@@ -253,10 +253,10 @@ export async function getProductsByCategoryName(categoriaNome: string, limit = 4
      LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
      WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
        AND lower(regexp_replace(unaccent(cp.nome), '[^a-zA-Z0-9]+', '-', 'g')) = ANY($1)
-       AND ($3::text IS NULL OR lower(t.cidade)=lower($3))
+       AND ($3::text IS NULL OR ($4::text IS NOT NULL AND lower(trim(t.cidade))=lower($3) AND upper(trim(t.estado))=upper($4)))
      ORDER BY pc.destaque DESC, pc.created_at DESC
      LIMIT $2`,
-    [categorySlugs, limit, city?.trim() || null],
+    [categorySlugs, limit, city?.trim() || null, state?.trim() || null],
   );
   return result.rows.map(mapCatalogRow);
 }
