@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext"
 import { PracaLogo } from "@/components/brand/PracaLogo"
 
 const DRAFT_KEY = "praca-ai-quote-draft"
-const UNITS = ["un", "cx", "kg", "m", "m²", "m³", "L", "saco", "rolo", "serviço"]
+const UNITS = ["un", "cx", "kg", "m", "m²", "m³", "L", "saco", "rolo", "serviço", "milheiro", "par"]
 const COTATION_CATEGORIES = ["Cimento e agregados","Alvenaria","Elétrica e iluminação","Hidráulica e conexões","Cobertura e telhado","Acabamentos","Ferragens e EPI","Agro e indústria","Máquinas e equipamentos","Casa e decoração","Informática e eletrônicos","Alimentos e suprimentos","Construção e reforma","Produtos e materiais","Serviços","Veículos","Agro","Outro"]
 const MATERIAL_SUGGESTIONS: Record<string, {name:string;unit:string}[]> = {
   "Cimento e agregados": [{name:"Cimento CP II",unit:"saco"},{name:"Areia média",unit:"m³"},{name:"Brita nº 1",unit:"m³"},{name:"Cal hidratada",unit:"saco"}],
