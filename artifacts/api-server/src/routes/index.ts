@@ -33,6 +33,7 @@ import marketplaceRouter from "./marketplace";
 import seoRouter from "./seo";
 import quotesRouter from "./quotes";
 import roundsRouter from "./rounds";
+import fulfillmentRouter from "./fulfillment";
 
 const router: IRouter = Router();
 
@@ -70,5 +71,6 @@ router.use(variedadesRouter);
 router.use(marketplaceRouter);
 router.use(quotesRouter);
 router.use(roundsRouter);
+router.use(fulfillmentRouter);
 
 export default router;

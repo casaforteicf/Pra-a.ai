@@ -157,6 +157,71 @@ CREATE TABLE IF NOT EXISTS buying_round_orders (
 );
 CREATE INDEX IF NOT EXISTS idx_buying_round_orders_vendor
   ON buying_round_orders (vendor_id, status, created_at DESC);
+ALTER TABLE buying_round_orders
+  ADD COLUMN IF NOT EXISTS payment_method text,
+  ADD COLUMN IF NOT EXISTS asaas_charge_id text,
+  ADD COLUMN IF NOT EXISTS asaas_pix_payload text,
+  ADD COLUMN IF NOT EXISTS asaas_pix_qrcode_image text,
+  ADD COLUMN IF NOT EXISTS asaas_invoice_url text,
+  ADD COLUMN IF NOT EXISTS paid_at timestamptz,
+  ADD COLUMN IF NOT EXISTS delivered_at timestamptz,
+  ADD COLUMN IF NOT EXISTS released_at timestamptz;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_buying_round_orders_asaas_charge
+  ON buying_round_orders (asaas_charge_id) WHERE asaas_charge_id IS NOT NULL;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid='buying_round_orders'::regclass
+      AND conname='buying_round_orders_status_check'
+      AND (pg_get_constraintdef(oid) NOT LIKE '%delivered%'
+        OR pg_get_constraintdef(oid) NOT LIKE '%released%')
+  ) THEN
+    ALTER TABLE buying_round_orders DROP CONSTRAINT buying_round_orders_status_check;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid='buying_round_orders'::regclass
+      AND conname='buying_round_orders_status_check'
+  ) THEN
+    ALTER TABLE buying_round_orders ADD CONSTRAINT buying_round_orders_status_check
+      CHECK (status IN ('awaiting_buyer','accepted','declined','awaiting_payment','paid','delivered','released','cancelled'));
+  END IF;
+END $$;
+
+-- Estado de expedição compartilhado entre AppVendor.ai e Praça.ai. A tabela é
+-- aditiva e guarda apenas a operação; o pagamento e o pedido continuam nas
+-- tabelas existentes de cotações e rodadas.
+CREATE TABLE IF NOT EXISTS praca_marketplace_fulfillments (
+  order_type text NOT NULL CHECK (order_type IN ('quote','round')),
+  order_id uuid NOT NULL,
+  vendor_id text NOT NULL,
+  status text NOT NULL CHECK (status IN ('preparing','ready','shipped')),
+  delivery_mode text CHECK (delivery_mode IN ('pickup','own_delivery','carrier')),
+  carrier text,
+  tracking_code text,
+  seller_note text,
+  shipped_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (order_type, order_id)
+);
+CREATE INDEX IF NOT EXISTS idx_praca_marketplace_fulfillments_vendor
+  ON praca_marketplace_fulfillments (vendor_id, status, updated_at DESC);
+CREATE TABLE IF NOT EXISTS praca_marketplace_fulfillment_events (
+  id bigserial PRIMARY KEY,
+  order_type text NOT NULL,
+  order_id uuid NOT NULL,
+  vendor_id text NOT NULL,
+  status text NOT NULL CHECK (status IN ('preparing','ready','shipped')),
+  delivery_mode text CHECK (delivery_mode IN ('pickup','own_delivery','carrier')),
+  carrier text,
+  tracking_code text,
+  seller_note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_praca_marketplace_fulfillment_events_order
+  ON praca_marketplace_fulfillment_events (order_type, order_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS feed_likes (
   id serial PRIMARY KEY,

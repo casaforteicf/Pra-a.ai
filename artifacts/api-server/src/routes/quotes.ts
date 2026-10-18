@@ -340,6 +340,13 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
        GROUP BY o.id ORDER BY (sum(oi.unit_price * qi.quantity)+o.freight) ASC,o.created_at ASC`,
       [quote.id, identityReleased],
     );
+    const fulfillment = identityReleased ? (await pool.query(
+      `SELECT f.status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at
+       FROM quote_offers o JOIN praca_marketplace_fulfillments f
+         ON f.order_type='quote' AND f.order_id=o.quote_request_id AND f.vendor_id=o.vendor_id
+       WHERE o.quote_request_id=$1 AND o.status='aceita' LIMIT 1`,
+      [quote.id],
+    )).rows[0] ?? null : null;
     const visibleOffers = [];
     for (const offer of offers.rows) {
       let vendor = null;
@@ -360,6 +367,11 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
       description: quote.description, location: quote.location, neededAt: quote.needed_at,
       status: quote.status, createdAt: quote.created_at, paymentMethod: quote.payment_method, pixPayload: quote.asaas_pix_payload, pixQrcodeImage: quote.asaas_pix_qrcode_image, invoiceUrl: quote.asaas_invoice_url, items: await quoteItems(quote.id),
       offers: visibleOffers,
+      fulfillment: fulfillment ? {
+        status: fulfillment.status, deliveryMode: fulfillment.delivery_mode, carrier: fulfillment.carrier,
+        trackingCode: fulfillment.tracking_code, sellerNote: fulfillment.seller_note,
+        shippedAt: fulfillment.shipped_at, updatedAt: fulfillment.updated_at,
+      } : null,
     });
   } catch (error) {
     console.error("[quotes] detail failed:", error);
@@ -479,7 +491,12 @@ router.post("/quotes/:id/confirm-delivery", async (req, res): Promise<void> => {
   if (!buyer) return void res.status(401).json({ error: "Entre na sua conta para confirmar a entrega." });
   try {
     const delivered = await pool.query(
-      "UPDATE quote_requests q SET status='delivered',delivered_at=COALESCE(delivered_at,now()) WHERE q.id=$1 AND q.consumer_id=$2 AND q.status='paid' RETURNING q.id",
+      `UPDATE quote_requests q SET status='delivered',delivered_at=COALESCE(delivered_at,now())
+       WHERE q.id=$1 AND q.consumer_id=$2 AND q.status='paid' AND EXISTS (
+         SELECT 1 FROM quote_offers o JOIN praca_marketplace_fulfillments f
+           ON f.order_type='quote' AND f.order_id=q.id AND f.vendor_id=o.vendor_id
+         WHERE o.quote_request_id=q.id AND o.status='aceita' AND f.status IN ('ready','shipped')
+       ) RETURNING q.id`,
       [req.params.id, buyer],
     );
     if (delivered.rows[0]) return void res.json({ id: req.params.id, status: "delivered", payoutStatus: "pending" });
@@ -487,7 +504,7 @@ router.post("/quotes/:id/confirm-delivery", async (req, res): Promise<void> => {
     if (existing.rows[0]?.status === "delivered" || existing.rows[0]?.status === "released") {
       return void res.json({ id: req.params.id, status: existing.rows[0].status, payoutStatus: existing.rows[0].status === "released" ? "released" : "pending" });
     }
-    return void res.status(409).json({ error: "A entrega só pode ser confirmada após o pagamento." });
+    return void res.status(409).json({ error: "A entrega pode ser confirmada depois que o vendedor informar que o pedido está pronto ou saiu para entrega." });
   } catch (error) {
     console.error("[quotes] delivery confirmation failed:", error);
     return void res.status(500).json({ error: "Não foi possível confirmar a entrega agora." });
