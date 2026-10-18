@@ -25,9 +25,9 @@ router.post("/quotes", async (req, res): Promise<void> => {
     return;
   }
 
-  if ([category, title, description, location].some((value) => typeof value === "string" && CONTACT_PATTERN.test(value)) ||
+  if (ADDRESS_PATTERN.test(String(location)) || [category, title, description, location].some((value) => typeof value === "string" && CONTACT_PATTERN.test(value)) ||
       items.some((item: any) => [item?.description, item?.brand].some((value) => typeof value === "string" && CONTACT_PATTERN.test(value)))) {
-    res.status(422).json({ error: "Não inclua telefone ou e-mail nos detalhes da solicitação." });
+    res.status(422).json({ error: "Informe apenas cidade ou região e não inclua telefone, e-mail ou endereço completo." });
     return;
   }
 
@@ -120,6 +120,7 @@ export default router;
 
 
 const CONTACT_PATTERN = /(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?\d[\s().-]*){10,})/i;
+const ADDRESS_PATTERN = /\b(rua|avenida|av\.|rodovia|travessa|bairro|apartamento|apto|cep|casa|quadra|lote)\b|\b\d{5}-?\d{3}\b/i;
 let directQuoteTablesReady: Promise<void> | null = null;
 
 function ensureDirectQuoteTables(): Promise<void> {
