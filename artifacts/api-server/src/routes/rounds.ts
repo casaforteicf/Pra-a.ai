@@ -205,7 +205,7 @@ router.get("/round-orders",async(req,res):Promise<void>=>{
   if(!consumer) return void res.status(401).json({error:"Entre na sua conta para acompanhar suas rodadas."});
   try {
     await closeExpired();
-    const result=await pool.query("SELECT COALESCE(o.id,p.id) AS id,COALESCE(o.status,CASE WHEN r.status='no_offers' THEN 'no_offers' WHEN r.status='open' THEN 'participating' ELSE 'closed' END) AS status,p.quantity::text,o.total::text,o.accepted_at,o.vendor_id,r.code,r.category,r.item_name,r.specification,r.unit,r.needed_at FROM buying_round_participants p JOIN buying_rounds r ON r.id=p.round_id LEFT JOIN buying_round_orders o ON o.participant_id=p.id WHERE p.consumer_id=$1 ORDER BY p.joined_at DESC",[consumer]);
+    const result=await pool.query("SELECT COALESCE(o.id,p.id) AS id,COALESCE(o.status,CASE WHEN r.status='no_offers' THEN 'no_offers' WHEN r.status='open' THEN 'participating' ELSE 'closed' END) AS status,p.quantity::text,o.total::text,o.accepted_at,o.vendor_id,b.delivery_days,r.code,r.category,r.item_name,r.specification,r.unit,r.needed_at FROM buying_round_participants p JOIN buying_rounds r ON r.id=p.round_id LEFT JOIN buying_round_orders o ON o.participant_id=p.id LEFT JOIN buying_round_bids b ON b.id=o.bid_id WHERE p.consumer_id=$1 ORDER BY p.joined_at DESC",[consumer]);
     const response=[];
     for(const row of result.rows){
       let vendor=null;
@@ -213,7 +213,7 @@ router.get("/round-orders",async(req,res):Promise<void>=>{
         const store=await vendorPool.query("SELECT id,nome_empresa FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[row.vendor_id]);
         if(store.rows[0]) vendor={id:store.rows[0].id,name:store.rows[0].nome_empresa,storeUrl:"/listing?vendorId="+encodeURIComponent(String(store.rows[0].id))};
       }
-      response.push({id:row.id,status:row.status,quantity:Number(row.quantity),total:row.total===null?null:Number(row.total),acceptedAt:row.accepted_at,code:row.code,category:row.category,itemName:row.item_name,specification:row.specification,unit:row.unit,neededAt:row.needed_at,vendor});
+      response.push({id:row.id,status:row.status,quantity:Number(row.quantity),total:row.total===null?null:Number(row.total),deliveryDays:row.delivery_days===null?null:Number(row.delivery_days),acceptedAt:row.accepted_at,code:row.code,category:row.category,itemName:row.item_name,specification:row.specification,unit:row.unit,neededAt:row.needed_at,vendor});
     }
     res.json(response);
   } catch(error) {
@@ -299,6 +299,9 @@ router.post("/internal/rounds/:id/bids",async(req,res):Promise<void>=>{
       await client.query("BEGIN");
       const round=await client.query("SELECT id,code,category,item_name,specification,unit,city,state,needed_at,status,closes_at FROM buying_rounds WHERE id=$1 FOR UPDATE",[req.params.id]);
       if(!round.rows[0]||round.rows[0].status!=="open"||new Date(round.rows[0].closes_at).getTime()<=Date.now()){await client.query("ROLLBACK");return void res.status(409).json({error:"Rodada encerrada."});}
+      const deliveryDeadline=new Date(round.rows[0].needed_at).getTime()+24*60*60*1000;
+      const availableAfterClose=deliveryDeadline-new Date(round.rows[0].closes_at).getTime();
+      if(deliveryDays*24*60*60*1000>availableAfterClose){await client.query("ROLLBACK");return void res.status(422).json({error:"O prazo de entrega precisa caber antes da data solicitada pelo comprador."});}
       const total=Number((await client.query("SELECT COALESCE(sum(quantity),0)::numeric AS quantity FROM buying_round_participants WHERE round_id=$1",[req.params.id])).rows[0]?.quantity??0);
       const previous=await client.query("SELECT unit_price::numeric+freight_total::numeric/NULLIF($3::numeric,0) AS effective FROM buying_round_bids WHERE round_id=$1 AND vendor_id=$2 FOR UPDATE",[req.params.id,tenantId,total]);
       const effective=unitPrice+(total?freight/total:freight);
