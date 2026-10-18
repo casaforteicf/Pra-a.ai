@@ -30,8 +30,8 @@ export function MarketplaceCityPicker({ compact = false, inverse = false }: { co
     }} className="absolute left-0 top-full z-[60] mt-2 w-72 rounded-xl border border-slate-200 bg-white p-4 text-[#0B2240] shadow-xl">
       <p className="text-sm font-extrabold">Escolha seu município</p>
       <p className="mt-1 text-xs text-slate-500">O catálogo e as rodadas serão desta cidade.</p>
-      <label className="mt-3 block text-xs font-bold">Cidade<input autoComplete="address-level2" required maxLength={100} value={draftCity} onChange={(e) => setDraftCity(e.target.value)} placeholder="Ex.: Chapecó" className="mt-1 h-10 w-full rounded-lg border px-3 text-sm font-normal" /></label>
-      <label className="mt-2 block text-xs font-bold">UF<input autoComplete="address-level1" required maxLength={2} value={draftState} onChange={(e) => setDraftState(e.target.value.toUpperCase().slice(0, 2))} placeholder="Ex.: SC" className="mt-1 h-10 w-full rounded-lg border px-3 text-sm font-normal uppercase" /></label>
+      <label className="mt-3 block text-xs font-bold">Cidade<input autoComplete="address-level2" required maxLength={100} value={draftCity} onChange={(e) => setDraftCity(e.target.value)} placeholder="Digite o município" className="mt-1 h-10 w-full rounded-lg border px-3 text-sm font-normal" /></label>
+      <label className="mt-2 block text-xs font-bold">UF<input autoComplete="address-level1" required maxLength={2} value={draftState} onChange={(e) => setDraftState(e.target.value.toUpperCase().slice(0, 2))} placeholder="UF" className="mt-1 h-10 w-full rounded-lg border px-3 text-sm font-normal uppercase" /></label>
       <button className="mt-3 h-10 w-full rounded-lg bg-[#10D3B8] text-sm font-extrabold text-[#0B2240]">Usar esta cidade</button>
     </form>
   </details>
