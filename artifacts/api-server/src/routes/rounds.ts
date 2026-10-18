@@ -14,7 +14,7 @@ function buyerId(req: any): number | null {
 function authorizedVendor(req: any, res: any): boolean {
   const expected = process.env.PRACA_ROUNDS_VENDOR_TOKEN;
   const supplied = req.header("x-praca-rounds-token");
-  if (!expected) { res.status(503).json({ error: "Integração de rodadas indisponível." }); return false; }
+  if (!expected || expected.length < 32) { res.status(503).json({ error: "Integração de rodadas indisponível." }); return false; }
   if (typeof supplied !== "string") { res.status(401).json({ error: "Acesso não autorizado." }); return false; }
   const a = Buffer.from(expected), b = Buffer.from(supplied);
   if (a.length !== b.length || !timingSafeEqual(a, b)) { res.status(401).json({ error: "Acesso não autorizado." }); return false; }
@@ -91,7 +91,7 @@ async function closeExpired(): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const expired = await client.query("SELECT id FROM buying_rounds WHERE status='open' AND closes_at<=now() ORDER BY closes_at FOR UPDATE SKIP LOCKED LIMIT 50");
+    const expired = await client.query("SELECT id FROM buying_rounds WHERE status='open' AND closes_at<=now() ORDER BY closes_at LIMIT 50 FOR UPDATE SKIP LOCKED");
     for (const row of expired.rows) {
       const participants = await client.query("SELECT COALESCE(sum(quantity),0)::numeric AS total FROM buying_round_participants WHERE round_id=$1",[row.id]);
       const total = Number(participants.rows[0]?.total ?? 0);
