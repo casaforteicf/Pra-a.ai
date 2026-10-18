@@ -18,6 +18,13 @@ const BASE_URL = process.env.ASAAS_SANDBOX === "true"
   ? "https://sandbox.asaas.com/api/v3"
   : "https://www.asaas.com/api/v3";
 
+export class AsaasApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "AsaasApiError";
+  }
+}
+
 function getApiKey(): string | null {
   return process.env.ASAAS_API_KEY ?? null;
 }
@@ -43,7 +50,7 @@ async function asaasRequest<T>(method: string, path: string, body?: unknown): Pr
   if (!res.ok) {
     const errMsg = (data as any)?.errors?.[0]?.description ?? `Asaas API error ${res.status}`;
     logger.warn({ status: res.status, path, body: data }, `Asaas error: ${errMsg}`);
-    throw new Error(errMsg);
+    throw new AsaasApiError(errMsg, res.status);
   }
 
   return data as T;
@@ -141,4 +148,22 @@ export interface AsaasPixQrCode {
 
 export async function getPixQrCode(chargeId: string): Promise<AsaasPixQrCode> {
   return asaasRequest<AsaasPixQrCode>("GET", `/payments/${chargeId}/pixQrCode`);
+}
+
+export interface AsaasRefundOutput {
+  id?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Solicita o estorno integral de uma cobrança recebida/confirmada.
+ * A conclusão financeira é assíncrona: o estado definitivo deve vir do
+ * webhook PAYMENT_REFUNDED/PAYMENT_REFUND_IN_PROGRESS/PAYMENT_REFUND_DENIED.
+ */
+export async function refundCharge(chargeId: string, description: string): Promise<AsaasRefundOutput> {
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(chargeId)) throw new Error("Identificador de cobrança inválido.");
+  return asaasRequest<AsaasRefundOutput>("POST", `/payments/${encodeURIComponent(chargeId)}/refund`, {
+    description: description.slice(0, 255),
+  });
 }

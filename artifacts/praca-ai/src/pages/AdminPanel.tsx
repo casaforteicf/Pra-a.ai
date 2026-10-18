@@ -209,6 +209,25 @@ function DisputasTab() {
     },
     onError: (error: Error) => toast({ title: "Não foi possível atualizar", description: error.message, variant: "destructive" }),
   });
+  const requestMarketplaceRefund = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const note = cancellationNotes[id] ?? "";
+      const response = await fetch(`/api/admin/marketplace-cancelamentos/${encodeURIComponent(id)}/estorno`, {
+        method: "POST", headers: adminHeaders(), body: JSON.stringify({ note }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Não foi possível solicitar o estorno.");
+      return body;
+    },
+    onSuccess: (result) => {
+      void qc.invalidateQueries({ queryKey: ["admin-marketplace-cancelamentos"] });
+      toast({ title: "Estorno enviado ao Asaas", description: result.message });
+    },
+    onError: (error: Error) => {
+      void qc.invalidateQueries({ queryKey: ["admin-marketplace-cancelamentos"] });
+      toast({ title: "Estorno não confirmado", description: error.message, variant: "destructive" });
+    },
+  });
 
   if (isLoading || marketplaceLoading || cancellationLoading) return <Loader2 className="h-5 w-5 animate-spin mx-auto mt-8" />;
 
@@ -289,7 +308,7 @@ function DisputasTab() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Solicitações de cancelamento</CardTitle><p className="text-sm text-muted-foreground">A conclusão registra o resultado do atendimento. O estorno precisa ser executado e conciliado separadamente.</p></CardHeader>
+        <CardHeader><CardTitle>Solicitações de cancelamento</CardTitle><p className="text-sm text-muted-foreground">O estorno integral é solicitado ao Asaas e só aparece como concluído após confirmação por webhook. Respostas inconclusivas ficam bloqueadas para conciliação manual.</p></CardHeader>
         <CardContent className="p-0">
           <Table>
             <TableHeader><TableRow><TableHead>Pedido</TableHead><TableHead>Comprador</TableHead><TableHead>Motivo</TableHead><TableHead>Status</TableHead><TableHead>Atendimento</TableHead></TableRow></TableHeader>
@@ -299,12 +318,17 @@ function DisputasTab() {
                   <TableCell className="min-w-36"><b>{item.order_code ?? item.order_id.slice(0, 8)}</b><p className="text-xs text-muted-foreground">{item.order_type === "quote" ? "Cotação" : "Rodada"} · {item.item_title}</p></TableCell>
                   <TableCell>{item.buyer_name}<p className="text-xs text-muted-foreground">{item.buyer_email}</p></TableCell>
                   <TableCell className="min-w-52"><b>{item.reason}</b><p className="whitespace-pre-wrap text-sm">{item.description}</p></TableCell>
-                  <TableCell><Badge variant={item.status === "solicitada" ? "destructive" : item.status === "atendida" ? "default" : "secondary"}>{item.status}</Badge>{item.resolution_note && <p className="mt-1 max-w-48 whitespace-pre-wrap text-xs">{item.resolution_note}</p>}</TableCell>
+                  <TableCell><Badge variant={item.status === "solicitada" ? "destructive" : item.status === "atendida" ? "default" : "secondary"}>{item.status}</Badge><p className="mt-1 text-xs">Estorno: {item.refund_status ?? "nao_solicitado"}</p>{item.refund_error && <p className="mt-1 max-w-48 whitespace-pre-wrap text-xs text-destructive">{item.refund_error}</p>}{item.asaas_refunded_at && <p className="mt-1 text-xs text-muted-foreground">Confirmado em {new Date(item.asaas_refunded_at).toLocaleString("pt-BR")}</p>}{item.resolution_note && <p className="mt-1 max-w-48 whitespace-pre-wrap text-xs">{item.resolution_note}</p>}</TableCell>
                   <TableCell className="min-w-56 space-y-2">
                     {!['atendida','recusada'].includes(item.status) ? <>
                       <Input value={cancellationNotes[item.id] ?? ""} onChange={(event) => setCancellationNotes((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Resultado / nota para o histórico" />
                       {item.status === "solicitada" && <Button size="sm" variant="outline" disabled={updateMarketplaceCancellation.isPending} onClick={() => updateMarketplaceCancellation.mutate({ id: item.id, status: "em_analise" })}>Iniciar análise</Button>}
-                      {item.status === "em_analise" && <div className="flex flex-wrap gap-1"><Button size="sm" disabled={updateMarketplaceCancellation.isPending} onClick={() => updateMarketplaceCancellation.mutate({ id: item.id, status: "atendida" })}>Concluir atendimento</Button><Button size="sm" variant="destructive" disabled={updateMarketplaceCancellation.isPending} onClick={() => updateMarketplaceCancellation.mutate({ id: item.id, status: "recusada" })}>Recusar</Button></div>}
+                      {item.status === "em_analise" && <div className="flex flex-wrap gap-1">
+                        {["nao_solicitado", "negado"].includes(item.refund_status ?? "nao_solicitado") && <Button size="sm" disabled={requestMarketplaceRefund.isPending || (cancellationNotes[item.id] ?? "").trim().length < 8} onClick={() => { if (window.confirm("Solicitar estorno integral desta cobrança no Asaas? O pedido será concluído somente após confirmação do webhook.")) requestMarketplaceRefund.mutate({ id: item.id }); }}>Solicitar estorno integral</Button>}
+                        {["solicitado", "em_processamento"].includes(item.refund_status) && <span className="text-xs text-muted-foreground">Aguardando confirmação do Asaas. Não solicite novamente.</span>}
+                        {["parcial", "reconciliacao"].includes(item.refund_status) && <span className="text-xs font-semibold text-amber-700">Conciliação manual necessária antes de concluir.</span>}
+                        {!(["solicitado", "em_processamento", "estornado", "parcial", "reconciliacao"].includes(item.refund_status)) && <Button size="sm" variant="destructive" disabled={updateMarketplaceCancellation.isPending} onClick={() => updateMarketplaceCancellation.mutate({ id: item.id, status: "recusada" })}>Recusar</Button>}
+                      </div>}
                     </> : <span className="text-xs text-muted-foreground">Concluída · {item.resolved_at ? new Date(item.resolved_at).toLocaleString("pt-BR") : ""}</span>}
                   </TableCell>
                 </TableRow>

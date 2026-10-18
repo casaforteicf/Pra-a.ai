@@ -85,7 +85,7 @@ router.get("/marketplace-orders/:type/:id/cancelamento", async (req, res): Promi
   const owned = await orderForBuyer(pool, type, id, buyer);
   if (!owned.rows[0]) return void res.status(404).json({ error: "Pedido não encontrado." });
   const found = await pool.query(
-    `SELECT id,order_type,order_id,reason,description,status,resolution_note,created_at,updated_at,resolved_at
+    `SELECT id,order_type,order_id,reason,description,status,resolution_note,refund_status,asaas_refunded_at,refund_error,created_at,updated_at,resolved_at
        FROM praca_order_cancellations WHERE order_type=$1 AND order_id=$2 AND consumer_id=$3 LIMIT 1`, [type, id, buyer],
   );
   const request = found.rows[0];

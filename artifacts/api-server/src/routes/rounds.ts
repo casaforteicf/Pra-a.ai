@@ -13,6 +13,76 @@ function buyerId(req: any): number | null {
   const id = Number(req.session?.consumerId);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
+
+async function processRefundWebhook(input: {
+  eventId: string; event: string; chargeId: string; orderId: string; orderType: "quote" | "round";
+}): Promise<{ duplicate: boolean; matched: boolean; refundStatus?: string }> {
+  const statusByEvent: Record<string, string> = {
+    PAYMENT_REFUNDED: "estornado",
+    PAYMENT_PARTIALLY_REFUNDED: "parcial",
+    PAYMENT_REFUND_IN_PROGRESS: "em_processamento",
+    PAYMENT_REFUND_DENIED: "negado",
+  };
+  const refundStatus = statusByEvent[input.event];
+  if (!refundStatus) return { duplicate: false, matched: false };
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    if (input.eventId) {
+      const inserted = await client.query(
+        `INSERT INTO praca_asaas_webhook_events(asaas_event_id,event_type,charge_id)
+         VALUES($1,$2,$3) ON CONFLICT(asaas_event_id) DO NOTHING RETURNING asaas_event_id`,
+        [input.eventId, input.event, input.chargeId],
+      );
+      if (!inserted.rows[0]) { await client.query("COMMIT"); return { duplicate: true, matched: false }; }
+    }
+
+    const found = await client.query(
+      `SELECT id,status,refund_status FROM praca_order_cancellations
+        WHERE order_type=$1 AND order_id=$2 FOR UPDATE`, [input.orderType, input.orderId],
+    );
+    const cancellation = found.rows[0];
+    if (!cancellation) { await client.query("COMMIT"); return { duplicate: false, matched: false }; }
+
+    const orderPayment = input.orderType === "quote"
+      ? await client.query("SELECT asaas_charge_id FROM quote_requests WHERE id=$1", [input.orderId])
+      : await client.query("SELECT asaas_charge_id FROM buying_round_orders WHERE id=$1", [input.orderId]);
+    if (String(orderPayment.rows[0]?.asaas_charge_id ?? "") !== input.chargeId) {
+      await client.query("ROLLBACK");
+      return { duplicate: false, matched: false };
+    }
+    if (cancellation.refund_status === "estornado") {
+      await client.query("COMMIT");
+      return { duplicate: false, matched: true, refundStatus: "estornado" };
+    }
+
+    await client.query(
+      `UPDATE praca_order_cancellations SET refund_status=$2,
+          asaas_refunded_at=CASE WHEN $2='estornado' THEN COALESCE(asaas_refunded_at,now()) ELSE asaas_refunded_at END,
+          refund_error=CASE WHEN $2='negado' THEN 'O Asaas informou que o estorno foi negado.' ELSE NULL END,
+          status=CASE WHEN $2='estornado' THEN 'atendida' ELSE status END,
+          resolution_note=CASE WHEN $2='estornado' THEN COALESCE(NULLIF(resolution_note,''),'Estorno integral confirmado pelo webhook Asaas.') ELSE resolution_note END,
+          resolved_at=CASE WHEN $2='estornado' THEN COALESCE(resolved_at,now()) ELSE resolved_at END,
+          updated_at=now()
+        WHERE id=$1`, [cancellation.id, refundStatus],
+    );
+    if (refundStatus === "estornado") {
+      if (input.orderType === "quote") await client.query("UPDATE quote_requests SET status='cancelled' WHERE id=$1", [input.orderId]);
+      else await client.query("UPDATE buying_round_orders SET status='cancelled' WHERE id=$1 AND status IN ('paid','delivered','released')", [input.orderId]);
+    }
+    await client.query(
+      `INSERT INTO praca_order_cancellation_events(cancellation_id,from_status,to_status,actor_type,note)
+       VALUES($1,$2,$2,'admin',$3)`,
+      [cancellation.id, cancellation.status, `Atualização Asaas: ${input.event} (${refundStatus}).`],
+    );
+    await client.query("COMMIT");
+    return { duplicate: false, matched: true, refundStatus };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally { client.release(); }
+}
 function authorizedVendor(req: any, res: any): boolean {
   const expected = process.env.PRACA_ROUNDS_VENDOR_TOKEN;
   const supplied = req.header("x-praca-rounds-token");
@@ -320,6 +390,18 @@ router.post("/webhooks/asaas",async(req,res):Promise<void>=>{
   const isDirectQuote=externalReference.startsWith("PRACA_QUOTE_REQUEST:");
   if(!chargeId||(!isRoundOrder&&!isDirectQuote)) return void res.status(200).json({received:true,ignored:true});
   const orderId=externalReference.slice(isRoundOrder?"PRACA_ROUND_ORDER:".length:"PRACA_QUOTE_REQUEST:".length);
+  if(["PAYMENT_REFUNDED","PAYMENT_PARTIALLY_REFUNDED","PAYMENT_REFUND_IN_PROGRESS","PAYMENT_REFUND_DENIED"].includes(event)) {
+    try {
+      const refund = await processRefundWebhook({
+        eventId: String(req.body?.id ?? ""), event, chargeId, orderId,
+        orderType: isRoundOrder ? "round" : "quote",
+      });
+      return void res.json({ received:true, ...refund });
+    } catch(error) {
+      console.error("[asaas] refund webhook failed:",error);
+      return void res.status(500).json({error:"Não foi possível processar a atualização do estorno agora."});
+    }
+  }
   if(event!=="PAYMENT_RECEIVED"&&event!=="PAYMENT_CONFIRMED") return void res.status(200).json({received:true});
   if(isDirectQuote) {
     try {

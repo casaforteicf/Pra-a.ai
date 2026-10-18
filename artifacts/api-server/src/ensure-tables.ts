@@ -216,6 +216,10 @@ CREATE TABLE IF NOT EXISTS praca_order_cancellations (
   description text NOT NULL,
   status text NOT NULL DEFAULT 'solicitada' CHECK (status IN ('solicitada','em_analise','atendida','recusada')),
   resolution_note text,
+  refund_status text NOT NULL DEFAULT 'nao_solicitado' CHECK (refund_status IN ('nao_solicitado','solicitado','em_processamento','estornado','parcial','negado','reconciliacao')),
+  asaas_refund_requested_at timestamptz,
+  asaas_refunded_at timestamptz,
+  refund_error text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   resolved_at timestamptz,
@@ -235,6 +239,24 @@ CREATE TABLE IF NOT EXISTS praca_order_cancellation_events (
 );
 CREATE INDEX IF NOT EXISTS idx_praca_order_cancellation_events_case
   ON praca_order_cancellation_events (cancellation_id, created_at, id);
+-- Upgrade aditivo para instalações onde a tabela de cancelamentos já existia.
+ALTER TABLE praca_order_cancellations
+  ADD COLUMN IF NOT EXISTS refund_status text NOT NULL DEFAULT 'nao_solicitado',
+  ADD COLUMN IF NOT EXISTS asaas_refund_requested_at timestamptz,
+  ADD COLUMN IF NOT EXISTS asaas_refunded_at timestamptz,
+  ADD COLUMN IF NOT EXISTS refund_error text;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='praca_order_cancellations'::regclass AND conname='praca_order_cancellations_refund_status_check') THEN
+    ALTER TABLE praca_order_cancellations ADD CONSTRAINT praca_order_cancellations_refund_status_check
+      CHECK (refund_status IN ('nao_solicitado','solicitado','em_processamento','estornado','parcial','negado','reconciliacao'));
+  END IF;
+END $$;
+CREATE TABLE IF NOT EXISTS praca_asaas_webhook_events (
+  asaas_event_id text PRIMARY KEY,
+  event_type text NOT NULL,
+  charge_id text NOT NULL,
+  processed_at timestamptz NOT NULL DEFAULT now()
+);
 DO $$
 BEGIN
   IF EXISTS (

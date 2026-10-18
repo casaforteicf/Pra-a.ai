@@ -4,6 +4,7 @@ import { db, ambassadorsTable, referralsTable, disputesTable, consumersTable, ve
 import { eq } from "drizzle-orm";
 import { vendorPool } from "../lib/vendorDb";
 import { pool } from "@workspace/db";
+import { AsaasApiError, refundCharge } from "../lib/asaas";
 
 const router: IRouter = Router();
 
@@ -194,7 +195,9 @@ router.get("/admin/marketplace-cancelamentos", async (req, res): Promise<void> =
   const allowed = ["solicitada", "em_analise", "atendida", "recusada"];
   if (status && !allowed.includes(status)) return void res.status(422).json({ error: "Filtro de status inválido." });
   const result = await pool.query(
-    `SELECT x.id,x.order_type,x.order_id,x.reason,x.description,x.status,x.resolution_note,x.created_at,x.updated_at,x.resolved_at,
+    `SELECT x.id,x.order_type,x.order_id,x.reason,x.description,x.status,x.resolution_note,
+            x.refund_status,x.asaas_refund_requested_at,x.asaas_refunded_at,x.refund_error,
+            x.created_at,x.updated_at,x.resolved_at,
             x.vendor_id,c.name AS buyer_name,c.email AS buyer_email,
             COALESCE(q.protocol,r.code) AS order_code,
             COALESCE(q.title,r.item_name) AS item_title,
@@ -211,6 +214,94 @@ router.get("/admin/marketplace-cancelamentos", async (req, res): Promise<void> =
   res.set("Cache-Control", "no-store").json(result.rows);
 });
 
+router.post("/admin/marketplace-cancelamentos/:id/estorno", async (req, res): Promise<void> => {
+  const id = String(req.params.id ?? "");
+  const note = typeof req.body?.note === "string" ? req.body.note.trim().slice(0, 500) : "";
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return void res.status(422).json({ error: "Solicitação inválida." });
+  if (note.length < 8) return void res.status(422).json({ error: "Informe o motivo da autorização do estorno." });
+
+  const client = await pool.connect();
+  let chargeId = "";
+  try {
+    await client.query("BEGIN");
+    const found = await client.query(
+      "SELECT id,order_type,order_id,status,refund_status FROM praca_order_cancellations WHERE id=$1 FOR UPDATE",
+      [id],
+    );
+    const cancellation = found.rows[0];
+    if (!cancellation) { await client.query("ROLLBACK"); return void res.status(404).json({ error: "Solicitação não encontrada." }); }
+    if (cancellation.status !== "em_analise") {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "Coloque a solicitação em análise antes de autorizar o estorno." });
+    }
+    if (!["nao_solicitado", "negado"].includes(String(cancellation.refund_status))) {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "Já existe um estorno solicitado ou que precisa de conciliação. Não repita a operação." });
+    }
+
+    const order = cancellation.order_type === "quote"
+      ? await client.query(
+        `SELECT q.status,q.asaas_charge_id,f.status AS fulfillment_status
+           FROM quote_requests q LEFT JOIN praca_marketplace_fulfillments f ON f.order_type='quote' AND f.order_id=q.id
+          WHERE q.id=$1 FOR UPDATE OF q`, [cancellation.order_id],
+      )
+      : await client.query(
+        `SELECT o.status,o.asaas_charge_id,f.status AS fulfillment_status
+           FROM buying_round_orders o LEFT JOIN praca_marketplace_fulfillments f ON f.order_type='round' AND f.order_id=o.id
+          WHERE o.id=$1 FOR UPDATE OF o`, [cancellation.order_id],
+      );
+    const payment = order.rows[0];
+    if (!payment || payment.status !== "paid" || !payment.asaas_charge_id) {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "Só é possível estornar pedido pago com cobrança Asaas vinculada." });
+    }
+    if (payment.fulfillment_status === "shipped") {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "O pedido já saiu para entrega; encaminhe o caso pela disputa e conciliação manual." });
+    }
+    chargeId = String(payment.asaas_charge_id);
+    await client.query(
+      `UPDATE praca_order_cancellations
+          SET refund_status='solicitado',asaas_refund_requested_at=now(),refund_error=NULL,updated_at=now()
+        WHERE id=$1`, [id],
+    );
+    await client.query(
+      `INSERT INTO praca_order_cancellation_events(cancellation_id,from_status,to_status,actor_type,note)
+       VALUES($1,'em_analise','em_analise','admin',$2)`,
+      [id, `Estorno integral solicitado no Asaas pelo painel administrativo. Motivo: ${note}`],
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("[admin] marketplace refund reservation failed:", error);
+    return void res.status(500).json({ error: "Não foi possível preparar o estorno." });
+  } finally { client.release(); }
+
+  try {
+    await refundCharge(chargeId, `Praça.ai cancelamento ${id}: ${note}`);
+    await pool.query(
+      `UPDATE praca_order_cancellations SET refund_status='em_processamento',updated_at=now()
+        WHERE id=$1 AND refund_status='solicitado'`,
+      [id],
+    );
+    return void res.json({ id, refundStatus: "em_processamento", message: "Pedido de estorno enviado ao Asaas. A confirmação será atualizada pelo webhook." });
+  } catch (error) {
+    const definitive = error instanceof AsaasApiError && error.status >= 400 && error.status < 500;
+    const refundStatus = definitive ? "negado" : "reconciliacao";
+    await pool.query(
+      `UPDATE praca_order_cancellations SET refund_status=$2,refund_error=$3,updated_at=now() WHERE id=$1 AND refund_status='solicitado'`,
+      [id, refundStatus, definitive ? "O Asaas recusou a solicitação. Revise o motivo/condições antes de tentar novamente." : "Resposta inconclusiva do Asaas. Consulte a cobrança no painel Asaas antes de qualquer nova tentativa."],
+    );
+    console.error("[admin] Asaas refund request failed:", error);
+    return void res.status(definitive ? 422 : 502).json({
+      error: definitive
+        ? "O Asaas recusou o estorno. A solicitação foi marcada como negada para revisão."
+        : "Não foi possível confirmar a resposta do Asaas. O caso foi bloqueado para conciliação manual; não repita o estorno até consultar a cobrança.",
+      refundStatus,
+    });
+  }
+});
+
 router.patch("/admin/marketplace-cancelamentos/:id", async (req, res): Promise<void> => {
   const id = String(req.params.id ?? ""), status = String(req.body?.status ?? "");
   const note = typeof req.body?.resolutionNote === "string" ? req.body.resolutionNote.trim().slice(0, 2000) : "";
@@ -223,13 +314,23 @@ router.patch("/admin/marketplace-cancelamentos/:id", async (req, res): Promise<v
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const existing = await client.query("SELECT status FROM praca_order_cancellations WHERE id=$1 FOR UPDATE", [id]);
+    const existing = await client.query("SELECT status,refund_status FROM praca_order_cancellations WHERE id=$1 FOR UPDATE", [id]);
     if (!existing.rows[0]) { await client.query("ROLLBACK"); return void res.status(404).json({ error: "Solicitação não encontrada." }); }
     const fromStatus = String(existing.rows[0].status);
     const transitions: Record<string, string[]> = { solicitada: ["em_analise"], em_analise: ["atendida", "recusada"] };
     if (!(transitions[fromStatus] ?? []).includes(status)) {
       await client.query("ROLLBACK");
       return void res.status(409).json({ error: "Esta solicitação já foi concluída ou a transição não é permitida." });
+    }
+    if (status === "atendida") {
+      if (existing.rows[0]?.refund_status !== "estornado") {
+        await client.query("ROLLBACK");
+        return void res.status(409).json({ error: "O atendimento só pode ser concluído após confirmação do estorno pelo Asaas." });
+      }
+    }
+    if (status === "recusada" && !["nao_solicitado", "negado"].includes(String(existing.rows[0]?.refund_status))) {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "Não recuse enquanto o estorno estiver em processamento ou aguardando conciliação." });
     }
     const updated = await client.query(
       `UPDATE praca_order_cancellations SET status=$2,resolution_note=$3,updated_at=now(),
