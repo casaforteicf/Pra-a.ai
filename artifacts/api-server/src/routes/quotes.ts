@@ -450,7 +450,7 @@ router.post("/quotes/:id/pay", async (req, res): Promise<void> => {
     }
     const total = Number(quote.total);
     if (!Number.isFinite(total) || total < 5) { await client.query("ROLLBACK"); return void res.status(422).json({ error: "O valor mínimo para cobrança é R$ 5,00." }); }
-    if (method === "boleto" && String(quote.cpf ?? "").replace(/\\D/g, "").length !== 11) { await client.query("ROLLBACK"); return void res.status(422).json({ error: "Cadastre um CPF válido para pagar por boleto." }); }
+    if (method === "boleto" && String(quote.cpf ?? "").replace(/\D/g, "").length !== 11) { await client.query("ROLLBACK"); return void res.status(422).json({ error: "Cadastre um CPF válido para pagar por boleto." }); }
     const customer = await createOrGetCustomer({ name: String(quote.name), email: quote.email ?? undefined, phone: quote.phone ?? undefined, cpfCnpj: quote.cpf ?? undefined });
     const charge = await createCharge({
       customer: customer.id, billingType: method === "pix" ? "PIX" : "BOLETO", value: total,
