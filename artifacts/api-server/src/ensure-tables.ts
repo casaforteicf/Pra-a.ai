@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS buying_rounds (
   winning_bid_id uuid,
   created_at timestamptz NOT NULL DEFAULT now(),
   closed_at timestamptz,
-  CHECK (closes_at > created_at),
+  CHECK (closes_at > created_at)
 );
 CREATE INDEX IF NOT EXISTS idx_buying_rounds_open
   ON buying_rounds (status, closes_at, state, city);
