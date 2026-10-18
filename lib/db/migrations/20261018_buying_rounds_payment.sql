@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS buying_rounds (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_buying_rounds_open_location
-  ON buying_rounds (lower(city), upper(state), closes_at) WHERE status='open';
+  ON buying_rounds (city, state, closes_at) WHERE status='open';
 
 CREATE TABLE IF NOT EXISTS buying_round_participants (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS buying_round_orders (
   status text NOT NULL DEFAULT 'awaiting_buyer',
   accepted_at timestamptz,
   payment_method text,
-  asaas_charge_id text UNIQUE,
+  asaas_charge_id text,
   asaas_pix_payload text,
   asaas_pix_qrcode_image text,
   asaas_invoice_url text,
@@ -99,4 +99,4 @@ ALTER TABLE buying_round_orders ADD COLUMN IF NOT EXISTS paid_at timestamptz;
 ALTER TABLE buying_round_orders ADD COLUMN IF NOT EXISTS delivered_at timestamptz;
 ALTER TABLE buying_round_orders ADD COLUMN IF NOT EXISTS released_at timestamptz;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_buying_round_orders_asaas_charge
-  ON buying_round_orders (asaas_charge_id) WHERE asaas_charge_id IS NOT NULL;
+  ON buying_round_orders (asaas_charge_id);
