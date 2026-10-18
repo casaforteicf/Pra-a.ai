@@ -4,6 +4,7 @@ import { pool } from "@workspace/db";
 import { vendorPool } from "../lib/vendorDb";
 import { sendChatMessage } from "../lib/vendorSyncService";
 import { createOrGetCustomer, createCharge, getPixQrCode, isAsaasConfigured } from "../lib/asaas";
+import { confirmDirectQuotePayment } from "./quotes";
 
 const router: IRouter = Router();
 const CONTACT_PATTERN = /(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?\d[\s().-]*){10,})/i;
@@ -315,9 +316,20 @@ router.post("/webhooks/asaas",async(req,res):Promise<void>=>{
   const payment=req.body?.payment;
   const chargeId=String(payment?.id??"");
   const externalReference=String(payment?.externalReference??"");
-  if(!chargeId||!externalReference.startsWith("PRACA_ROUND_ORDER:")) return void res.status(200).json({received:true,ignored:true});
-  const orderId=externalReference.slice("PRACA_ROUND_ORDER:".length);
+  const isRoundOrder=externalReference.startsWith("PRACA_ROUND_ORDER:");
+  const isDirectQuote=externalReference.startsWith("PRACA_QUOTE_REQUEST:");
+  if(!chargeId||(!isRoundOrder&&!isDirectQuote)) return void res.status(200).json({received:true,ignored:true});
+  const orderId=externalReference.slice(isRoundOrder?"PRACA_ROUND_ORDER:".length:"PRACA_QUOTE_REQUEST:".length);
   if(event!=="PAYMENT_RECEIVED"&&event!=="PAYMENT_CONFIRMED") return void res.status(200).json({received:true});
+  if(isDirectQuote) {
+    try {
+      const paid=await confirmDirectQuotePayment(orderId,chargeId);
+      return void res.json({received:true,paid});
+    } catch(error) {
+      console.error("[quotes] Asaas webhook failed:",error);
+      return void res.status(500).json({error:"Não foi possível processar a confirmação agora."});
+    }
+  }
   try {
     const result=await pool.query(
       "UPDATE buying_round_orders SET status='paid',paid_at=COALESCE(paid_at,now()),updated_at=now() WHERE id=$1 AND asaas_charge_id=$2 AND status='awaiting_payment' RETURNING id,round_id,vendor_id,quantity::text,total::text",
