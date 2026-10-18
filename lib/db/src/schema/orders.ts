@@ -9,6 +9,8 @@ export const ordersTable = pgTable("orders", {
   guestPhone: text("guest_phone"), // telefone de quem comprou sem login
   buyerCpf: text("buyer_cpf"), // CPF de quem comprou (logado ou não) — obrigatório no checkout, usado na cobrança Asaas
   status: text("status").notNull().default("confirmed"),
+  paymentStatus: text("payment_status").notNull().default("unknown"),
+  paymentConfirmedAt: timestamp("payment_confirmed_at", { withTimezone: true }),
   subtotal: numeric("subtotal", { precision: 10, scale: 2 }).notNull(),
   shipping: numeric("shipping", { precision: 10, scale: 2 }).notNull().default("0"),
   discount: numeric("discount", { precision: 10, scale: 2 }).notNull().default("0"),
