@@ -142,3 +142,15 @@ export interface AsaasPixQrCode {
 export async function getPixQrCode(chargeId: string): Promise<AsaasPixQrCode> {
   return asaasRequest<AsaasPixQrCode>("GET", `/payments/${chargeId}/pixQrCode`);
 }
+
+export interface AsaasPaymentStatusOutput {
+  id: string;
+  status: string;
+  externalReference: string | null;
+  value: number;
+}
+
+/** Consulta o estado canônico na API antes de aceitar um webhook como pagamento confirmado. */
+export async function getPayment(paymentId: string): Promise<AsaasPaymentStatusOutput> {
+  return asaasRequest<AsaasPaymentStatusOutput>("GET", `/payments/${encodeURIComponent(paymentId)}`);
+}
