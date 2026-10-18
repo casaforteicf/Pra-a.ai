@@ -143,6 +143,17 @@ let directQuoteTablesReady: Promise<void> | null = null;
 function ensureDirectQuoteTables(): Promise<void> {
   if (!directQuoteTablesReady) {
     directQuoteTablesReady = pool.query(`
+      ALTER TABLE quote_requests
+        ADD COLUMN IF NOT EXISTS payment_method text,
+        ADD COLUMN IF NOT EXISTS asaas_charge_id text,
+        ADD COLUMN IF NOT EXISTS asaas_pix_payload text,
+        ADD COLUMN IF NOT EXISTS asaas_pix_qrcode_image text,
+        ADD COLUMN IF NOT EXISTS asaas_invoice_url text,
+        ADD COLUMN IF NOT EXISTS paid_at timestamptz,
+        ADD COLUMN IF NOT EXISTS delivered_at timestamptz,
+        ADD COLUMN IF NOT EXISTS released_at timestamptz;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_quote_requests_asaas_charge
+        ON quote_requests(asaas_charge_id) WHERE asaas_charge_id IS NOT NULL;
       CREATE TABLE IF NOT EXISTS quote_offers (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         quote_request_id uuid NOT NULL REFERENCES quote_requests(id) ON DELETE CASCADE,
@@ -237,7 +248,7 @@ async function ensureQuoteLead(quoteId: string, vendorId: string): Promise<{ lea
 async function notifyQuoteLead(quoteId: string, vendorId: string, revealBuyer = false): Promise<void> {
   const lead = await ensureQuoteLead(quoteId, vendorId);
   const quote = await pool.query(
-    "SELECT q.protocol,q.category,q.title,q.location,q.needed_at,c.name,c.email,c.phone FROM quote_requests q JOIN consumers c ON c.id=q.consumer_id WHERE q.id=$1",
+    "SELECT q.protocol,q.category,q.title,q.location,q.needed_at,q.paid_at,c.name,c.email,c.phone FROM quote_requests q JOIN consumers c ON c.id=q.consumer_id WHERE q.id=$1",
     [quoteId],
   );
   if (!quote.rows[0]) return;
@@ -249,7 +260,7 @@ async function notifyQuoteLead(quoteId: string, vendorId: string, revealBuyer = 
     "Região: " + row.location,
     row.needed_at ? "Data desejada: " + new Date(row.needed_at).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "",
   ].filter(Boolean).join("\n");
-  if (revealBuyer) {
+  if (revealBuyer && row.paid_at) {
     if (lead.revealedAt) return;
     await vendorPool.query(
       "UPDATE leads SET nome=$3,telefone=$4,email=$5,source='praca_ai_cotacao' WHERE id=$1 AND tenant_id=$2",
@@ -257,7 +268,7 @@ async function notifyQuoteLead(quoteId: string, vendorId: string, revealBuyer = 
     );
     await sendChatMessage({
       tenantId: vendorId, leadId: lead.leadId,
-      conteudo: "Praça.ai — o comprador aceitou sua proposta. Cliente: " + row.name +
+      conteudo: "Praça.ai — pagamento confirmado. Cliente: " + row.name +
         (row.phone ? " · Telefone: " + row.phone : "") + (row.email ? " · E-mail: " + row.email : "") +
         ". Formalize pagamento e entrega com o cliente.\n" + demand,
     });
@@ -265,7 +276,7 @@ async function notifyQuoteLead(quoteId: string, vendorId: string, revealBuyer = 
   } else if (!lead.notified) {
     await sendChatMessage({
       tenantId: vendorId, leadId: lead.leadId,
-      conteudo: "Praça.ai — nova cotação direta. Envie sua proposta pelo AppVendor.ai. Nome e contato do comprador ficam ocultos até o aceite.\\n" + demand,
+      conteudo: "Praça.ai — nova cotação direta. Envie sua proposta pelo AppVendor.ai. Nome e contato do comprador ficam ocultos até a confirmação do pagamento.\\n" + demand,
     });
     await pool.query("UPDATE quote_vendor_leads SET crm_notified=true WHERE quote_request_id=$1 AND vendor_id=$2", [quoteId, vendorId]);
   }
@@ -307,13 +318,13 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
   try {
     await ensureDirectQuoteTables();
     const result = await pool.query(
-      "SELECT id,protocol,consumer_id,category,title,description,location,needed_at,status,created_at FROM quote_requests WHERE id=$1 AND consumer_id=$2",
+      "SELECT id,protocol,consumer_id,category,title,description,location,needed_at,status,created_at,payment_method,asaas_pix_payload,asaas_pix_qrcode_image,asaas_invoice_url FROM quote_requests WHERE id=$1 AND consumer_id=$2",
       [req.params.id, buyer],
     );
     const quote = result.rows[0];
     if (!quote) return void res.status(404).json({ error: "Cotação não encontrada." });
-    const accepted = quote.status === "aceita";
-    if (accepted) {
+    const identityReleased = ["paid","delivered","released"].includes(String(quote.status));
+    if (identityReleased) {
       const winner = await pool.query("SELECT vendor_id FROM quote_offers WHERE quote_request_id=$1 AND status='aceita' LIMIT 1", [quote.id]);
       if (winner.rows[0]) {
         try { await notifyQuoteLead(quote.id, String(winner.rows[0].vendor_id), true); }
@@ -329,12 +340,12 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
        LEFT JOIN quote_request_items qi ON qi.id=oi.request_item_id
        WHERE o.quote_request_id=$1 AND o.status <> 'recusada'
        GROUP BY o.id ORDER BY (sum(oi.unit_price * qi.quantity)+o.freight) ASC,o.created_at ASC`,
-      [quote.id, accepted],
+      [quote.id, identityReleased],
     );
     const visibleOffers = [];
     for (const offer of offers.rows) {
       let vendor = null;
-      if (accepted && offer.status === "aceita" && offer.vendor_id) {
+      if (identityReleased && offer.status === "aceita" && offer.vendor_id) {
         const store = await vendorPool.query("SELECT id,nome_empresa FROM tenants WHERE id=$1 AND vende_no_praca_ai=true", [offer.vendor_id]);
         if (store.rows[0]) vendor = { id: store.rows[0].id, name: store.rows[0].nome_empresa };
       }
@@ -349,7 +360,7 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
     res.set("Cache-Control", "no-store").json({
       id: quote.id, protocol: quote.protocol, category: quote.category, title: quote.title,
       description: quote.description, location: quote.location, neededAt: quote.needed_at,
-      status: quote.status, createdAt: quote.created_at, items: await quoteItems(quote.id),
+      status: quote.status, createdAt: quote.created_at, paymentMethod: quote.payment_method, pixPayload: quote.asaas_pix_payload, pixQrcodeImage: quote.asaas_pix_qrcode_image, invoiceUrl: quote.asaas_invoice_url, items: await quoteItems(quote.id),
       offers: visibleOffers,
     });
   } catch (error) {
@@ -375,16 +386,97 @@ router.post("/quotes/:id/accept", async (req, res): Promise<void> => {
     if (!selected.rows[0]) { await client.query("ROLLBACK"); return void res.status(409).json({ error: "Esta proposta não está mais disponível." }); }
     vendorId = String(selected.rows[0].vendor_id);
     await client.query("UPDATE quote_offers SET status=CASE WHEN id=$2 THEN 'aceita' ELSE 'recusada' END,accepted_at=CASE WHEN id=$2 THEN now() ELSE accepted_at END,updated_at=now() WHERE quote_request_id=$1", [req.params.id, offerId]);
-    await client.query("UPDATE quote_requests SET status='aceita' WHERE id=$1", [req.params.id]);
+    await client.query("UPDATE quote_requests SET status='awaiting_payment' WHERE id=$1", [req.params.id]);
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("[quotes] accept failed:", error);
     return void res.status(500).json({ error: "Não foi possível aceitar essa proposta agora." });
   } finally { client.release(); }
-  try { await notifyQuoteLead(req.params.id, vendorId, true); }
-  catch (error) { console.error("[quotes] accepted quote CRM reveal failed:", error); }
-  res.json({ status: "aceita", vendorId });
+  res.json({ status: "awaiting_payment", paymentStatus: "Proposta selecionada. Gere o pagamento para confirmar o pedido." });
+});
+
+export async function confirmDirectQuotePayment(quoteId: string, chargeId: string): Promise<boolean> {
+  await ensureDirectQuoteTables();
+  const paid = await pool.query(
+    "UPDATE quote_requests SET status='paid',paid_at=COALESCE(paid_at,now()) WHERE id=$1 AND asaas_charge_id=$2 AND status='awaiting_payment' RETURNING id",
+    [quoteId, chargeId],
+  );
+  const known = paid.rows[0] ?? (await pool.query(
+    "SELECT id FROM quote_requests WHERE id=$1 AND asaas_charge_id=$2 AND status='paid'",
+    [quoteId, chargeId],
+  )).rows[0];
+  if (!known) return false;
+  const winner = await pool.query("SELECT vendor_id FROM quote_offers WHERE quote_request_id=$1 AND status='aceita' LIMIT 1", [quoteId]);
+  if (winner.rows[0]) await notifyQuoteLead(quoteId, String(winner.rows[0].vendor_id), true);
+  return true;
+}
+
+router.post("/quotes/:id/pay", async (req, res): Promise<void> => {
+  const buyer = consumerId(req);
+  if (!buyer) return void res.status(401).json({ error: "Entre na sua conta para pagar o pedido." });
+  const method = String(req.body?.paymentMethod ?? "pix");
+  if (method !== "pix" && method !== "boleto") return void res.status(422).json({ error: "Escolha Pix ou boleto." });
+  if (!isAsaasConfigured()) return void res.status(503).json({ error: "Pagamento temporariamente indisponível." });
+  const client = await pool.connect();
+  try {
+    await ensureDirectQuoteTables();
+    await client.query("BEGIN");
+    const found = await client.query(
+      `SELECT q.id,q.status,q.payment_method,q.asaas_charge_id,q.asaas_pix_payload,q.asaas_pix_qrcode_image,q.asaas_invoice_url,
+              c.name,c.email,c.phone,c.cpf,
+              (COALESCE(sum(oi.unit_price * qi.quantity),0)+o.freight)::numeric(12,2)::text AS total
+       FROM quote_requests q
+       JOIN consumers c ON c.id=q.consumer_id
+       JOIN quote_offers o ON o.quote_request_id=q.id AND o.status='aceita'
+       LEFT JOIN quote_offer_items oi ON oi.offer_id=o.id
+       LEFT JOIN quote_request_items qi ON qi.id=oi.request_item_id
+       WHERE q.id=$1 AND q.consumer_id=$2
+       GROUP BY q.id,c.id,o.id
+       FOR UPDATE OF q`,
+      [req.params.id, buyer],
+    );
+    const quote = found.rows[0];
+    if (!quote) { await client.query("ROLLBACK"); return void res.status(404).json({ error: "Pedido não encontrado." }); }
+    if (quote.status !== "awaiting_payment") { await client.query("ROLLBACK"); return void res.status(409).json({ error: "Este pedido não está aguardando pagamento." }); }
+    if (quote.asaas_charge_id) {
+      if (quote.payment_method !== method) { await client.query("ROLLBACK"); return void res.status(409).json({ error: "Já existe uma cobrança ativa para este pedido. Use o meio de pagamento escolhido." }); }
+      await client.query("COMMIT");
+      let pixPayload = quote.asaas_pix_payload, pixQrcodeImage = quote.asaas_pix_qrcode_image;
+      if (method === "pix" && !pixPayload) {
+        const pix = await getPixQrCode(String(quote.asaas_charge_id));
+        pixPayload = pix.payload; pixQrcodeImage = pix.encodedImage;
+        await pool.query("UPDATE quote_requests SET asaas_pix_payload=$2,asaas_pix_qrcode_image=$3 WHERE id=$1", [quote.id, pixPayload, pixQrcodeImage]);
+      }
+      return void res.json({ id: quote.id, status: quote.status, paymentMethod: method, pixPayload, pixQrcodeImage, invoiceUrl: quote.asaas_invoice_url });
+    }
+    const total = Number(quote.total);
+    if (!Number.isFinite(total) || total < 5) { await client.query("ROLLBACK"); return void res.status(422).json({ error: "O valor mínimo para cobrança é R$ 5,00." }); }
+    if (method === "boleto" && String(quote.cpf ?? "").replace(/\\D/g, "").length !== 11) { await client.query("ROLLBACK"); return void res.status(422).json({ error: "Cadastre um CPF válido para pagar por boleto." }); }
+    const customer = await createOrGetCustomer({ name: String(quote.name), email: quote.email ?? undefined, phone: quote.phone ?? undefined, cpfCnpj: quote.cpf ?? undefined });
+    const charge = await createCharge({
+      customer: customer.id, billingType: method === "pix" ? "PIX" : "BOLETO", value: total,
+      dueDate: new Date(Date.now() + (method === "boleto" ? 3 : 1) * 86400000).toISOString().slice(0, 10),
+      description: "Cotação Praça.ai " + String(req.params.id),
+      externalReference: "PRACA_QUOTE_REQUEST:" + String(quote.id),
+    });
+    const invoiceUrl = method === "boleto" ? (charge.bankSlipUrl ?? charge.invoiceUrl) : charge.invoiceUrl;
+    await client.query(
+      "UPDATE quote_requests SET payment_method=$2,asaas_charge_id=$3,asaas_invoice_url=$4 WHERE id=$1",
+      [quote.id, method, charge.id, invoiceUrl ?? null],
+    );
+    await client.query("COMMIT");
+    let pix: any = null;
+    if (method === "pix") {
+      pix = await getPixQrCode(charge.id);
+      await pool.query("UPDATE quote_requests SET asaas_pix_payload=$2,asaas_pix_qrcode_image=$3 WHERE id=$1", [quote.id, pix.payload, pix.encodedImage]);
+    }
+    res.status(201).json({ id: quote.id, status: "awaiting_payment", paymentMethod: method, pixPayload: pix?.payload ?? null, pixQrcodeImage: pix?.encodedImage ?? null, invoiceUrl });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("[quotes] payment create failed:", error);
+    res.status(502).json({ error: "Não foi possível gerar a cobrança. Tente novamente mais tarde." });
+  } finally { client.release(); }
 });
 
 router.get("/internal/quotes", async (req, res): Promise<void> => {
