@@ -276,6 +276,10 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
       deliveredValue: Number(rowOrders.deliveredValue ?? 0),
     };
     const categoryRows: Array<{ category: string; total: number }> = [];
+    const categoryInsightRows: Array<{
+      category: string; quotes: number; quotesWithOffers: number; offers: number;
+      roundParticipants: number; roundBids: number;
+    }> = [];
 
     if (quoteTablesReady) {
       const result = await pool.query(`
@@ -338,6 +342,23 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
         GROUP BY category
       `, [days]);
       categoryRows.push(...cats.rows.map((row) => ({ category: String(row.category), total: Number(row.total) })));
+
+      const quoteCategories = await pool.query(`
+        SELECT
+          q.category,
+          count(DISTINCT q.id)::int AS quotes,
+          count(DISTINCT q.id) FILTER (WHERE o.id IS NOT NULL)::int AS "quotesWithOffers",
+          count(o.id)::int AS offers
+        FROM quote_requests q
+        LEFT JOIN quote_offers o ON o.quote_request_id=q.id
+        WHERE q.created_at >= now() - ($1::int * interval '1 day')
+        GROUP BY q.category
+      `, [days]);
+      categoryInsightRows.push(...quoteCategories.rows.map((row) => ({
+        category: String(row.category), quotes: Number(row.quotes ?? 0),
+        quotesWithOffers: Number(row.quotesWithOffers ?? 0), offers: Number(row.offers ?? 0),
+        roundParticipants: 0, roundBids: 0,
+      })));
 
       const quoteOperations = await pool.query(`
         SELECT
@@ -423,6 +444,22 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
         GROUP BY category
       `, [days]);
       categoryRows.push(...cats.rows.map((row) => ({ category: String(row.category), total: Number(row.total) })));
+
+      const roundCategories = await pool.query(`
+        SELECT
+          r.category,
+          count(DISTINCT p.id)::int AS "roundParticipants",
+          count(DISTINCT b.id)::int AS "roundBids"
+        FROM buying_rounds r
+        LEFT JOIN buying_round_participants p ON p.round_id=r.id
+        LEFT JOIN buying_round_bids b ON b.round_id=r.id
+        WHERE r.created_at >= now() - ($1::int * interval '1 day')
+        GROUP BY r.category
+      `, [days]);
+      categoryInsightRows.push(...roundCategories.rows.map((row) => ({
+        category: String(row.category), quotes: 0, quotesWithOffers: 0, offers: 0,
+        roundParticipants: Number(row.roundParticipants ?? 0), roundBids: Number(row.roundBids ?? 0),
+      })));
     }
 
     const knownCategories = new Map<string, string>([
@@ -464,6 +501,27 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
       .sort((a, b) => b.total - a.total)
       .slice(0, 8);
 
+    const categoryInsightMap = new Map<string, {
+      category: string; quotes: number; quotesWithOffers: number; offers: number;
+      roundParticipants: number; roundBids: number;
+    }>();
+    for (const row of categoryInsightRows) {
+      const category = knownCategories.get(normalizeCategory(row.category)) ?? "Outros segmentos";
+      const current = categoryInsightMap.get(category) ?? {
+        category, quotes: 0, quotesWithOffers: 0, offers: 0, roundParticipants: 0, roundBids: 0,
+      };
+      current.quotes += row.quotes;
+      current.quotesWithOffers += row.quotesWithOffers;
+      current.offers += row.offers;
+      current.roundParticipants += row.roundParticipants;
+      current.roundBids += row.roundBids;
+      categoryInsightMap.set(category, current);
+    }
+    const categoryInsights = [...categoryInsightMap.values()]
+      .filter((item) => item.quotes + item.roundParticipants >= 5)
+      .sort((a, b) => (b.quotes + b.roundParticipants) - (a.quotes + a.roundParticipants))
+      .slice(0, 10);
+
     res.set("Cache-Control", "no-store").json({
       days,
       generatedAt: new Date().toISOString(),
@@ -474,6 +532,7 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
       operations,
       coverage,
       demandByCategory,
+      categoryInsights,
     });
   } catch (error) {
     console.error("[admin] intelligence metrics failed:", error);
