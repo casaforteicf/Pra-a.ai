@@ -416,6 +416,7 @@ type InteligenciaData = {
     open: number; closed: number; noOffers: number; participants: number; bids: number;
     buyerAccepted: number; buyerDeclined: number;
   };
+  orders: { total: number; delivered: number; inProgress: number; paymentPending: number; deliveredValue: number };
   coverage: { vendorsReceivingQuotes: number; vendorsSendingOffers: number; vendorsBiddingRounds: number };
   demandByCategory: Array<{ category: string; total: number }>;
 };
@@ -471,9 +472,23 @@ function InteligenciaTab() {
         <MetricCard title="1ª resposta média" value={hours == null ? "—" : `${hours.toLocaleString("pt-BR")} h`} detail="Tempo entre pedido e primeira proposta" />
         <MetricCard title="Rodadas abertas" value={data.rounds.open} detail={`${data.rounds.closed} encerradas no período`} />
         <MetricCard title="Participações em lotes" value={data.rounds.participants} detail={`${data.rounds.bids} ofertas de lojistas`} />
-        <MetricCard title="Propostas aceitas" value={data.rounds.buyerAccepted} detail={`${data.rounds.buyerDeclined} recusadas pelos compradores`} />
+        <MetricCard title="Rodadas aceitas pelo comprador" value={data.rounds.buyerAccepted} detail="Pagamento é formalizado com a loja após o aceite" />
         <MetricCard title="Rodadas sem oferta" value={data.rounds.noOffers} detail="Sinal de cobertura ou prazo insuficiente" />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Marketplace e vendas concluídas</CardTitle>
+          <p className="text-sm text-muted-foreground">Pedidos do checkout convencional; a venda é considerada concluída quando o status chega a “entregue”.</p>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <MetricCard title="Pedidos recebidos" value={data.orders.total} detail="Todos os status no período" />
+          <MetricCard title="Em andamento" value={data.orders.inProgress} detail="Confirmados ou em entrega" />
+          <MetricCard title="Pagamento pendente" value={data.orders.paymentPending} detail="Requer acompanhamento" />
+          <MetricCard title="Pedidos entregues" value={data.orders.delivered} detail="Status de entrega concluída" />
+          <MetricCard title="Valor entregue" value={fmt(data.orders.deliveredValue)} detail="Soma dos pedidos marcados como entregues" />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
