@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
-import { desc, and } from "drizzle-orm";
-import { db, ambassadorsTable, referralsTable, disputesTable, consumersTable, vendorPayoutsTable } from "@workspace/db";
+import { desc, and, gte, sql } from "drizzle-orm";
+import { db, ambassadorsTable, referralsTable, disputesTable, consumersTable, vendorPayoutsTable, ordersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { vendorPool } from "../lib/vendorDb";
 import { pool } from "@workspace/db";
@@ -251,6 +251,19 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
     let quotes = { total: 0, awaitingSuppliers: 0, withOffers: 0, accepted: 0, unanswered: 0, offers: 0, averageFirstResponseHours: null as number | null };
     let coverage = { vendorsReceivingQuotes: 0, vendorsSendingOffers: 0, vendorsBiddingRounds: 0 };
     let rounds = { open: 0, closed: 0, noOffers: 0, participants: 0, bids: 0, buyerAccepted: 0, buyerDeclined: 0 };
+    const orderStats = await db.select({
+      total: sql<number>`count(*)::int`,
+      delivered: sql<number>`count(*) FILTER (WHERE ${ordersTable.status} = 'delivered')::int`,
+      inProgress: sql<number>`count(*) FILTER (WHERE ${ordersTable.status} IN ('confirmed', 'preparing', 'shipped', 'out_for_delivery'))::int`,
+      paymentPending: sql<number>`count(*) FILTER (WHERE ${ordersTable.status} = 'payment_pending')::int`,
+      deliveredValue: sql<number>`coalesce(sum(${ordersTable.total}) FILTER (WHERE ${ordersTable.status} = 'delivered'), 0)::float8`,
+    }).from(ordersTable).where(gte(ordersTable.createdAt, new Date(Date.now() - days * 24 * 60 * 60 * 1000)));
+    const rowOrders = orderStats[0] ?? { total: 0, delivered: 0, inProgress: 0, paymentPending: 0, deliveredValue: 0 };
+    const orders = {
+      total: Number(rowOrders.total ?? 0), delivered: Number(rowOrders.delivered ?? 0),
+      inProgress: Number(rowOrders.inProgress ?? 0), paymentPending: Number(rowOrders.paymentPending ?? 0),
+      deliveredValue: Number(rowOrders.deliveredValue ?? 0),
+    };
     const categoryRows: Array<{ category: string; total: number }> = [];
 
     if (quoteTablesReady) {
@@ -408,6 +421,7 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
       privacy: { aggregateOnly: true, categoryMinimum: 5 },
       quotes,
       rounds,
+      orders,
       coverage,
       demandByCategory,
     });
