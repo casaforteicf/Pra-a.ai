@@ -419,6 +419,16 @@ type InteligenciaData = {
   orders: { total: number; delivered: number; inProgress: number; paymentPending: number; deliveredValue: number };
   coverage: { vendorsReceivingQuotes: number; vendorsSendingOffers: number; vendorsBiddingRounds: number };
   demandByCategory: Array<{ category: string; total: number }>;
+  operations: {
+    quotesWithoutSuppliers: number;
+    quotesWithoutOffer24h: number;
+    quotesPastNeededDate: number;
+    roundsClosingWithin2h: number;
+    roundsPastNeededDate: number;
+    roundsAwaitingBuyer: number;
+    roundsAwaitingPayment: number;
+    roundsCrmSyncFailures: number;
+  };
 };
 
 function MetricCard({ title, value, detail }: { title: string; value: string | number; detail: string }) {
@@ -464,6 +474,23 @@ function InteligenciaTab() {
           ))}
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Alertas operacionais atuais</CardTitle>
+          <p className="text-sm text-muted-foreground">Fila de situações que podem precisar de acompanhamento. Estes números mostram o estado atual e não mudam com o período histórico selecionado.</p>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard title="Cotações sem fornecedor" value={data.operations.quotesWithoutSuppliers} detail="Ainda aguardam encaminhamento para lojistas" />
+          <MetricCard title="Sem proposta há mais de 24h" value={data.operations.quotesWithoutOffer24h} detail="Cotações distribuídas sem oferta recebida" />
+          <MetricCard title="Cotações com data vencida" value={data.operations.quotesPastNeededDate} detail="Data solicitada já passou, sem aceite" />
+          <MetricCard title="Rodadas encerram em até 2h" value={data.operations.roundsClosingWithin2h} detail="Rodadas abertas próximas do encerramento" />
+          <MetricCard title="Rodadas com data vencida" value={data.operations.roundsPastNeededDate} detail="Data de compra informada já passou" />
+          <MetricCard title="Aguardando decisão do comprador" value={data.operations.roundsAwaitingBuyer} detail="Lance aceito na rodada, pendente de resposta" />
+          <MetricCard title="Aguardando formalização" value={data.operations.roundsAwaitingPayment} detail="Aceite do comprador; não confirma pagamento recebido" />
+          <MetricCard title="Falhas de sincronização CRM" value={data.operations.roundsCrmSyncFailures} detail="Pedidos da rodada que precisam de nova tentativa" />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard title="Cotações recebidas" value={data.quotes.total} detail={`${data.quotes.awaitingSuppliers} sem fornecedor identificado`} />
