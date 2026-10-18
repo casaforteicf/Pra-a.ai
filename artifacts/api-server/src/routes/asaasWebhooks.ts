@@ -22,7 +22,7 @@ router.post("/webhooks/asaas", async (req: Request, res: Response): Promise<void
   }
 
   const secret = process.env.ASAAS_WEBHOOK_TOKEN;
-  if (!secret) {
+  if (!secret || secret.length < 32 || /\\s/.test(secret)) {
     res.status(503).json({ error: "Webhook Asaas não configurado." });
     return;
   }
@@ -129,7 +129,7 @@ router.post("/webhooks/asaas", async (req: Request, res: Response): Promise<void
     );
     await client.query("COMMIT");
     res.status(200).json({ ok: true });
-  } catch (error) {
+  } catch {
     await client.query("ROLLBACK").catch(() => undefined);
     console.error("[asaas-webhook] falha ao processar evento de pagamento");
     res.status(503).json({ error: "Não foi possível processar o evento." });
