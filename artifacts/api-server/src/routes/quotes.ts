@@ -402,7 +402,7 @@ export async function confirmDirectQuotePayment(quoteId: string, chargeId: strin
     [quoteId, chargeId],
   );
   const known = paid.rows[0] ?? (await pool.query(
-    "SELECT id FROM quote_requests WHERE id=$1 AND asaas_charge_id=$2 AND status='paid'",
+    "SELECT id FROM quote_requests WHERE id=$1 AND asaas_charge_id=$2 AND status IN ('paid','delivered','released')",
     [quoteId, chargeId],
   )).rows[0];
   if (!known) return false;
