@@ -96,9 +96,9 @@ export default function RoundsPage() {
     <div className="mx-auto max-w-6xl">
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#008878]">Praça.ai · compras coletivas</p>
-          <h1 className="mt-2 font-[Manrope] text-3xl font-extrabold sm:text-4xl">Rodadas de negócios</h1>
-          <p className="mt-2 max-w-2xl text-sm text-[#64748B] sm:text-base">Escolha um lote aberto ou cadastre o material de que precisa. O prazo e a data de entrega ficam visíveis antes de participar.</p>
+          <p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#008878]">Praça.ai · oportunidades de compra</p>
+          <h1 className="mt-2 font-[Manrope] text-3xl font-extrabold sm:text-4xl">Oportunidades de compra</h1>
+          <p className="mt-2 max-w-2xl text-sm text-[#64748B] sm:text-base">Encontre lotes ativos e informe a quantidade de que precisa. Quando a rodada terminar, você receberá uma proposta individual para revisar e formalizar.</p>
         </div>
         <button onClick={()=>{if(authOrLogin())setShowDemand(true)}} className="inline-flex items-center gap-2 rounded-xl bg-[#10D3B8] px-4 py-3 text-sm font-extrabold text-[#0B2240]"><Plus className="h-4 w-4"/>Cadastrar minha demanda</button>
       </div>
@@ -107,7 +107,7 @@ export default function RoundsPage() {
         <article className="rounded-2xl bg-[#0B2240] p-5 text-white md:col-span-2">
           <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-[#8BF1E4]"><Users className="h-4 w-4"/>Compra em lote</span>
           <h2 className="mt-4 max-w-xl font-[Manrope] text-2xl font-extrabold">Você informa o que precisa. A Praça.ai organiza as propostas.</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/75">Lojistas enviam propostas decrescentes sem ver seu nome ou contato. No encerramento, você recebe uma proposta individual para aceitar ou recusar.</p>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/75">A Praça.ai reúne demandas compatíveis por material, região e data. Ao final, você recebe uma proposta para decidir como seguir.</p>
         </article>
         <div className="grid gap-3">
           <div className="flex items-center gap-3 rounded-2xl border border-[#E5EAF0] bg-white p-4"><span className="grid h-10 w-10 place-items-center rounded-xl bg-[#E8F2FF] text-[#0077FF]"><ShieldCheck className="h-5 w-5"/></span><div><h2 className="text-sm font-extrabold">Identidade protegida</h2><p className="text-xs text-[#64748B]">A loja só recebe seu contato se você aceitar.</p></div></div>
