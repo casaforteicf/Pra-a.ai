@@ -318,7 +318,7 @@ const sortOptions: Array<{ label: string; value: ListProductsSort }> = [
 
 export default function ListingPage() {
   const [, setLocation] = useLocation()
-  const { city } = useMarketplaceCity()
+  const { city, state } = useMarketplaceCity()
   const searchParams = new URLSearchParams(window.location.search)
   const categorySlug = searchParams.get("category") || undefined
   const vendorId = searchParams.get("vendorId") || undefined
@@ -368,7 +368,7 @@ export default function ListingPage() {
 
   const requestParams = { category: categorySlug, search: submittedSearch || undefined, vendorId, sort, limit: 40, cidade: city || undefined, estado: state || undefined }
   const { data: listData, isLoading, isError } = useListProducts(requestParams, {
-    query: { queryKey: getListProductsQueryKey(requestParams), enabled: Boolean(city) },
+    query: { queryKey: getListProductsQueryKey(requestParams), enabled: Boolean(city && state) },
   })
 
   const submitSearch = (event?: React.FormEvent) => {
