@@ -190,10 +190,10 @@ function numberValue(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-async function ensureQuoteLead(quoteId: string, vendorId: string): Promise<{ leadId: string; notified: boolean }> {
+async function ensureQuoteLead(quoteId: string, vendorId: string): Promise<{ leadId: string; notified: boolean; revealedAt: string | null }> {
   await ensureDirectQuoteTables();
   const map = await pool.query(
-    "INSERT INTO quote_vendor_leads(quote_request_id,vendor_id,crm_lead_id) VALUES($1,$2,$3) ON CONFLICT(quote_request_id,vendor_id) DO UPDATE SET vendor_id=EXCLUDED.vendor_id RETURNING crm_lead_id,crm_notified",
+    "INSERT INTO quote_vendor_leads(quote_request_id,vendor_id,crm_lead_id) VALUES($1,$2,$3) ON CONFLICT(quote_request_id,vendor_id) DO UPDATE SET vendor_id=EXCLUDED.vendor_id RETURNING crm_lead_id,crm_notified,identity_revealed_at",
     [quoteId, vendorId, randomUUID()],
   );
   const leadId = String(map.rows[0].crm_lead_id);
@@ -201,7 +201,7 @@ async function ensureQuoteLead(quoteId: string, vendorId: string): Promise<{ lea
     "INSERT INTO leads(id,tenant_id,nome,telefone,email,endereco,source,status,tipo) VALUES($1,$2,$3,NULL,NULL,NULL,'praca_ai_cotacao','novo','cliente') ON CONFLICT(id) DO NOTHING",
     [leadId, vendorId, "Cotação anônima Praça.ai"],
   );
-  return { leadId, notified: Boolean(map.rows[0].crm_notified) };
+  return { leadId, notified: Boolean(map.rows[0].crm_notified), revealedAt: map.rows[0].identity_revealed_at };
 }
 
 async function notifyQuoteLead(quoteId: string, vendorId: string, revealBuyer = false): Promise<void> {
@@ -218,20 +218,20 @@ async function notifyQuoteLead(quoteId: string, vendorId: string, revealBuyer = 
     ...items.rows.map((item: any) => `• ${item.quantity} ${item.unit} — ${item.description}`),
     "Região: " + row.location,
     row.needed_at ? "Data desejada: " + new Date(row.needed_at).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "",
-  ].filter(Boolean).join("\\n");
+  ].filter(Boolean).join("\n");
   if (revealBuyer) {
+    if (lead.revealedAt) return;
     await vendorPool.query(
       "UPDATE leads SET nome=$3,telefone=$4,email=$5,source='praca_ai_cotacao' WHERE id=$1 AND tenant_id=$2",
       [lead.leadId, vendorId, row.name, row.phone, row.email],
     );
-    await pool.query("UPDATE quote_vendor_leads SET identity_revealed_at=COALESCE(identity_revealed_at,now()) WHERE quote_request_id=$1 AND vendor_id=$2", [quoteId, vendorId]);
     await sendChatMessage({
       tenantId: vendorId, leadId: lead.leadId,
       conteudo: "Praça.ai — o comprador aceitou sua proposta. Cliente: " + row.name +
         (row.phone ? " · Telefone: " + row.phone : "") + (row.email ? " · E-mail: " + row.email : "") +
-        ". Formalize pagamento e entrega com o cliente.\\n" + demand,
+        ". Formalize pagamento e entrega com o cliente.\n" + demand,
     });
-    await pool.query("UPDATE quote_vendor_leads SET crm_notified=true WHERE quote_request_id=$1 AND vendor_id=$2", [quoteId, vendorId]);
+    await pool.query("UPDATE quote_vendor_leads SET identity_revealed_at=COALESCE(identity_revealed_at,now()),crm_notified=true WHERE quote_request_id=$1 AND vendor_id=$2", [quoteId, vendorId]);
   } else if (!lead.notified) {
     await sendChatMessage({
       tenantId: vendorId, leadId: lead.leadId,
@@ -283,6 +283,13 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
     const quote = result.rows[0];
     if (!quote) return void res.status(404).json({ error: "Cotação não encontrada." });
     const accepted = quote.status === "aceita";
+    if (accepted) {
+      const winner = await pool.query("SELECT vendor_id FROM quote_offers WHERE quote_request_id=$1 AND status='aceita' LIMIT 1", [quote.id]);
+      if (winner.rows[0]) {
+        try { await notifyQuoteLead(quote.id, String(winner.rows[0].vendor_id), true); }
+        catch (error) { console.error("[quotes] pending CRM identity release retry failed:", error); }
+      }
+    }
     const offers = await pool.query(
       `SELECT o.id,o.freight::text,o.delivery_days,o.terms,o.status,o.created_at,
               COALESCE(sum(oi.unit_price * qi.quantity),0)::numeric(12,2)::text AS subtotal,
