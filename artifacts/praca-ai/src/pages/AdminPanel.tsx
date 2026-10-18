@@ -419,6 +419,10 @@ type InteligenciaData = {
   orders: { total: number; delivered: number; inProgress: number; paymentPending: number; deliveredValue: number };
   coverage: { vendorsReceivingQuotes: number; vendorsSendingOffers: number; vendorsBiddingRounds: number };
   demandByCategory: Array<{ category: string; total: number }>;
+  categoryInsights: Array<{
+    category: string; quotes: number; quotesWithOffers: number; offers: number;
+    roundParticipants: number; roundBids: number;
+  }>;
   operations: {
     quotesWithoutSuppliers: number;
     quotesWithoutOffer24h: number;
@@ -545,6 +549,45 @@ function InteligenciaTab() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Oportunidades por segmento</CardTitle>
+          <p className="text-sm text-muted-foreground">Cruza pedidos de cotação, propostas e participação nas rodadas. Exibimos somente segmentos com pelo menos cinco solicitações ou participações; os dados não identificam clientes nem lojas.</p>
+        </CardHeader>
+        <CardContent>
+          {data.categoryInsights.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Ainda não há volume suficiente para comparar os segmentos neste período.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Segmento</TableHead>
+                    <TableHead>Cotações</TableHead>
+                    <TableHead>Com proposta</TableHead>
+                    <TableHead>Propostas</TableHead>
+                    <TableHead>Participações em rodadas</TableHead>
+                    <TableHead>Lances</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.categoryInsights.map((item) => (
+                    <TableRow key={item.category}>
+                      <TableCell className="font-medium">{item.category}</TableCell>
+                      <TableCell>{item.quotes}</TableCell>
+                      <TableCell>{item.quotesWithOffers}</TableCell>
+                      <TableCell>{item.offers}</TableCell>
+                      <TableCell>{item.roundParticipants}</TableCell>
+                      <TableCell>{item.roundBids}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <p className="text-xs text-muted-foreground">
         Período selecionado: {data.days} dias. Atualizado em {new Date(data.generatedAt).toLocaleString("pt-BR")}.
