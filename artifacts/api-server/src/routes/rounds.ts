@@ -31,7 +31,7 @@ async function closeExpired(): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    const expired = await client.query("SELECT id FROM buying_rounds WHERE status='open' AND closes_at<=now() ORDER BY closes_at FOR UPDATE SKIP LOCKED LIMIT 50");
+    const expired = await client.query("SELECT id FROM buying_rounds WHERE status='open' AND closes_at<=now() ORDER BY closes_at LIMIT 50 FOR UPDATE SKIP LOCKED");
     for (const row of expired.rows) {
       const participants = await client.query("SELECT COALESCE(sum(quantity),0)::numeric AS total FROM buying_round_participants WHERE round_id=$1",[row.id]);
       const total = Number(participants.rows[0]?.total ?? 0);
