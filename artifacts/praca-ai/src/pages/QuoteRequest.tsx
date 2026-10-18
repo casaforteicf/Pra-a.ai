@@ -80,7 +80,7 @@ export default function QuoteRequest() {
   const [processing, setProcessing] = React.useState("")
   const [progress, setProgress] = React.useState(0)
   const [error, setError] = React.useState("")
-  const [result, setResult] = React.useState<{ protocol: string; recipients: number } | null>(null)
+  const [result, setResult] = React.useState<{ id: string; protocol: string; recipients: number } | null>(null)
   const [form, setForm] = React.useState<QuoteDraft>(() => {
     try { return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "{}") as QuoteDraft } catch { return {} }
   })
@@ -124,7 +124,7 @@ export default function QuoteRequest() {
       })
       const payload = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(payload.error ?? "Não foi possível enviar a cotação.")
-      setResult({ protocol: payload.protocol, recipients: payload.recipients ?? 0 })
+      setResult({ id: payload.id, protocol: payload.protocol, recipients: payload.recipients ?? 0 })
       localStorage.removeItem(DRAFT_KEY)
       setSaved(true)
     } catch (cause) {
@@ -139,7 +139,7 @@ export default function QuoteRequest() {
     <main className="mx-auto grid max-w-6xl gap-8 px-4 py-8 lg:grid-cols-[.72fr_1.28fr] lg:py-12">
       <aside className="rounded-3xl bg-[#0B2240] p-7 text-white lg:sticky lg:top-8 lg:h-fit"><span className="inline-flex rounded-full bg-[#10D3B8] px-3 py-1 text-xs font-extrabold text-[#0B2240]">Aberto para todos</span><h1 className="mt-5 font-[Manrope] text-3xl font-extrabold leading-tight">Peça uma cotação na sua região.</h1><p className="mt-3 text-sm leading-relaxed text-white/75">Importe um orçamento, envie sua lista ou tire uma foto. O Praça.ai organiza os itens para você revisar antes de consultar fornecedores.</p><ol className="mt-7 space-y-5 text-sm">{[[Sparkles,"Importe ou fotografe sua lista"],[ClipboardList,"Revise quantidades e itens"],[UserRound,"Identifique-se para acompanhar"]].map(([Icon,text],index)=><li key={text as string} className="flex items-center gap-3"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/10"><Icon className="h-4 w-4" /></span><span><strong className="mr-2 text-[#10D3B8]">{index+1}.</strong>{text as string}</span></li>)}</ol></aside>
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-[0_18px_50px_rgba(11,39,66,.08)] sm:p-8">
-        {saved ? <div className="flex min-h-[440px] flex-col items-center justify-center text-center"><span className="grid h-16 w-16 place-items-center rounded-full bg-[#DDF9F4] text-[#008F76]"><Check className="h-8 w-8" /></span><h2 className="mt-5 font-[Manrope] text-2xl font-extrabold">Cotação enviada</h2><p className="mt-2 max-w-md text-sm text-slate-600">Sua solicitação foi registrada com o protocolo <strong>{result?.protocol}</strong>{result?.recipients ? ` e distribuída para ${result.recipients} fornecedor${result.recipients === 1 ? "" : "es"}.` : ". Ela está aguardando fornecedores compatíveis."}</p><Link href="/" className="mt-6 rounded-xl bg-[#0077FF] px-5 py-3 text-sm font-extrabold text-white">Voltar ao início</Link></div> : <form onSubmit={(event)=>void submit(event)} className="space-y-6">
+        {saved ? <div className="flex min-h-[440px] flex-col items-center justify-center text-center"><span className="grid h-16 w-16 place-items-center rounded-full bg-[#DDF9F4] text-[#008F76]"><Check className="h-8 w-8" /></span><h2 className="mt-5 font-[Manrope] text-2xl font-extrabold">Cotação enviada</h2><p className="mt-2 max-w-md text-sm text-slate-600">Sua solicitação foi registrada com o protocolo <strong>{result?.protocol}</strong>{result?.recipients ? ` e distribuída para ${result.recipients} fornecedor${result.recipients === 1 ? "" : "es"}.` : ". Ela está aguardando fornecedores compatíveis."}</p><Link href={result?.id ? `/cotacao/${result.id}` : "/"} className="mt-6 rounded-xl bg-[#0077FF] px-5 py-3 text-sm font-extrabold text-white">Acompanhar propostas</Link><Link href="/" className="mt-3 text-sm font-bold text-slate-600">Voltar ao início</Link></div> : <form onSubmit={(event)=>void submit(event)} className="space-y-6">
           <div><p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#0077FF]">Nova solicitação</p><h2 className="mt-1 font-[Manrope] text-2xl font-extrabold">Monte sua lista de cotação</h2><p className="mt-1 text-sm text-slate-500">Comece por um arquivo, uma foto ou adicione os itens manualmente.</p></div>
           <div className="grid gap-3 sm:grid-cols-3">
             <button type="button" onClick={()=>fileInput.current?.click()} className="flex min-h-24 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-[#E5EAF0] bg-[#F8FAFC] px-3 text-center text-sm font-bold hover:border-[#0077FF] hover:bg-blue-50"><Upload className="mb-2 h-6 w-6 text-[#0077FF]" />Importar orçamento<span className="mt-1 text-[11px] font-normal text-slate-500">PDF, CSV ou TXT</span></button>
