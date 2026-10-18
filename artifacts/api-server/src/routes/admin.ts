@@ -363,8 +363,39 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
       categoryRows.push(...cats.rows.map((row) => ({ category: String(row.category), total: Number(row.total) })));
     }
 
+    const knownCategories = new Map<string, string>([
+      ["cimento e agregados", "Cimento e agregados"],
+      ["tijolos e blocos", "Tijolos e blocos"],
+      ["elétrica e iluminação", "Elétrica e iluminação"],
+      ["eletrica e iluminacao", "Elétrica e iluminação"],
+      ["telhas e cobertura", "Telhas e cobertura"],
+      ["telhas e estrutura de telhado", "Telhas e cobertura"],
+      ["hidráulica e conexões", "Hidráulica e conexões"],
+      ["hidraulica e conexoes", "Hidráulica e conexões"],
+      ["construção e reforma", "Construção e reforma"],
+      ["construcao e reforma", "Construção e reforma"],
+      ["materiais de construção", "Materiais de construção"],
+      ["materiais de construcao", "Materiais de construção"],
+      ["ferramentas", "Ferramentas"],
+      ["casa e decoração", "Casa e decoração"],
+      ["casa e decoracao", "Casa e decoração"],
+      ["móveis", "Móveis"],
+      ["moveis", "Móveis"],
+      ["informática e eletrônicos", "Informática e eletrônicos"],
+      ["informatica e eletronicos", "Informática e eletrônicos"],
+      ["imóveis", "Imóveis"],
+      ["imoveis", "Imóveis"],
+      ["veículos", "Veículos"],
+      ["veiculos", "Veículos"],
+      ["serviços", "Serviços"],
+      ["servicos", "Serviços"],
+    ]);
+    const normalizeCategory = (value: string) => value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim();
     const categories = new Map<string, number>();
-    for (const row of categoryRows) categories.set(row.category, (categories.get(row.category) ?? 0) + row.total);
+    for (const row of categoryRows) {
+      const category = knownCategories.get(normalizeCategory(row.category)) ?? "Outros segmentos";
+      categories.set(category, (categories.get(category) ?? 0) + row.total);
+    }
     const demandByCategory = [...categories.entries()]
       .filter(([, total]) => total >= 5)
       .map(([category, total]) => ({ category, total }))
