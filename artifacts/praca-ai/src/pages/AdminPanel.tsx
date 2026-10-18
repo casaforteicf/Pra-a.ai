@@ -156,6 +156,9 @@ const DISPUTA_STATUS_COLOR: Record<string, "default" | "secondary" | "destructiv
 
 function DisputasTab() {
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
+  const qc = useQueryClient();
+  const { toast } = useToast();
 
   const { data: disputas = [], isLoading } = useQuery<any[]>({
     queryKey: ["admin-disputas", statusFilter],
@@ -164,7 +167,28 @@ function DisputasTab() {
         .then((r) => r.json()),
   });
 
-  if (isLoading) return <Loader2 className="h-5 w-5 animate-spin mx-auto mt-8" />;
+  const { data: marketplaceDisputas = [], isLoading: marketplaceLoading } = useQuery<any[]>({
+    queryKey: ["admin-marketplace-disputas", statusFilter],
+    queryFn: () => fetch(`/api/admin/marketplace-disputas${statusFilter !== "todos" ? `?status=${statusFilter}` : ""}`, { headers: adminHeaders() }).then((r) => r.json()),
+  });
+  const updateMarketplaceDispute = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const resolutionText = resolutionNotes[id] ?? "";
+      const response = await fetch(`/api/admin/marketplace-disputas/${encodeURIComponent(id)}`, {
+        method: "PATCH", headers: adminHeaders(), body: JSON.stringify({ status, resolutionText }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Não foi possível atualizar a disputa.");
+      return body;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["admin-marketplace-disputas"] });
+      toast({ title: "Disputa atualizada" });
+    },
+    onError: (error: Error) => toast({ title: "Não foi possível atualizar", description: error.message, variant: "destructive" }),
+  });
+
+  if (isLoading || marketplaceLoading) return <Loader2 className="h-5 w-5 animate-spin mx-auto mt-8" />;
 
   return (
     <div className="space-y-4">
@@ -174,7 +198,9 @@ function DisputasTab() {
           <SelectItem value="todos">Todos os status</SelectItem>
           <SelectItem value="aberta">Abertas</SelectItem>
           <SelectItem value="em_analise">Em análise</SelectItem>
+          <SelectItem value="aguardando_comprador">Aguardando comprador</SelectItem>
           <SelectItem value="resolvida">Resolvidas</SelectItem>
+          <SelectItem value="rejeitada">Rejeitadas</SelectItem>
         </SelectContent>
       </Select>
 
@@ -208,6 +234,33 @@ function DisputasTab() {
                   </TableRow>
                 ))
               )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Disputas de cotações e rodadas</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader><TableRow><TableHead>Pedido</TableHead><TableHead>Comprador</TableHead><TableHead>Motivo e relato</TableHead><TableHead>Status</TableHead><TableHead>Tratamento</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {marketplaceDisputas.length === 0 ? <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Nenhuma disputa de cotação ou rodada.</TableCell></TableRow> : marketplaceDisputas.map((d: any) => (
+                <TableRow key={d.id}>
+                  <TableCell className="min-w-36"><b>{d.order_code ?? d.order_id.slice(0, 8)}</b><p className="text-xs text-muted-foreground">{d.order_type === "quote" ? "Cotação" : "Rodada"} · {d.item_title}</p></TableCell>
+                  <TableCell>{d.buyer_name}<p className="text-xs text-muted-foreground">{d.buyer_email}</p></TableCell>
+                  <TableCell className="min-w-64"><b>{d.reason_code}</b><p className="whitespace-pre-wrap text-sm">{d.description}</p>{d.evidence_url && <a className="text-xs font-bold text-primary underline" href={d.evidence_url} target="_blank" rel="noreferrer">Abrir evidência</a>}</TableCell>
+                  <TableCell><Badge variant={DISPUTA_STATUS_COLOR[d.status] ?? "secondary"}>{d.status}</Badge>{d.vendor_response && <p className="mt-1 max-w-48 whitespace-pre-wrap text-xs"><b>Resposta da loja:</b> {d.vendor_response}</p>}{d.resolution_text && <p className="mt-1 max-w-48 text-xs text-muted-foreground">{d.resolution_text}</p>}</TableCell>
+                  <TableCell className="min-w-56 space-y-2">
+                    {!['resolvida','rejeitada'].includes(d.status) ? <>
+                      <Input value={resolutionNotes[d.id] ?? ""} onChange={(event) => setResolutionNotes((current) => ({ ...current, [d.id]: event.target.value }))} placeholder="Observação para o histórico" />
+                      {d.status === "aberta" && <Button size="sm" variant="outline" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "em_analise" })}>Iniciar análise</Button>}
+                      {d.status === "em_analise" && <div className="flex flex-wrap gap-1"><Button size="sm" variant="outline" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "aguardando_comprador" })}>Pedir retorno</Button><Button size="sm" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "resolvida" })}>Resolver</Button><Button size="sm" variant="destructive" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "rejeitada" })}>Rejeitar</Button></div>}
+                      {d.status === "aguardando_comprador" && <div className="flex gap-1"><Button size="sm" variant="outline" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "em_analise" })}>Retomar análise</Button><Button size="sm" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "resolvida" })}>Resolver</Button></div>}
+                    </> : <span className="text-xs text-muted-foreground">Concluída · {d.resolved_at ? new Date(d.resolved_at).toLocaleString("pt-BR") : ""}</span>}
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>

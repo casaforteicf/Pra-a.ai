@@ -210,7 +210,7 @@ router.get("/round-orders",async(req,res):Promise<void>=>{
   if(!consumer) return void res.status(401).json({error:"Entre na sua conta para acompanhar suas rodadas."});
   try {
     await closeExpired();
-    const result=await pool.query("SELECT COALESCE(o.id,p.id) AS id,COALESCE(o.status,CASE WHEN r.status='no_offers' THEN 'no_offers' WHEN r.status='open' THEN 'participating' ELSE 'closed' END) AS status,p.quantity::text,o.total::text,o.accepted_at,o.vendor_id,b.delivery_days,o.asaas_pix_payload,o.asaas_pix_qrcode_image,o.asaas_invoice_url,r.code,r.category,r.item_name,r.specification,r.unit,r.needed_at,f.status AS fulfillment_status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at AS fulfillment_updated_at FROM buying_round_participants p JOIN buying_rounds r ON r.id=p.round_id LEFT JOIN buying_round_orders o ON o.participant_id=p.id LEFT JOIN buying_round_bids b ON b.id=o.bid_id LEFT JOIN praca_marketplace_fulfillments f ON f.order_type='round' AND f.order_id=o.id AND f.vendor_id=o.vendor_id WHERE p.consumer_id=$1 ORDER BY p.joined_at DESC",[consumer]);
+    const result=await pool.query("SELECT COALESCE(o.id,p.id) AS id,COALESCE(o.status,CASE WHEN r.status='no_offers' THEN 'no_offers' WHEN r.status='open' THEN 'participating' ELSE 'closed' END) AS status,p.quantity::text,o.total::text,o.accepted_at,o.vendor_id,b.delivery_days,o.asaas_pix_payload,o.asaas_pix_qrcode_image,o.asaas_invoice_url,r.code,r.category,r.item_name,r.specification,r.unit,r.needed_at,f.status AS fulfillment_status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at AS fulfillment_updated_at,d.id AS dispute_id,d.reason_code AS dispute_reason,d.description AS dispute_description,d.status AS dispute_status,d.vendor_response AS dispute_vendor_response,d.resolution_text AS dispute_resolution_text,d.created_at AS dispute_created_at,d.updated_at AS dispute_updated_at,d.resolved_at AS dispute_resolved_at FROM buying_round_participants p JOIN buying_rounds r ON r.id=p.round_id LEFT JOIN buying_round_orders o ON o.participant_id=p.id LEFT JOIN buying_round_bids b ON b.id=o.bid_id LEFT JOIN praca_marketplace_fulfillments f ON f.order_type='round' AND f.order_id=o.id AND f.vendor_id=o.vendor_id LEFT JOIN praca_order_disputes d ON d.order_type='round' AND d.order_id=o.id AND d.consumer_id=p.consumer_id WHERE p.consumer_id=$1 ORDER BY p.joined_at DESC",[consumer]);
     const response=[];
     for(const row of result.rows){
       let vendor=null;
@@ -219,7 +219,7 @@ router.get("/round-orders",async(req,res):Promise<void>=>{
         const store=await vendorPool.query("SELECT id,nome_empresa FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[row.vendor_id]);
         if(store.rows[0]) vendor={id:store.rows[0].id,name:store.rows[0].nome_empresa,storeUrl:"/listing?vendorId="+encodeURIComponent(String(store.rows[0].id))};
       }
-      response.push({id:row.id,status:row.status,quantity:Number(row.quantity),total:row.total===null?null:Number(row.total),deliveryDays:row.delivery_days===null?null:Number(row.delivery_days),acceptedAt:row.accepted_at,code:row.code,category:row.category,itemName:row.item_name,specification:row.specification,unit:row.unit,neededAt:row.needed_at,pixPayload:row.asaas_pix_payload,pixQrcodeImage:row.asaas_pix_qrcode_image,invoiceUrl:row.asaas_invoice_url,vendor,fulfillment:row.fulfillment_status?{status:row.fulfillment_status,deliveryMode:row.delivery_mode,carrier:row.carrier,trackingCode:row.tracking_code,sellerNote:row.seller_note,shippedAt:row.shipped_at,updatedAt:row.fulfillment_updated_at}:null});
+      response.push({id:row.id,status:row.status,quantity:Number(row.quantity),total:row.total===null?null:Number(row.total),deliveryDays:row.delivery_days===null?null:Number(row.delivery_days),acceptedAt:row.accepted_at,code:row.code,category:row.category,itemName:row.item_name,specification:row.specification,unit:row.unit,neededAt:row.needed_at,pixPayload:row.asaas_pix_payload,pixQrcodeImage:row.asaas_pix_qrcode_image,invoiceUrl:row.asaas_invoice_url,vendor,fulfillment:row.fulfillment_status?{status:row.fulfillment_status,deliveryMode:row.delivery_mode,carrier:row.carrier,trackingCode:row.tracking_code,sellerNote:row.seller_note,shippedAt:row.shipped_at,updatedAt:row.fulfillment_updated_at}:null,dispute:row.dispute_id?{id:row.dispute_id,reason:row.dispute_reason,description:row.dispute_description,status:row.dispute_status,vendorResponse:row.dispute_vendor_response,resolutionText:row.dispute_resolution_text,createdAt:row.dispute_created_at,updatedAt:row.dispute_updated_at,resolvedAt:row.dispute_resolved_at}:null});
     }
     res.json(response);
   } catch(error) {
@@ -369,6 +369,7 @@ router.post("/round-orders/:id/confirm-delivery",async(req,res):Promise<void>=>{
       `UPDATE buying_round_orders o SET status='delivered',delivered_at=COALESCE(delivered_at,now()),updated_at=now()
        FROM buying_round_participants p WHERE o.participant_id=p.id AND o.id=$1 AND p.consumer_id=$2 AND o.status='paid'
          AND EXISTS (SELECT 1 FROM praca_marketplace_fulfillments f WHERE f.order_type='round' AND f.order_id=o.id AND f.vendor_id=o.vendor_id AND f.status IN ('ready','shipped'))
+         AND NOT EXISTS (SELECT 1 FROM praca_order_disputes d WHERE d.order_type='round' AND d.order_id=o.id AND d.consumer_id=p.consumer_id AND d.status IN ('aberta','em_analise','aguardando_comprador'))
        RETURNING o.id`,
       [req.params.id,consumer],
     );
@@ -377,6 +378,8 @@ router.post("/round-orders/:id/confirm-delivery",async(req,res):Promise<void>=>{
     if(existing.rows[0]?.status==="delivered"||existing.rows[0]?.status==="released") {
       return void res.json({id:req.params.id,status:existing.rows[0].status,payoutStatus:existing.rows[0].status==="released"?"released":"pending"});
     }
+    const dispute=await pool.query("SELECT status FROM praca_order_disputes WHERE order_type='round' AND order_id=$1 AND consumer_id=$2 AND status IN ('aberta','em_analise','aguardando_comprador') LIMIT 1",[req.params.id,consumer]);
+    if(dispute.rows[0]) return void res.status(409).json({error:"A confirmação da entrega está suspensa enquanto a disputa estiver em análise."});
     return void res.status(409).json({error:"A entrega pode ser confirmada depois que o vendedor informar que o pedido está pronto ou saiu para entrega."});
   } catch(error) {
     console.error("[rounds] delivery confirmation failed:",error);

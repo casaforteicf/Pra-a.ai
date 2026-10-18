@@ -347,6 +347,11 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
        WHERE o.quote_request_id=$1 AND o.status='aceita' LIMIT 1`,
       [quote.id],
     )).rows[0] ?? null : null;
+    const dispute = identityReleased ? (await pool.query(
+      `SELECT id,reason_code,description,status,vendor_response,resolution_text,created_at,updated_at,resolved_at
+       FROM praca_order_disputes WHERE order_type='quote' AND order_id=$1 AND consumer_id=$2 LIMIT 1`,
+      [quote.id, buyer],
+    )).rows[0] ?? null : null;
     const visibleOffers = [];
     for (const offer of offers.rows) {
       let vendor = null;
@@ -371,6 +376,12 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
         status: fulfillment.status, deliveryMode: fulfillment.delivery_mode, carrier: fulfillment.carrier,
         trackingCode: fulfillment.tracking_code, sellerNote: fulfillment.seller_note,
         shippedAt: fulfillment.shipped_at, updatedAt: fulfillment.updated_at,
+      } : null,
+      dispute: dispute ? {
+        id: dispute.id, reason: dispute.reason_code, description: dispute.description,
+        status: dispute.status, resolutionText: dispute.resolution_text,
+        vendorResponse: dispute.vendor_response,
+        createdAt: dispute.created_at, updatedAt: dispute.updated_at, resolvedAt: dispute.resolved_at,
       } : null,
     });
   } catch (error) {
@@ -496,6 +507,9 @@ router.post("/quotes/:id/confirm-delivery", async (req, res): Promise<void> => {
          SELECT 1 FROM quote_offers o JOIN praca_marketplace_fulfillments f
            ON f.order_type='quote' AND f.order_id=q.id AND f.vendor_id=o.vendor_id
          WHERE o.quote_request_id=q.id AND o.status='aceita' AND f.status IN ('ready','shipped')
+       ) AND NOT EXISTS (
+         SELECT 1 FROM praca_order_disputes d WHERE d.order_type='quote' AND d.order_id=q.id AND d.consumer_id=q.consumer_id
+           AND d.status IN ('aberta','em_analise','aguardando_comprador')
        ) RETURNING q.id`,
       [req.params.id, buyer],
     );
@@ -504,6 +518,8 @@ router.post("/quotes/:id/confirm-delivery", async (req, res): Promise<void> => {
     if (existing.rows[0]?.status === "delivered" || existing.rows[0]?.status === "released") {
       return void res.json({ id: req.params.id, status: existing.rows[0].status, payoutStatus: existing.rows[0].status === "released" ? "released" : "pending" });
     }
+    const dispute = await pool.query("SELECT status FROM praca_order_disputes WHERE order_type='quote' AND order_id=$1 AND consumer_id=$2 AND status IN ('aberta','em_analise','aguardando_comprador') LIMIT 1", [req.params.id, buyer]);
+    if (dispute.rows[0]) return void res.status(409).json({ error: "A confirmação da entrega está suspensa enquanto a disputa estiver em análise." });
     return void res.status(409).json({ error: "A entrega pode ser confirmada depois que o vendedor informar que o pedido está pronto ou saiu para entrega." });
   } catch (error) {
     console.error("[quotes] delivery confirmation failed:", error);

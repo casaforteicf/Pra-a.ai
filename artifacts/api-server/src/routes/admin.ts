@@ -3,6 +3,7 @@ import { desc, and } from "drizzle-orm";
 import { db, ambassadorsTable, referralsTable, disputesTable, consumersTable, vendorPayoutsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { vendorPool } from "../lib/vendorDb";
+import { pool } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -111,6 +112,79 @@ router.get("/admin/disputas", async (req, res): Promise<void> => {
     : await db.select().from(disputesTable).orderBy(desc(disputesTable.createdAt));
 
   res.json(disputas);
+});
+
+router.get("/admin/marketplace-disputas", async (req, res): Promise<void> => {
+  const status = typeof req.query.status === "string" ? req.query.status : "";
+  const allowed = ["aberta", "em_analise", "aguardando_comprador", "resolvida", "rejeitada"];
+  if (status && !allowed.includes(status)) return void res.status(422).json({ error: "Filtro de status inválido." });
+  const result = await pool.query(
+    `SELECT d.id,d.order_type,d.order_id,d.reason_code,d.description,d.evidence_url,d.status,d.vendor_response,d.vendor_responded_at,
+            d.resolution_text,d.created_at,d.updated_at,d.resolved_at,d.vendor_id,
+            c.name AS buyer_name,c.email AS buyer_email,
+            COALESCE(q.protocol,r.code) AS order_code,
+            COALESCE(q.title,r.item_name) AS item_title,
+            COALESCE(q.location,concat(r.city,', ',r.state)) AS location
+     FROM praca_order_disputes d
+     JOIN consumers c ON c.id=d.consumer_id
+     LEFT JOIN quote_requests q ON d.order_type='quote' AND q.id=d.order_id
+     LEFT JOIN buying_round_orders o ON d.order_type='round' AND o.id=d.order_id
+     LEFT JOIN buying_rounds r ON r.id=o.round_id
+     WHERE ($1='' OR d.status=$1)
+     ORDER BY CASE WHEN d.status IN ('aberta','em_analise','aguardando_comprador') THEN 0 ELSE 1 END,
+              d.created_at DESC LIMIT 300`,
+    [status],
+  );
+  res.set("Cache-Control", "no-store").json(result.rows);
+});
+
+router.patch("/admin/marketplace-disputas/:id", async (req, res): Promise<void> => {
+  const id = String(req.params.id ?? "");
+  const status = String(req.body?.status ?? "");
+  const note = typeof req.body?.resolutionText === "string" ? req.body.resolutionText.trim().slice(0, 3000) : "";
+  if (!/^[0-9a-f-]{36}$/i.test(id) || !["em_analise", "aguardando_comprador", "resolvida", "rejeitada"].includes(status)) {
+    return void res.status(422).json({ error: "Atualização de disputa inválida." });
+  }
+  if (["aguardando_comprador", "resolvida", "rejeitada"].includes(status) && note.length < 8) {
+    return void res.status(422).json({ error: "Registre uma observação antes de solicitar resposta ou concluir a disputa." });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const existing = await client.query("SELECT status FROM praca_order_disputes WHERE id=$1 FOR UPDATE", [id]);
+    if (!existing.rows[0]) { await client.query("ROLLBACK"); return void res.status(404).json({ error: "Disputa não encontrada." }); }
+    const fromStatus = String(existing.rows[0].status);
+    if (["resolvida", "rejeitada"].includes(fromStatus)) {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "Uma disputa concluída não pode ser alterada." });
+    }
+    const allowedTransitions: Record<string, string[]> = {
+      aberta: ["em_analise"],
+      em_analise: ["aguardando_comprador", "resolvida", "rejeitada"],
+      aguardando_comprador: ["em_analise", "resolvida", "rejeitada"],
+    };
+    if (!(allowedTransitions[fromStatus] ?? []).includes(status)) {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "Transição de status inválida para esta disputa." });
+    }
+    const updated = await client.query(
+      `UPDATE praca_order_disputes SET status=$2,resolution_text=$3,updated_at=now(),
+         resolved_at=CASE WHEN $2 IN ('resolvida','rejeitada') THEN now() ELSE NULL END
+       WHERE id=$1 RETURNING id,status,resolution_text,updated_at,resolved_at`,
+      [id, status, note || null],
+    );
+    await client.query(
+      `INSERT INTO praca_order_dispute_events(dispute_id,from_status,to_status,actor_type,note)
+       VALUES($1,$2,$3,'admin',$4)`,
+      [id, fromStatus, status, note || null],
+    );
+    await client.query("COMMIT");
+    res.json(updated.rows[0]);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("[admin] marketplace dispute update failed:", error);
+    res.status(500).json({ error: "Não foi possível atualizar a disputa." });
+  } finally { client.release(); }
 });
 
 /**

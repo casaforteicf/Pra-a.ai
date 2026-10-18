@@ -166,4 +166,69 @@ router.patch("/internal/vendor-orders/:type/:id/fulfillment", async (req, res): 
   }
 });
 
+router.get("/internal/vendor-disputes", async (req, res): Promise<void> => {
+  if (!authorized(req, res)) return;
+  const vendorId = typeof req.query.tenantId === "string" ? req.query.tenantId.trim() : "";
+  if (!vendorId) return void res.status(422).json({ error: "Loja inválida." });
+  try {
+    const result = await pool.query(
+      `SELECT d.id,d.order_type,d.order_id,d.reason_code,d.description,d.evidence_url,d.status,
+              d.vendor_response,d.vendor_responded_at,d.resolution_text,d.created_at,
+              c.name AS buyer_name,COALESCE(q.protocol,r.code) AS order_code,
+              COALESCE(q.title,r.item_name) AS item_title
+       FROM praca_order_disputes d
+       JOIN consumers c ON c.id=d.consumer_id
+       LEFT JOIN quote_requests q ON d.order_type='quote' AND q.id=d.order_id
+       LEFT JOIN buying_round_orders o ON d.order_type='round' AND o.id=d.order_id
+       LEFT JOIN buying_rounds r ON r.id=o.round_id
+       WHERE d.vendor_id=$1 ORDER BY CASE WHEN d.status IN ('aberta','em_analise','aguardando_comprador') THEN 0 ELSE 1 END,d.created_at DESC LIMIT 100`,
+      [vendorId],
+    );
+    res.set("Cache-Control", "no-store").json(result.rows);
+  } catch (error) {
+    console.error("[praca-fulfillment] vendor disputes failed:", error);
+    res.status(500).json({ error: "Não foi possível carregar as disputas Praça.ai." });
+  }
+});
+
+router.patch("/internal/vendor-disputes/:id/response", async (req, res): Promise<void> => {
+  if (!authorized(req, res)) return;
+  const id = String(req.params.id ?? "");
+  const vendorId = normalizeText(req.body?.tenantId, 180);
+  const responseText = typeof req.body?.response === "string" ? req.body.response.trim() : "";
+  if (!UUID_PATTERN.test(id) || !vendorId || responseText.length < 12 || responseText.length > 3000) {
+    return void res.status(422).json({ error: "Escreva uma resposta de 12 a 3.000 caracteres." });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const existing = await client.query("SELECT status,vendor_response FROM praca_order_disputes WHERE id=$1 AND vendor_id=$2 FOR UPDATE", [id, vendorId]);
+    if (!existing.rows[0]) { await client.query("ROLLBACK"); return void res.status(404).json({ error: "Disputa não encontrada para esta loja." }); }
+    if (["resolvida", "rejeitada"].includes(String(existing.rows[0].status))) {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "A disputa já foi concluída." });
+    }
+    if (existing.rows[0].vendor_response) {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "A loja já respondeu. Aguarde a análise da plataforma." });
+    }
+    const updated = await client.query(
+      `UPDATE praca_order_disputes SET vendor_response=$2,vendor_responded_at=now(),updated_at=now()
+       WHERE id=$1 RETURNING id,status,vendor_response,vendor_responded_at`,
+      [id, responseText],
+    );
+    await client.query(
+      `INSERT INTO praca_order_dispute_events(dispute_id,from_status,to_status,actor_type,note)
+       VALUES($1,$2,$2,'vendor',$3)`,
+      [id, String(existing.rows[0].status), responseText],
+    );
+    await client.query("COMMIT");
+    res.json(updated.rows[0]);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("[praca-fulfillment] vendor dispute response failed:", error);
+    res.status(500).json({ error: "Não foi possível registrar a resposta da loja." });
+  } finally { client.release(); }
+});
+
 export default router;

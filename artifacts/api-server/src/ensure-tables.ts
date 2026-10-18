@@ -168,6 +168,41 @@ ALTER TABLE buying_round_orders
   ADD COLUMN IF NOT EXISTS released_at timestamptz;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_buying_round_orders_asaas_charge
   ON buying_round_orders (asaas_charge_id) WHERE asaas_charge_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS praca_order_disputes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_type text NOT NULL CHECK (order_type IN ('quote','round')),
+  order_id uuid NOT NULL,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE RESTRICT,
+  vendor_id text NOT NULL,
+  reason_code text NOT NULL CHECK (reason_code IN ('nao_recebido','produto_danificado','produto_incompleto','produto_divergente','atraso','outro')),
+  description text NOT NULL,
+  evidence_url text,
+  vendor_response text,
+  vendor_responded_at timestamptz,
+  status text NOT NULL DEFAULT 'aberta' CHECK (status IN ('aberta','em_analise','aguardando_comprador','resolvida','rejeitada')),
+  resolution_text text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  resolved_at timestamptz,
+  UNIQUE (order_type, order_id, consumer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_praca_order_disputes_status_created
+  ON praca_order_disputes (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_praca_order_disputes_vendor
+  ON praca_order_disputes (vendor_id, status, created_at DESC);
+CREATE TABLE IF NOT EXISTS praca_order_dispute_events (
+  id bigserial PRIMARY KEY,
+  dispute_id uuid NOT NULL REFERENCES praca_order_disputes(id) ON DELETE CASCADE,
+  from_status text,
+  to_status text NOT NULL,
+  actor_type text NOT NULL CHECK (actor_type IN ('buyer','vendor','admin')),
+  actor_consumer_id integer REFERENCES consumers(id) ON DELETE SET NULL,
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_praca_order_dispute_events_dispute
+  ON praca_order_dispute_events (dispute_id, created_at);
 DO $$
 BEGIN
   IF EXISTS (
