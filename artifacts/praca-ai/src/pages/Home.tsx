@@ -39,7 +39,6 @@ export default function HomePage() {
   const [, navigate] = useLocation()
   const [search, setSearch] = React.useState("")
   const { city, state } = useMarketplaceCity()
-  const region = city ? `${city}${state ? `, ${state}` : ""}` : "Escolha sua cidade"
   const [homeData, setHomeData] = React.useState<any>(null)
   const [catalogData, setCatalogData] = React.useState<any>(null)
   const [homeLoading, setHomeLoading] = React.useState(false)
@@ -59,7 +58,7 @@ export default function HomePage() {
     const controller = new AbortController()
     setHomeLoading(true)
     setCatalogLoading(true)
-    Promise.all([
+    void Promise.all([
       fetch(`/api/home?${homeParams.toString()}`, { credentials: "include", signal: controller.signal }).then((r) => r.ok ? r.json() : Promise.reject(new Error("home"))).then(setHomeData).catch((e) => { if (e.name !== "AbortError") setHomeData(null) }).finally(() => setHomeLoading(false)),
       fetch(`/api/products?${params.toString()}`, { credentials: "include", signal: controller.signal }).then((r) => r.ok ? r.json() : Promise.reject(new Error("catalog"))).then(setCatalogData).catch((e) => { if (e.name !== "AbortError") setCatalogData(null) }).finally(() => setCatalogLoading(false)),
     ])
