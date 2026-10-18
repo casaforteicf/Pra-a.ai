@@ -18,16 +18,28 @@ router.post("/quotes", async (req, res): Promise<void> => {
     res.status(422).json({ error: "Preencha categoria, título, região e pelo menos um item." });
     return;
   }
+  if (date && (typeof date !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T12:00:00Z")) ||
+      new Date(date + "T12:00:00Z").toISOString().slice(0, 10) !== date ||
+      date < new Date().toISOString().slice(0, 10))) {
+    res.status(422).json({ error: "Informe uma data de compra válida, de hoje em diante." });
+    return;
+  }
+
+  if ([category, title, description, location].some((value) => typeof value === "string" && CONTACT_PATTERN.test(value)) ||
+      items.some((item: any) => [item?.description, item?.brand].some((value) => typeof value === "string" && CONTACT_PATTERN.test(value)))) {
+    res.status(422).json({ error: "Não inclua telefone ou e-mail nos detalhes da solicitação." });
+    return;
+  }
 
   const cleanItems = items
     .map((item: any) => ({
-      quantity: Number(String(item.quantity ?? "1").replace(",", ".")) || 1,
+      quantity: Number(String(item.quantity ?? "1").replace(",", ".")),
       unit: String(item.unit ?? "un").slice(0, 30),
       description: String(item.description ?? "").trim().slice(0, 500),
       brand: String(item.brand ?? "").trim().slice(0, 120) || null,
       productId: item.productId ? String(item.productId).slice(0, 100) : null,
     }))
-    .filter((item: any) => item.description);
+    .filter((item: any) => item.description && Number.isFinite(item.quantity) && item.quantity > 0 && item.quantity <= 1_000_000);
   if (!cleanItems.length) {
     res.status(422).json({ error: "Adicione pelo menos um item válido." });
     return;
@@ -59,6 +71,12 @@ router.post("/quotes", async (req, res): Promise<void> => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const recent = await client.query("SELECT COUNT(*)::int AS total FROM quote_requests WHERE consumer_id=$1 AND created_at>now()-interval '24 hours'", [consumerId]);
+    if (Number(recent.rows[0]?.total ?? 0) >= 5) {
+      await client.query("ROLLBACK");
+      res.status(429).json({ error: "Você atingiu o limite de cinco cotações por dia. Tente novamente amanhã." });
+      return;
+    }
     const protocol = `COT-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
     const inserted = await client.query<{ id: string }>(
       `INSERT INTO quote_requests
@@ -81,7 +99,14 @@ router.post("/quotes", async (req, res): Promise<void> => {
       );
     }
     await client.query("COMMIT");
-    res.status(201).json({ id: quoteId, protocol, recipients: vendorIds.length, status: vendorIds.length ? "distribuida" : "aguardando_fornecedores" });
+    const crmResults = await Promise.allSettled(vendorIds.map((vendorId) => notifyQuoteLead(quoteId, vendorId)));
+    const crmFailures = crmResults.filter((result) => result.status === "rejected").length;
+    if (crmFailures) console.error("[quotes] CRM notification pending for " + crmFailures + " vendor(s).");
+    res.status(201).json({
+      id: quoteId, protocol, recipients: vendorIds.length,
+      status: vendorIds.length ? "distribuida" : "aguardando_fornecedores",
+      crmPending: crmFailures,
+    });
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("[quotes] erro ao criar solicitação:", error);
