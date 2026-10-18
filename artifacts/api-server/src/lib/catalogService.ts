@@ -155,7 +155,7 @@ export async function getProductById(id: string) {
   return mapCatalogRow(result.rows[0]);
 }
 
-export async function getRealCategories(limit?: number) {
+export async function getRealCategories(limit?: number, city?: string) {
   const categoryHierarchy = ITEM_CATEGORIES.flatMap((department) =>
     expandCategorySlugs([slugify(department)]).map((subcategorySlug) => ({
       department,
@@ -179,6 +179,7 @@ export async function getRealCategories(limit?: number) {
        WHERE t.vende_no_praca_ai = true
          AND pc.ativo = true
          AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
+         AND ($3::text IS NULL OR lower(t.cidade)=lower($3))
        GROUP BY hierarquia.department
      )
      SELECT categoria.nome AS categoria_nome, COALESCE(contagens.product_count, 0)::int AS product_count
@@ -186,7 +187,7 @@ export async function getRealCategories(limit?: number) {
      LEFT JOIN contagens ON lower(contagens.nome) = lower(categoria.nome)
      ORDER BY categoria.ordem
      ${limit ? `LIMIT ${Number(limit)}` : ""}`,
-    [ITEM_CATEGORIES, JSON.stringify(categoryHierarchy)],
+    [ITEM_CATEGORIES, JSON.stringify(categoryHierarchy), city?.trim() || null],
   );
 
   return result.rows
@@ -203,7 +204,7 @@ export async function getRealCategories(limit?: number) {
     });
 }
 
-export async function getFeaturedProducts(limit = 6) {
+export async function getFeaturedProducts(limit = 6, city?: string) {
   const result = await vendorPool.query(
     `SELECT pc.*, cp.nome AS categoria_nome, t.nome_empresa
      FROM produtos_catalogo pc
@@ -224,7 +225,7 @@ export async function getFeaturedProducts(limit = 6) {
  * escrita. Já existe e já está conectada no catálogo (mapCatalogRow), só
  * faltava essa consulta específica.
  */
-export async function getPromotedProducts(limit = 8) {
+export async function getPromotedProducts(limit = 8, city?: string) {
   const result = await vendorPool.query(
     `SELECT pc.*, cp.nome AS categoria_nome, t.nome_empresa
      FROM produtos_catalogo pc
@@ -241,7 +242,7 @@ export async function getPromotedProducts(limit = 8) {
   return result.rows.map(mapCatalogRow);
 }
 
-export async function getProductsByCategoryName(categoriaNome: string, limit = 4) {
+export async function getProductsByCategoryName(categoriaNome: string, limit = 4, city?: string) {
   const categorySlugs = expandCategorySlugs([slugify(categoriaNome)]);
   const result = await vendorPool.query(
     `SELECT pc.*, cp.nome AS categoria_nome, t.nome_empresa
