@@ -10,7 +10,7 @@ type Round = {
   unit: string; city: string; state: string; neededAt: string; closesAt: string; totalQuantity: number
 }
 type RoundOrder = {
-  id: string; status: string; quantity: number; total: number; code: string; itemName: string
+  id: string; status: string; quantity: number; code: string; itemName: string
   unit: string; neededAt: string; total?: number | null; deliveryDays?: number | null; pixPayload?: string | null; pixQrcodeImage?: string | null; invoiceUrl?: string | null; vendor?: { id: string; name: string; storeUrl: string } | null
 }
 const SEGMENTS = ["Construção e agregados","Alvenaria","Elétrica e iluminação","Hidráulica e conexões","Cobertura e telhado","Acabamentos","Ferragens e EPI","Agro e indústria","Máquinas e equipamentos","Casa e decoração","Informática e eletrônicos","Alimentos e suprimentos"]
