@@ -211,9 +211,10 @@ export async function getFeaturedProducts(limit = 6, city?: string) {
      JOIN tenants t ON t.id = pc.tenant_id
      LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
      WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true) AND pc.destaque = true
+       AND ($2::text IS NULL OR lower(t.cidade)=lower($2))
      ORDER BY pc.created_at DESC
      LIMIT $1`,
-    [limit],
+    [limit, city?.trim() || null],
   );
   return result.rows.map(mapCatalogRow);
 }
@@ -235,9 +236,10 @@ export async function getPromotedProducts(limit = 8, city?: string) {
        AND pc.preco_promocional IS NOT NULL
        AND pc.promocao_ativa_ate IS NOT NULL
        AND pc.promocao_ativa_ate > now()
+       AND ($2::text IS NULL OR lower(t.cidade)=lower($2))
      ORDER BY pc.promocao_ativa_ate ASC
      LIMIT $1`,
-    [limit],
+    [limit, city?.trim() || null],
   );
   return result.rows.map(mapCatalogRow);
 }
@@ -251,9 +253,10 @@ export async function getProductsByCategoryName(categoriaNome: string, limit = 4
      LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
      WHERE t.vende_no_praca_ai = true AND pc.ativo = true AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
        AND lower(regexp_replace(unaccent(cp.nome), '[^a-zA-Z0-9]+', '-', 'g')) = ANY($1)
+       AND ($3::text IS NULL OR lower(t.cidade)=lower($3))
      ORDER BY pc.destaque DESC, pc.created_at DESC
      LIMIT $2`,
-    [categorySlugs, limit],
+    [categorySlugs, limit, city?.trim() || null],
   );
   return result.rows.map(mapCatalogRow);
 }
