@@ -256,7 +256,7 @@ router.post("/round-orders/:id/pay",async(req,res):Promise<void>=>{
   try {
     await client.query("BEGIN");
     const found=await client.query(
-      "SELECT o.id,o.status,o.total::text,o.asaas_charge_id,o.asaas_pix_payload,o.asaas_pix_qrcode_image,o.asaas_invoice_url,c.name,c.email,c.phone,c.cpf,r.code,r.item_name,r.unit FROM buying_round_orders o JOIN buying_round_participants p ON p.id=o.participant_id JOIN consumers c ON c.id=p.consumer_id JOIN buying_rounds r ON r.id=o.round_id WHERE o.id=$1 AND p.consumer_id=$2 FOR UPDATE OF o",
+      "SELECT o.id,o.status,o.total::text,o.payment_method,o.asaas_charge_id,o.asaas_pix_payload,o.asaas_pix_qrcode_image,o.asaas_invoice_url,c.name,c.email,c.phone,c.cpf,r.code,r.item_name,r.unit FROM buying_round_orders o JOIN buying_round_participants p ON p.id=o.participant_id JOIN consumers c ON c.id=p.consumer_id JOIN buying_rounds r ON r.id=o.round_id WHERE o.id=$1 AND p.consumer_id=$2 FOR UPDATE OF o",
       [req.params.id,consumer],
     );
     const order=found.rows[0];
@@ -264,7 +264,13 @@ router.post("/round-orders/:id/pay",async(req,res):Promise<void>=>{
     if(order.status!=="awaiting_payment") { await client.query("ROLLBACK"); return void res.status(409).json({error:"Este pedido não está aguardando pagamento."}); }
     if(order.asaas_charge_id) {
       await client.query("COMMIT");
-      return void res.json({id:order.id,status:order.status,pixPayload:order.asaas_pix_payload,pixQrcodeImage:order.asaas_pix_qrcode_image,invoiceUrl:order.asaas_invoice_url});
+      let pixPayload=order.asaas_pix_payload,pixQrcodeImage=order.asaas_pix_qrcode_image;
+      if(order.payment_method==="pix"&&!pixPayload) {
+        const pix=await getPixQrCode(String(order.asaas_charge_id));
+        pixPayload=pix.payload;pixQrcodeImage=pix.encodedImage;
+        await pool.query("UPDATE buying_round_orders SET asaas_pix_payload=$2,asaas_pix_qrcode_image=$3,updated_at=now() WHERE id=$1",[order.id,pixPayload,pixQrcodeImage]);
+      }
+      return void res.json({id:order.id,status:order.status,paymentMethod:order.payment_method,pixPayload,pixQrcodeImage,invoiceUrl:order.asaas_invoice_url});
     }
     const total=Number(order.total);
     if(!Number.isFinite(total)||total<5) { await client.query("ROLLBACK"); return void res.status(422).json({error:"O valor mínimo para cobrança é R$ 5,00."}); }
@@ -277,14 +283,19 @@ router.post("/round-orders/:id/pay",async(req,res):Promise<void>=>{
       description:"Rodada Praça.ai "+String(order.code)+" — "+String(order.item_name),
       externalReference:"PRACA_ROUND_ORDER:"+String(order.id),
     });
-    let pix:any=null;
-    if(method==="pix") pix=await getPixQrCode(charge.id);
     const invoiceUrl=method==="boleto"?(charge.bankSlipUrl??charge.invoiceUrl):charge.invoiceUrl;
+    // Persist the charge id before requesting the QR code. A transient QR API
+    // error can then be retried without creating a second live charge.
     await client.query(
-      "UPDATE buying_round_orders SET payment_method=$2,asaas_charge_id=$3,asaas_pix_payload=$4,asaas_pix_qrcode_image=$5,asaas_invoice_url=$6,updated_at=now() WHERE id=$1",
-      [order.id,method,charge.id,pix?.payload??null,pix?.encodedImage??null,invoiceUrl??null],
+      "UPDATE buying_round_orders SET payment_method=$2,asaas_charge_id=$3,asaas_invoice_url=$4,updated_at=now() WHERE id=$1",
+      [order.id,method,charge.id,invoiceUrl??null],
     );
     await client.query("COMMIT");
+    let pix:any=null;
+    if(method==="pix") {
+      pix=await getPixQrCode(charge.id);
+      await pool.query("UPDATE buying_round_orders SET asaas_pix_payload=$2,asaas_pix_qrcode_image=$3,updated_at=now() WHERE id=$1",[order.id,pix.payload,pix.encodedImage]);
+    }
     res.status(201).json({id:order.id,status:"awaiting_payment",paymentMethod:method,pixPayload:pix?.payload??null,pixQrcodeImage:pix?.encodedImage??null,invoiceUrl});
   } catch(error) {
     await client.query("ROLLBACK");
