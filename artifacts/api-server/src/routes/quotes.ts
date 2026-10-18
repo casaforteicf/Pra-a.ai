@@ -426,14 +426,13 @@ router.post("/quotes/:id/pay", async (req, res): Promise<void> => {
     const found = await client.query(
       `SELECT q.id,q.status,q.payment_method,q.asaas_charge_id,q.asaas_pix_payload,q.asaas_pix_qrcode_image,q.asaas_invoice_url,
               c.name,c.email,c.phone,c.cpf,
-              (COALESCE(sum(oi.unit_price * qi.quantity),0)+o.freight)::numeric(12,2)::text AS total
+              ((SELECT COALESCE(sum(oi.unit_price * qi.quantity),0)
+                FROM quote_offer_items oi JOIN quote_request_items qi ON qi.id=oi.request_item_id
+                WHERE oi.offer_id=o.id)+o.freight)::numeric(12,2)::text AS total
        FROM quote_requests q
        JOIN consumers c ON c.id=q.consumer_id
        JOIN quote_offers o ON o.quote_request_id=q.id AND o.status='aceita'
-       LEFT JOIN quote_offer_items oi ON oi.offer_id=o.id
-       LEFT JOIN quote_request_items qi ON qi.id=oi.request_item_id
        WHERE q.id=$1 AND q.consumer_id=$2
-       GROUP BY q.id,c.id,o.id
        FOR UPDATE OF q`,
       [req.params.id, buyer],
     );
