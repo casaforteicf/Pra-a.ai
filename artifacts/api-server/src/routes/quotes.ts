@@ -276,10 +276,12 @@ router.get("/quotes/:id", async (req, res): Promise<void> => {
         const store = await vendorPool.query("SELECT id,nome_empresa FROM tenants WHERE id=$1 AND vende_no_praca_ai=true", [offer.vendor_id]);
         if (store.rows[0]) vendor = { id: store.rows[0].id, name: store.rows[0].nome_empresa };
       }
+      const itemPrices = await pool.query("SELECT oi.request_item_id,oi.unit_price::text,qi.quantity::text,qi.unit,qi.description FROM quote_offer_items oi JOIN quote_request_items qi ON qi.id=oi.request_item_id WHERE oi.offer_id=$1 ORDER BY qi.id", [offer.id]);
       visibleOffers.push({
         id: offer.id, subtotal: Number(offer.subtotal), freight: Number(offer.freight),
         total: Number(offer.subtotal) + Number(offer.freight), deliveryDays: Number(offer.delivery_days),
         terms: offer.terms, status: offer.status, createdAt: offer.created_at, vendor,
+        items: itemPrices.rows.map((item) => ({ itemId: item.request_item_id, unitPrice: Number(item.unit_price), quantity: Number(item.quantity), unit: item.unit, description: item.description })),
       });
     }
     res.set("Cache-Control", "no-store").json({
