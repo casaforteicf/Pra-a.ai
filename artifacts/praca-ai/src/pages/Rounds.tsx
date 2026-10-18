@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ArrowRight, BadgeCheck, Building2, ChevronDown, CircleDollarSign, Clock3, Package, Search, ShieldCheck, Store, Users } from "lucide-react"
+import { ArrowRight, Building2, ChevronDown, CircleDollarSign, Clock3, Package, Search, ShieldCheck, Store, Users } from "lucide-react"
 import { Link } from "wouter"
 
 const SEGMENTS = [
