@@ -53,7 +53,7 @@ export default function QuoteTracking() {
   const deadline = (value: string) => new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" }).format(new Date(value + "T12:00:00"));
 
   return <div className="min-h-full bg-[#F8FAFC] text-[#0B2240]">
-    <header className="border-b border-[#E5EAF0] bg-white"><div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4"><Link href="/"><span className="font-[Manrope] text-xl font-extrabold">Praça<span className="text-[#10BFA9]">.ai</span></span></Link><Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-600"><ArrowLeft className="h-4 w-4"/>Início</Link></div></header>
+    <header className="border-b border-[#E5EAF0] bg-white"><div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4"><Link href="/"><span className="font-[Manrope] text-xl font-extrabold">Praça<span className="text-[#10BFA9]">.ai</span></span></Link><div className="flex items-center gap-4"><Link href="/minhas-cotacoes" className="text-sm font-bold text-[#087E8B]">Minhas cotações</Link><Link href="/" className="inline-flex items-center gap-2 text-sm font-bold text-slate-600"><ArrowLeft className="h-4 w-4"/>Início</Link></div></div></header>
     <main className="mx-auto max-w-5xl px-4 py-8 pb-16">
       {loading ? <div className="rounded-2xl border bg-white p-8">Carregando cotação…</div>
       : error && !quote ? <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800"><p className="font-bold">{error}</p><p className="mt-2 text-sm">Se você ainda não entrou, <Link className="underline" href={"/login?returnTo=" + encodeURIComponent("/cotacao/" + id)}>acesse sua conta</Link>.</p></div>
