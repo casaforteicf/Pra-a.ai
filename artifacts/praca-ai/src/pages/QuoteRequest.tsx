@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, CalendarDays, Camera, Check, ClipboardList, File
 import { Link, useLocation } from "wouter"
 import { useAuth } from "@/contexts/AuthContext"
 import { PracaLogo } from "@/components/brand/PracaLogo"
+import { useMarketplaceCity } from "@/lib/marketplace-city"
 
 const DRAFT_KEY = "praca-ai-quote-draft"
 const UNITS = ["un", "cx", "kg", "m", "m²", "m³", "L", "saco", "rolo", "serviço", "milheiro", "par"]
@@ -84,6 +85,7 @@ async function readImage(file: File, onProgress: (value: number) => void) {
 export default function QuoteRequest() {
   const [, navigate] = useLocation()
   const { user } = useAuth()
+  const { city, state } = useMarketplaceCity()
   const fileInput = React.useRef<HTMLInputElement>(null)
   const cameraInput = React.useRef<HTMLInputElement>(null)
   const [saved, setSaved] = React.useState(false)
@@ -94,6 +96,9 @@ export default function QuoteRequest() {
   const [form, setForm] = React.useState<QuoteDraft>(() => {
     try { return JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "{}") as QuoteDraft } catch { return {} }
   })
+  React.useEffect(() => {
+    if (!form.location && city) update("location", `${city}${state ? `, ${state}` : ""}`)
+  }, [city, state])
   const items = (form.items ?? []).map((item) => ({ ...item, brand: item.brand ?? "" }))
   const update = (field: keyof QuoteDraft, value: QuoteDraft[keyof QuoteDraft]) => setForm((current) => ({ ...current, [field]: value }))
   const updateItem = (id: string, field: keyof QuoteItem, value: string) => update("items", items.map((item) => item.id === id ? { ...item, [field]: value } : item))
@@ -174,8 +179,8 @@ export default function QuoteRequest() {
             <button type="button" disabled={!form.category} onClick={()=>update("items", [...items, newItem()])} className="flex items-center gap-2 text-sm font-extrabold text-[#0077FF] disabled:opacity-50"><Plus className="h-4 w-4" />Adicionar nova linha</button>
           </div>
           <label className="block text-sm font-bold">Observações <span className="font-normal text-slate-400">(opcional)</span><textarea value={form.description ?? ""} onChange={(event)=>update("description",event.target.value)} placeholder="Marcas preferidas, medidas ou detalhes importantes" className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 p-3 font-normal" /></label>
-          <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-bold"><MapPin className="mr-1 inline h-4 w-4" />Cidade ou região<input required value={form.location ?? "Chapecó, SC"} onChange={(event)=>update("location",event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-3 font-normal" /></label><label className="text-sm font-bold"><CalendarDays className="mr-1 inline h-4 w-4" />Quando precisa?<input type="date" value={form.date ?? ""} onChange={(event)=>update("date",event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-3 font-normal" /></label></div>
-          <div className="rounded-2xl bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600"><Image className="mr-2 inline h-4 w-4 text-[#0077FF]" />Fotos e documentos são processados neste dispositivo. Seu rascunho fica salvo localmente.<p className="mt-2"><strong>Privacidade:</strong> lojistas recebem a lista e a cidade ou região. Nome, telefone e e-mail ficam ocultos até você aceitar uma proposta. Não informe endereço completo.</p></div>
+          <div className="grid gap-4 sm:grid-cols-2"><label className="text-sm font-bold"><MapPin className="mr-1 inline h-4 w-4" />Cidade ou região<input required value={form.location ?? ""} onChange={(event)=>update("location",event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-3 font-normal" /></label><label className="text-sm font-bold"><CalendarDays className="mr-1 inline h-4 w-4" />Quando precisa?<input type="date" value={form.date ?? ""} onChange={(event)=>update("date",event.target.value)} className="mt-2 h-12 w-full rounded-xl border border-slate-300 px-3 font-normal" /></label></div>
+          <div className="rounded-2xl bg-[#F8FAFC] p-4 text-sm leading-6 text-slate-600"><Image className="mr-2 inline h-4 w-4 text-[#0077FF]" />Fotos e documentos são processados neste dispositivo. Seu rascunho fica salvo localmente.<p className="mt-2"><strong>Privacidade:</strong> lojistas recebem a lista e a cidade selecionada. Nome, telefone e e-mail ficam ocultos até você aceitar uma proposta. Não informe endereço completo.</p></div>
           <button type="submit" disabled={Boolean(processing)} className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0077FF] px-5 py-3.5 font-extrabold text-white shadow-[0_8px_22px_rgba(0,119,255,.25)] disabled:cursor-wait disabled:opacity-60">{user ? "Salvar solicitação" : "Continuar e identificar-me"}<ArrowRight className="h-4 w-4" /></button>
         </form>}
       </section>
