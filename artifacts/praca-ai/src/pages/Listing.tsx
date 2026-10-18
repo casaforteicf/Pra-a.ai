@@ -366,7 +366,7 @@ export default function ListingPage() {
   const [returnDate, setReturnDate] = React.useState("")
   const [passengers, setPassengers] = React.useState("1 passageiro")
 
-  const requestParams = { category: categorySlug, search: submittedSearch || undefined, vendorId, sort, limit: 40, cidade: city || undefined }
+  const requestParams = { category: categorySlug, search: submittedSearch || undefined, vendorId, sort, limit: 40, cidade: city || undefined, estado: state || undefined }
   const { data: listData, isLoading, isError } = useListProducts(requestParams, {
     query: { queryKey: getListProductsQueryKey(requestParams), enabled: Boolean(city) },
   })
