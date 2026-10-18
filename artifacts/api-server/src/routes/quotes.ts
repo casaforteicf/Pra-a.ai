@@ -477,6 +477,26 @@ router.post("/quotes/:id/pay", async (req, res): Promise<void> => {
   } finally { client.release(); }
 });
 
+router.post("/quotes/:id/confirm-delivery", async (req, res): Promise<void> => {
+  const buyer = consumerId(req);
+  if (!buyer) return void res.status(401).json({ error: "Entre na sua conta para confirmar a entrega." });
+  try {
+    const delivered = await pool.query(
+      "UPDATE quote_requests q SET status='delivered',delivered_at=COALESCE(delivered_at,now()) WHERE q.id=$1 AND q.consumer_id=$2 AND q.status='paid' RETURNING q.id",
+      [req.params.id, buyer],
+    );
+    if (delivered.rows[0]) return void res.json({ id: req.params.id, status: "delivered", payoutStatus: "pending" });
+    const existing = await pool.query("SELECT status FROM quote_requests WHERE id=$1 AND consumer_id=$2", [req.params.id, buyer]);
+    if (existing.rows[0]?.status === "delivered" || existing.rows[0]?.status === "released") {
+      return void res.json({ id: req.params.id, status: existing.rows[0].status, payoutStatus: existing.rows[0].status === "released" ? "released" : "pending" });
+    }
+    return void res.status(409).json({ error: "A entrega só pode ser confirmada após o pagamento." });
+  } catch (error) {
+    console.error("[quotes] delivery confirmation failed:", error);
+    return void res.status(500).json({ error: "Não foi possível confirmar a entrega agora." });
+  }
+});
+
 router.get("/internal/quotes", async (req, res): Promise<void> => {
   if (!validVendorToken(req, res)) return;
   const tenantId = typeof req.query.tenantId === "string" ? req.query.tenantId.trim() : "";
