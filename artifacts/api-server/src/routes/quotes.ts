@@ -58,7 +58,9 @@ router.post("/quotes", async (req, res): Promise<void> => {
   }
 
   const searchable = cleanItems.map((item: any) => item.description).join(" ").slice(0, 1500);
-  const quoteCity = String(location).split(/[,/|]/)[0]?.trim().slice(0, 100) ?? "";
+  const quoteLocationParts = String(location).split(/[,/|]/).map((part) => part.trim());
+  const quoteCity = quoteLocationParts[0]?.slice(0, 100) ?? "";
+  const quoteUf = quoteLocationParts[1]?.slice(0, 2).toUpperCase() ?? "";
   let vendorIds: string[] = [];
   try {
     const vendors = await vendorPool.query<{ id: string }>(
@@ -69,13 +71,14 @@ router.post("/quotes", async (req, res): Promise<void> => {
        WHERE t.vende_no_praca_ai = true AND pc.ativo = true
          AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
          AND lower(trim(coalesce(t.cidade, ''))) = lower($3)
+         AND upper(trim(coalesce(t.estado, ''))) = upper($4)
          AND (
            lower(coalesce(cp.nome, '')) LIKE lower($1)
            OR to_tsvector('portuguese', coalesce(pc.nome, '') || ' ' || coalesce(pc.descricao, ''))
               @@ plainto_tsquery('portuguese', $2)
          )
        LIMIT 30`,
-      [`%${String(category).slice(0, 120)}%`, searchable, quoteCity],
+      [`%${String(category).slice(0, 120)}%`, searchable, quoteCity, quoteUf],
     );
     vendorIds = vendors.rows.map((row) => row.id);
   } catch (error) {
