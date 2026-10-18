@@ -25,22 +25,22 @@ type CatalogProduct = { id: string; name: string; specs?: { label: string; value
 const newItem = (description = "", quantity = "1", unit = "un"): QuoteItem => ({ id: crypto.randomUUID(), quantity, unit, description, brand: "" })
 
 function ProductDescriptionCell({ item, index, onChange, onSelect }: { item: QuoteItem; index: number; onChange: (value: string) => void; onSelect: (product: CatalogProduct) => void }) {
-  const { city } = useMarketplaceCity()
+  const { city, state } = useMarketplaceCity()
   const [suggestions, setSuggestions] = React.useState<CatalogProduct[]>([])
   const [open, setOpen] = React.useState(false)
   const query = item.description.trim()
 
   React.useEffect(() => {
-    if (query.length < 2 || !city) { setSuggestions([]); setOpen(false); return }
+    if (query.length < 2 || !city || !state) { setSuggestions([]); setOpen(false); return }
     const controller = new AbortController()
     const timer = window.setTimeout(() => {
-      fetch(`/api/products?search=${encodeURIComponent(query)}&limit=6&cidade=${encodeURIComponent(city)}`, { signal: controller.signal })
+      fetch(`/api/products?search=${encodeURIComponent(query)}&limit=6&cidade=${encodeURIComponent(city)}&estado=${encodeURIComponent(state)}`, { signal: controller.signal })
         .then((response) => response.ok ? response.json() : Promise.reject(new Error("search failed")))
         .then((data) => { setSuggestions(data.products ?? []); setOpen(true) })
         .catch((cause) => { if (cause instanceof Error && cause.name !== "AbortError") setSuggestions([]) })
     }, 300)
     return () => { window.clearTimeout(timer); controller.abort() }
-  }, [query, city])
+  }, [query, city, state])
 
   return <div className="relative"><input aria-label={`Descrição do item ${index+1}`} role="combobox" aria-expanded={open && suggestions.length > 0} aria-controls={`product-suggestions-${item.id}`} autoComplete="off" value={item.description} onFocus={()=>suggestions.length && setOpen(true)} onBlur={()=>window.setTimeout(()=>setOpen(false),150)} onChange={(event)=>onChange(event.target.value)} placeholder="Digite para buscar no catálogo" className="h-10 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-900 focus:border-[#0077FF] focus:outline-none" />
     {open && suggestions.length ? <div id={`product-suggestions-${item.id}`} role="listbox" className="absolute left-0 right-0 top-11 z-30 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl">{suggestions.map((product)=>{ const brand = product.specs?.find((spec)=>spec.label.toLowerCase()==="marca")?.value; return <button key={product.id} type="button" role="option" aria-selected="false" onMouseDown={(event)=>event.preventDefault()} onClick={()=>{onSelect(product);setOpen(false)}} className="block w-full rounded-lg px-3 py-2 text-left hover:bg-blue-50"><span className="block text-sm font-bold text-[#0b2742]">{product.name}</span><span className="block text-xs text-slate-500">{[brand,product.vendorName].filter(Boolean).join(" · ")}</span></button>})}</div> : null}
