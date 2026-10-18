@@ -65,6 +65,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import { useMarketplaceCity } from "@/lib/marketplace-city"
 
 const STATIONERY_SLUG = "arte-papelaria-e-armarinho"
 const BABY_SLUG = "bebes"
@@ -316,6 +317,7 @@ const sortOptions: Array<{ label: string; value: ListProductsSort }> = [
 
 export default function ListingPage() {
   const [, setLocation] = useLocation()
+  const { city, state } = useMarketplaceCity()
   const searchParams = new URLSearchParams(window.location.search)
   const categorySlug = searchParams.get("category") || undefined
   const vendorId = searchParams.get("vendorId") || undefined
@@ -363,9 +365,9 @@ export default function ListingPage() {
   const [returnDate, setReturnDate] = React.useState("")
   const [passengers, setPassengers] = React.useState("1 passageiro")
 
-  const requestParams = { category: categorySlug, search: submittedSearch || undefined, vendorId, sort, limit: 40 }
+  const requestParams = { category: categorySlug, search: submittedSearch || undefined, vendorId, sort, limit: 40, cidade: city || undefined }
   const { data: listData, isLoading, isError } = useListProducts(requestParams, {
-    query: { queryKey: getListProductsQueryKey(requestParams) },
+    query: { queryKey: getListProductsQueryKey(requestParams), enabled: Boolean(city) },
   })
 
   const submitSearch = (event?: React.FormEvent) => {
