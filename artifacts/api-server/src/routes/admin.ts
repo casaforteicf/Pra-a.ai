@@ -120,6 +120,8 @@ router.get("/admin/marketplace-disputas", async (req, res): Promise<void> => {
   if (status && !allowed.includes(status)) return void res.status(422).json({ error: "Filtro de status inválido." });
   const result = await pool.query(
     `SELECT d.id,d.order_type,d.order_id,d.reason_code,d.description,d.evidence_url,d.status,d.vendor_response,d.vendor_responded_at,
+            (SELECT e.note FROM praca_order_dispute_events e WHERE e.dispute_id=d.id AND e.actor_type='buyer'
+             AND e.from_status='aguardando_comprador' ORDER BY e.created_at DESC,e.id DESC LIMIT 1) AS buyer_response,
             d.resolution_text,d.created_at,d.updated_at,d.resolved_at,d.vendor_id,
             c.name AS buyer_name,c.email AS buyer_email,
             COALESCE(q.protocol,r.code) AS order_code,

@@ -105,7 +105,49 @@ router.get("/marketplace-orders/:type/:id/disputa", async (req, res): Promise<vo
      FROM praca_order_disputes WHERE order_type=$1 AND order_id=$2 AND consumer_id=$3 LIMIT 1`,
     [type, orderId, buyerId],
   );
-  res.set("Cache-Control", "no-store").json(result.rows[0] ?? null);
+  const dispute = result.rows[0];
+  const events = dispute ? await pool.query(
+    `SELECT id,actor_type AS "actorType",note,created_at AS "createdAt"
+     FROM praca_order_dispute_events WHERE dispute_id=$1 ORDER BY created_at,id`, [dispute.id],
+  ) : { rows: [] };
+  res.set("Cache-Control", "no-store").json(dispute ? { ...dispute, events: events.rows } : null);
+});
+
+router.post("/marketplace-orders/:type/:id/disputa/resposta", async (req, res): Promise<void> => {
+  const buyerId = consumerId(req);
+  if (!buyerId) return void res.status(401).json({ error: "Entre na sua conta para responder à disputa." });
+  const type = String(req.params.type ?? ""), orderId = String(req.params.id ?? "");
+  const response = typeof req.body?.response === "string" ? req.body.response.trim() : "";
+  if (!["quote", "round"].includes(type) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId) || response.length < 12 || response.length > 3000) {
+    return void res.status(422).json({ error: "Informe um pedido válido e uma resposta de 12 a 3.000 caracteres." });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const owned = await marketplaceOrder(client, type, orderId, buyerId, true);
+    if (!owned.rows[0]) { await client.query("ROLLBACK"); return void res.status(404).json({ error: "Pedido não encontrado." }); }
+    const result = await client.query(
+      "SELECT id,status FROM praca_order_disputes WHERE order_type=$1 AND order_id=$2 AND consumer_id=$3 FOR UPDATE",
+      [type, orderId, buyerId],
+    );
+    const dispute = result.rows[0];
+    if (!dispute) { await client.query("ROLLBACK"); return void res.status(404).json({ error: "Disputa não encontrada." }); }
+    if (dispute.status !== "aguardando_comprador") {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "A disputa não está aguardando sua resposta. Atualize o pedido para acompanhar a análise." });
+    }
+    await client.query(
+      "INSERT INTO praca_order_dispute_events(dispute_id,from_status,to_status,actor_type,actor_consumer_id,note) VALUES($1,'aguardando_comprador','em_analise','buyer',$2,$3)",
+      [dispute.id, buyerId, response],
+    );
+    await client.query("UPDATE praca_order_disputes SET status='em_analise',updated_at=now() WHERE id=$1", [dispute.id]);
+    await client.query("COMMIT");
+    res.set("Cache-Control", "no-store").json({ id: dispute.id, status: "em_analise" });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("[disputes] buyer response failed:", error);
+    res.status(500).json({ error: "Não foi possível registrar sua resposta agora." });
+  } finally { client.release(); }
 });
 
 router.post("/orders/:id/disputa", async (req, res): Promise<void> => {
