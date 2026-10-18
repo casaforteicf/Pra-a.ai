@@ -116,6 +116,17 @@ async function closeExpired(): Promise<void> {
   } finally { client.release(); }
 }
 
+// The API is a long-running Express service. A small unref'ed worker closes
+// rounds on their deadline even when no buyer or seller is viewing the page.
+// Row locks with SKIP LOCKED make this safe across multiple API instances.
+const roundWorkerHost = globalThis as typeof globalThis & { __pracaAiRoundCloser?: ReturnType<typeof setInterval> };
+if (!roundWorkerHost.__pracaAiRoundCloser) {
+  roundWorkerHost.__pracaAiRoundCloser = setInterval(() => {
+    void closeExpired().catch((error) => console.error("[rounds] scheduled close failed:", error));
+  }, 30_000);
+  roundWorkerHost.__pracaAiRoundCloser.unref?.();
+}
+
 router.get("/rounds", async (req,res):Promise<void>=>{
   try {
     await closeExpired();
