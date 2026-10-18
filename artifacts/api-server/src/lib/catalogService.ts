@@ -236,10 +236,10 @@ export async function getPromotedProducts(limit = 8, city?: string, state?: stri
        AND pc.preco_promocional IS NOT NULL
        AND pc.promocao_ativa_ate IS NOT NULL
        AND pc.promocao_ativa_ate > now()
-       AND ($2::text IS NULL OR lower(t.cidade)=lower($2))
+       AND ($2::text IS NULL OR ($3::text IS NOT NULL AND lower(trim(t.cidade))=lower($2) AND upper(trim(t.estado))=upper($3)))
      ORDER BY pc.promocao_ativa_ate ASC
      LIMIT $1`,
-    [limit, city?.trim() || null],
+    [limit, city?.trim() || null, state?.trim() || null],
   );
   return result.rows.map(mapCatalogRow);
 }
