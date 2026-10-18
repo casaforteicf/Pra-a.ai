@@ -1,7 +1,7 @@
 import * as React from "react"
 import { ArrowRight, BadgeCheck, Building2, Car, ChevronDown, ClipboardList, CreditCard, Grid2X2, Hammer, Headphones, Heart, Home, Laptop, Leaf, Menu, Package, Search, ShieldCheck, Shirt, ShoppingCart, Store, Truck, User, Users, Wrench, X } from "lucide-react"
 import { getGetCartQueryKey, getListFavoritesQueryKey, useGetCart, useListFavorites } from "@workspace/api-client-react"
-import type { Product } from "@workspace/api-client-react"
+import type { HomeData, Product, ProductListResponse } from "@workspace/api-client-react"
 import { Link, useLocation } from "wouter"
 import { ProductCard, type ProductCardData } from "@/components/ProductCard"
 import { PageLoader } from "@/components/ui/skeleton"
@@ -39,8 +39,8 @@ export default function HomePage() {
   const [, navigate] = useLocation()
   const [search, setSearch] = React.useState("")
   const { city, state } = useMarketplaceCity()
-  const [homeData, setHomeData] = React.useState<any>(null)
-  const [catalogData, setCatalogData] = React.useState<any>(null)
+  const [homeData, setHomeData] = React.useState<HomeData | null>(null)
+  const [catalogData, setCatalogData] = React.useState<ProductListResponse | null>(null)
   const [homeLoading, setHomeLoading] = React.useState(false)
   const [catalogLoading, setCatalogLoading] = React.useState(false)
   const [menuOpen, setMenuOpen] = React.useState(false)
