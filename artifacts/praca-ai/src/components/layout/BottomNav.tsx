@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Link, useLocation } from "wouter"
-import { Home, Search, User, ShoppingCart, ClipboardList, Users } from "lucide-react"
+import { Home, User, ShoppingCart, ClipboardList, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PracaLogo } from "@/components/brand/PracaLogo"
 
