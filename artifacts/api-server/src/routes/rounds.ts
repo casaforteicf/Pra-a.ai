@@ -165,10 +165,14 @@ router.post("/rounds",async(req,res):Promise<void>=>{
     const found=await client.query("SELECT id,code,closes_at FROM buying_rounds WHERE status='open' AND closes_at>now() AND lower(category)=lower($1) AND lower(item_name)=lower($2) AND lower(COALESCE(specification,''))=lower($3) AND lower(unit)=lower($4) AND lower(city)=lower($5) AND state=$6 AND needed_at=$7::date ORDER BY created_at LIMIT 1 FOR UPDATE",[category,item,spec,unit,city,state,needed]);
     let round=found.rows[0],created=false;
     if(!round){
+      const recent=await client.query("SELECT COUNT(*)::int AS n FROM buying_rounds WHERE created_by_consumer_id=$1 AND created_at>now()-interval '24 hours'",[consumer]);
+      if(Number(recent.rows[0]?.n??0)>=5){await client.query("ROLLBACK");return void res.status(429).json({error:"Você atingiu o limite de cinco novas rodadas por dia. Tente novamente amanhã."});}
       const code="ROD-"+new Date().getFullYear()+"-"+randomBytes(3).toString("hex").toUpperCase();
       const inserted=await client.query("INSERT INTO buying_rounds(code,category,item_name,specification,unit,city,state,needed_at,closes_at,created_by_consumer_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8::date,now()+interval '48 hours',$9) RETURNING id,code,closes_at",[code,category,item,spec||null,unit,city,state,needed,consumer]);
       round=inserted.rows[0]; created=true;
     }
+    const activeCount=await client.query("SELECT COUNT(*)::int AS n FROM buying_round_participants p JOIN buying_rounds r ON r.id=p.round_id WHERE p.consumer_id=$1 AND r.status='open' AND r.closes_at>now()",[consumer]);
+    if(Number(activeCount.rows[0]?.n??0)>=5){await client.query("ROLLBACK");return void res.status(429).json({error:"Você pode participar de até cinco rodadas abertas por vez."});}
     const participant=await client.query("INSERT INTO buying_round_participants(round_id,consumer_id,quantity) VALUES($1,$2,$3) ON CONFLICT(round_id,consumer_id) DO NOTHING RETURNING id",[round.id,consumer,quantity]);
     if(!participant.rows[0]) { await client.query("ROLLBACK"); return void res.status(409).json({error:"Você já participa deste lote. Acompanhe em Minhas rodadas."}); }
     await client.query("COMMIT");
@@ -186,6 +190,8 @@ router.post("/rounds/:id/participations",async(req,res):Promise<void>=>{
   try {
     const active=await pool.query("SELECT id FROM buying_rounds WHERE id=$1 AND status='open' AND closes_at>now()",[req.params.id]);
     if(!active.rows[0]) return void res.status(404).json({error:"Este lote não está mais aberto."});
+    const activeCount=await pool.query("SELECT COUNT(*)::int AS n FROM buying_round_participants p JOIN buying_rounds r ON r.id=p.round_id WHERE p.consumer_id=$1 AND r.status='open' AND r.closes_at>now()",[consumer]);
+    if(Number(activeCount.rows[0]?.n??0)>=5) return void res.status(429).json({error:"Você pode participar de até cinco rodadas abertas por vez."});
     const joined=await pool.query("INSERT INTO buying_round_participants(round_id,consumer_id,quantity) VALUES($1,$2,$3) ON CONFLICT(round_id,consumer_id) DO NOTHING RETURNING id",[req.params.id,consumer,quantity]);
     if(!joined.rows[0]) return void res.status(409).json({error:"Você já participa deste lote."});
     res.status(201).json({participationId:joined.rows[0].id,roundId:req.params.id});
