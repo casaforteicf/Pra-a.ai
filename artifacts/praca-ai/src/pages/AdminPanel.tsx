@@ -479,14 +479,14 @@ function InteligenciaTab() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Marketplace e vendas concluídas</CardTitle>
-          <p className="text-sm text-muted-foreground">Pedidos do checkout convencional; concluído = status “entregue”. O valor não é conciliação financeira.</p>
+          <p className="text-sm text-muted-foreground">Pedidos do checkout convencional; concluído = status “entregue”. O fluxo de retenção/liberação ainda não está integrado a esta métrica.</p>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <MetricCard title="Pedidos recebidos" value={data.orders.total} detail="Todos os status no período" />
           <MetricCard title="Em andamento" value={data.orders.inProgress} detail="Confirmados ou em entrega" />
           <MetricCard title="Pagamento pendente" value={data.orders.paymentPending} detail="Requer acompanhamento" />
           <MetricCard title="Pedidos entregues" value={data.orders.delivered} detail="Status de entrega concluída" />
-          <MetricCard title="Valor entregue" value={fmt(data.orders.deliveredValue)} detail="Soma do total dos pedidos com status entregue" />
+          <MetricCard title="Valor entregue" value={fmt(data.orders.deliveredValue)} detail="Soma do total de pedidos entregues; não confirma valor liberado" />
         </CardContent>
       </Card>
 
