@@ -477,7 +477,7 @@ function InteligenciaTab() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader><CardTitle className="text-base">Categorias com demanda recorrente</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-base">Categorias de maior demanda no período</CardTitle></CardHeader>
           <CardContent className="space-y-3">
             {data.demandByCategory.length === 0 ? (
               <p className="text-sm text-muted-foreground">Ainda não há volume suficiente para mostrar categorias neste período.</p>
@@ -540,6 +540,9 @@ function AdminContent() {
           </TabsContent>
           <TabsContent value="comissoes" className="mt-4">
             <ComissoesTab />
+          </TabsContent>
+          <TabsContent value="inteligencia" className="mt-4">
+            <InteligenciaTab />
           </TabsContent>
         </Tabs>
       </div>
