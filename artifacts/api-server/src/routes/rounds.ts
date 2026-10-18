@@ -199,7 +199,7 @@ router.get("/round-orders",async(req,res):Promise<void>=>{
   if(!consumer) return void res.status(401).json({error:"Entre na sua conta para acompanhar suas rodadas."});
   try {
     await closeExpired();
-    const result=await pool.query("SELECT o.id,o.status,o.quantity::text,o.total::text,o.accepted_at,o.vendor_id,r.code,r.category,r.item_name,r.specification,r.unit,r.needed_at FROM buying_round_orders o JOIN buying_round_participants p ON p.id=o.participant_id JOIN buying_rounds r ON r.id=o.round_id WHERE p.consumer_id=$1 ORDER BY o.created_at DESC",[consumer]);
+    const result=await pool.query("SELECT COALESCE(o.id,p.id) AS id,COALESCE(o.status,CASE WHEN r.status='no_offers' THEN 'no_offers' WHEN r.status='open' THEN 'participating' ELSE 'closed' END) AS status,p.quantity::text,o.total::text,o.accepted_at,o.vendor_id,r.code,r.category,r.item_name,r.specification,r.unit,r.needed_at FROM buying_round_participants p JOIN buying_rounds r ON r.id=p.round_id LEFT JOIN buying_round_orders o ON o.participant_id=p.id WHERE p.consumer_id=$1 ORDER BY p.joined_at DESC",[consumer]);
     const response=[];
     for(const row of result.rows){
       let vendor=null;
@@ -207,7 +207,7 @@ router.get("/round-orders",async(req,res):Promise<void>=>{
         const store=await vendorPool.query("SELECT id,nome_empresa FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[row.vendor_id]);
         if(store.rows[0]) vendor={id:store.rows[0].id,name:store.rows[0].nome_empresa,storeUrl:"/listing?vendorId="+encodeURIComponent(String(store.rows[0].id))};
       }
-      response.push({id:row.id,status:row.status,quantity:Number(row.quantity),total:Number(row.total),acceptedAt:row.accepted_at,code:row.code,category:row.category,itemName:row.item_name,specification:row.specification,unit:row.unit,neededAt:row.needed_at,vendor});
+      response.push({id:row.id,status:row.status,quantity:Number(row.quantity),total:row.total===null?null:Number(row.total),acceptedAt:row.accepted_at,code:row.code,category:row.category,itemName:row.item_name,specification:row.specification,unit:row.unit,neededAt:row.needed_at,vendor});
     }
     res.json(response);
   } catch(error) {
