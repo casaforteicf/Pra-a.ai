@@ -317,7 +317,7 @@ const sortOptions: Array<{ label: string; value: ListProductsSort }> = [
 
 export default function ListingPage() {
   const [, setLocation] = useLocation()
-  const { city, state } = useMarketplaceCity()
+  const { city } = useMarketplaceCity()
   const searchParams = new URLSearchParams(window.location.search)
   const categorySlug = searchParams.get("category") || undefined
   const vendorId = searchParams.get("vendorId") || undefined
@@ -402,7 +402,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-gradient-to-br from-[#26332c] to-[#101713] p-5 text-white shadow-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#72d98f]">Acessórios para veículos</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Deixe seu carro do seu jeito</h1><p className="mt-2 max-w-xl text-sm text-white/70 sm:text-base">Encontre itens para proteger, equipar e cuidar do veículo nas lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-auto")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-[#72d98f] font-black text-[#132019] hover:bg-[#8be7a4]">Ver acessórios</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-[#72d98f]">Acessórios para veículos</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Deixe seu carro do seu jeito</h1><p className="mt-2 max-w-xl text-sm text-white/70 sm:text-base">Encontre itens para proteger, equipar e cuidar do veículo nas lojas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-auto")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-[#72d98f] font-black text-[#132019] hover:bg-[#8be7a4]">Ver acessórios</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-white/10 bg-card/5 md:flex"><Car className="h-24 w-24 text-[#72d98f]" strokeWidth={1.2} /></div>
             </div>
           </section>
