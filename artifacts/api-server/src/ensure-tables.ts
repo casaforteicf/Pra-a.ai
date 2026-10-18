@@ -987,6 +987,23 @@ ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS altura_cm numeric(10,2);
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS profundidade_cm numeric(10,2);
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS peso_kg numeric(10,3);
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS volume_foto_url text;
+
+-- Conciliação inicial de pagamentos Asaas. Estado desconhecido para pedidos legados.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'unknown';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_confirmed_at timestamptz;
+
+CREATE TABLE IF NOT EXISTS asaas_payment_events (
+  id serial PRIMARY KEY,
+  provider_event_id text NOT NULL UNIQUE,
+  payment_id text NOT NULL,
+  event_type text NOT NULL,
+  order_id integer REFERENCES orders(id) ON DELETE SET NULL,
+  outcome text NOT NULL DEFAULT 'received',
+  received_at timestamptz NOT NULL DEFAULT now(),
+  processed_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS idx_asaas_payment_events_payment
+  ON asaas_payment_events(payment_id, received_at DESC);
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {
