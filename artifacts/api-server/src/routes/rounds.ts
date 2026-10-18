@@ -263,6 +263,7 @@ router.post("/round-orders/:id/pay",async(req,res):Promise<void>=>{
     if(!order) { await client.query("ROLLBACK"); return void res.status(404).json({error:"Pedido não encontrado."}); }
     if(order.status!=="awaiting_payment") { await client.query("ROLLBACK"); return void res.status(409).json({error:"Este pedido não está aguardando pagamento."}); }
     if(order.asaas_charge_id) {
+      if(order.payment_method!==method) { await client.query("ROLLBACK"); return void res.status(409).json({error:"Já existe uma cobrança ativa para este pedido. Use o meio de pagamento escolhido."}); }
       await client.query("COMMIT");
       let pixPayload=order.asaas_pix_payload,pixQrcodeImage=order.asaas_pix_qrcode_image;
       if(order.payment_method==="pix"&&!pixPayload) {
@@ -322,8 +323,12 @@ router.post("/webhooks/asaas",async(req,res):Promise<void>=>{
       "UPDATE buying_round_orders SET status='paid',paid_at=COALESCE(paid_at,now()),updated_at=now() WHERE id=$1 AND asaas_charge_id=$2 AND status='awaiting_payment' RETURNING id,round_id,vendor_id,quantity::text,total::text",
       [orderId,chargeId],
     );
-    const paid=result.rows[0];
-    if(!paid) return void res.status(200).json({received:true,duplicate:true});
+    let paid=result.rows[0];
+    if(!paid) {
+      const retry=await pool.query("SELECT id,round_id,vendor_id,quantity::text,total::text FROM buying_round_orders WHERE id=$1 AND asaas_charge_id=$2 AND status='paid' AND COALESCE(crm_sync_status,'')<>'synced'",[orderId,chargeId]);
+      paid=retry.rows[0];
+      if(!paid) return void res.status(200).json({received:true,duplicate:true});
+    }
     const [buyer,round]=await Promise.all([
       pool.query("SELECT c.name,c.email,c.phone FROM buying_round_participants p JOIN consumers c ON c.id=p.consumer_id JOIN buying_round_orders o ON o.participant_id=p.id WHERE o.id=$1",[orderId]),
       pool.query("SELECT r.code,r.item_name,r.unit FROM buying_rounds r WHERE r.id=$1",[paid.round_id]),
