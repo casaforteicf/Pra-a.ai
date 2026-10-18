@@ -303,7 +303,7 @@ const ICON_BY_NAME: Record<string, string> = {
   veiculos: "car",
   "veículos": "car",
   fretes: "truck",
-  // Categorias reais do negócio (material de construção — Chapecó/SC)
+  // Categorias reais do negócio (materiais de construção)
   acabamento: "paintbrush",
   hidraulica: "droplet",
   "hidráulica": "droplet",
