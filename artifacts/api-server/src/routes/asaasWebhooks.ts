@@ -22,7 +22,7 @@ router.post("/webhooks/asaas", async (req: Request, res: Response): Promise<void
   }
 
   const secret = process.env.ASAAS_WEBHOOK_TOKEN;
-  if (!secret || secret.length < 32 || /\\s/.test(secret)) {
+  if (!secret || secret.length < 32 || /\s/.test(secret)) {
     res.status(503).json({ error: "Webhook Asaas não configurado." });
     return;
   }
