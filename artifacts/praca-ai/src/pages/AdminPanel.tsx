@@ -403,6 +403,200 @@ function ComissoesTab() {
   );
 }
 
+
+type InteligenciaData = {
+  days: number;
+  generatedAt: string;
+  privacy: { aggregateOnly: boolean; categoryMinimum: number };
+  quotes: {
+    total: number; awaitingSuppliers: number; withOffers: number; accepted: number;
+    unanswered: number; offers: number; averageFirstResponseHours: number | null;
+  };
+  rounds: {
+    open: number; closed: number; noOffers: number; participants: number; bids: number;
+    buyerAccepted: number; buyerDeclined: number;
+  };
+  orders: { total: number; delivered: number; inProgress: number; paymentPending: number; deliveredValue: number };
+  coverage: { vendorsReceivingQuotes: number; vendorsSendingOffers: number; vendorsBiddingRounds: number };
+  demandByCategory: Array<{ category: string; total: number }>;
+  categoryInsights: Array<{
+    category: string; quotes: number; quotesWithOffers: number; offers: number;
+    roundParticipants: number; roundBids: number;
+  }>;
+  operations: {
+    quotesWithoutSuppliers: number;
+    quotesWithoutOffer24h: number;
+    quotesPastNeededDate: number;
+    roundsClosingWithin2h: number;
+    roundsPastNeededDate: number;
+    roundsAwaitingBuyer: number;
+    roundsAwaitingPayment: number;
+    roundsCrmSyncFailures: number;
+  };
+};
+
+function MetricCard({ title, value, detail }: { title: string; value: string | number; detail: string }) {
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle></CardHeader>
+      <CardContent><div className="text-2xl font-bold">{value}</div><p className="text-xs text-muted-foreground mt-1">{detail}</p></CardContent>
+    </Card>
+  );
+}
+
+function InteligenciaTab() {
+  const [days, setDays] = useState(30);
+  const { data, isLoading, isError, error } = useQuery<InteligenciaData>({
+    queryKey: ["admin-inteligencia", days],
+    queryFn: async () => {
+      const response = await fetch(`/api/admin/inteligencia?days=${days}`, { headers: adminHeaders() });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error ?? "Falha ao carregar os indicadores.");
+      }
+      return response.json();
+    },
+  });
+
+  const periodButtons = [7, 30, 90, 365];
+  if (isLoading) return <Loader2 className="h-5 w-5 animate-spin mx-auto mt-8" />;
+  if (isError || !data) return <Card><CardContent className="p-6 text-sm text-destructive">{error instanceof Error ? error.message : "Não foi possível carregar os indicadores."}</CardContent></Card>;
+
+  const hours = data.quotes.averageFirstResponseHours;
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">Inteligência do negócio</h2>
+          <p className="text-sm text-muted-foreground">Demanda, resposta dos lojistas e conversão das rodadas.</p>
+        </div>
+        <div className="flex gap-2" aria-label="Período dos indicadores">
+          {periodButtons.map((value) => (
+            <Button key={value} size="sm" variant={days === value ? "default" : "outline"} onClick={() => setDays(value)}>
+              {value === 365 ? "12 meses" : `${value} dias`}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Alertas operacionais atuais</CardTitle>
+          <p className="text-sm text-muted-foreground">Fila de situações que podem precisar de acompanhamento. Estes números mostram o estado atual e não mudam com o período histórico selecionado.</p>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricCard title="Cotações sem fornecedor" value={data.operations.quotesWithoutSuppliers} detail="Ainda aguardam encaminhamento para lojistas" />
+          <MetricCard title="Sem proposta há mais de 24h" value={data.operations.quotesWithoutOffer24h} detail="Cotações distribuídas sem oferta recebida" />
+          <MetricCard title="Cotações com data vencida" value={data.operations.quotesPastNeededDate} detail="Data solicitada já passou, sem aceite" />
+          <MetricCard title="Rodadas encerram em até 2h" value={data.operations.roundsClosingWithin2h} detail="Rodadas abertas próximas do encerramento" />
+          <MetricCard title="Rodadas com data vencida" value={data.operations.roundsPastNeededDate} detail="Data de compra informada já passou" />
+          <MetricCard title="Aguardando decisão do comprador" value={data.operations.roundsAwaitingBuyer} detail="Lance aceito na rodada, pendente de resposta" />
+          <MetricCard title="Aguardando formalização" value={data.operations.roundsAwaitingPayment} detail="Aceite do comprador; não confirma pagamento recebido" />
+          <MetricCard title="Falhas de sincronização CRM" value={data.operations.roundsCrmSyncFailures} detail="Pedidos da rodada que precisam de nova tentativa" />
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard title="Cotações recebidas" value={data.quotes.total} detail={`${data.quotes.awaitingSuppliers} sem fornecedor identificado`} />
+        <MetricCard title="Cotações com proposta" value={data.quotes.withOffers} detail={`${data.quotes.offers} propostas enviadas`} />
+        <MetricCard title="Cotações aceitas" value={data.quotes.accepted} detail={`${data.quotes.unanswered} ainda sem proposta`} />
+        <MetricCard title="1ª resposta média" value={hours == null ? "—" : `${hours.toLocaleString("pt-BR")} h`} detail="Tempo entre pedido e primeira proposta" />
+        <MetricCard title="Rodadas abertas" value={data.rounds.open} detail={`${data.rounds.closed} encerradas no período`} />
+        <MetricCard title="Participações em lotes" value={data.rounds.participants} detail={`${data.rounds.bids} ofertas de lojistas`} />
+        <MetricCard title="Rodadas aceitas pelo comprador" value={data.rounds.buyerAccepted} detail="Pagamento é formalizado com a loja após o aceite" />
+        <MetricCard title="Rodadas sem oferta" value={data.rounds.noOffers} detail="Sinal de cobertura ou prazo insuficiente" />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Marketplace e vendas concluídas</CardTitle>
+          <p className="text-sm text-muted-foreground">Pedidos do checkout convencional; concluído = status “entregue”. O fluxo de retenção/liberação ainda não está integrado a esta métrica.</p>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <MetricCard title="Pedidos recebidos" value={data.orders.total} detail="Todos os status no período" />
+          <MetricCard title="Em andamento" value={data.orders.inProgress} detail="Confirmados ou em entrega" />
+          <MetricCard title="Pagamento pendente" value={data.orders.paymentPending} detail="Requer acompanhamento" />
+          <MetricCard title="Pedidos entregues" value={data.orders.delivered} detail="Status de entrega concluída" />
+          <MetricCard title="Valor entregue" value={fmt(data.orders.deliveredValue)} detail="Soma do total de pedidos entregues; não confirma valor liberado" />
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle className="text-base">Categorias de maior demanda no período</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            {data.demandByCategory.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Ainda não há volume suficiente para mostrar categorias neste período.</p>
+            ) : data.demandByCategory.map((item) => {
+              const max = Math.max(...data.demandByCategory.map((entry) => entry.total), 1);
+              return (
+                <div key={item.category} className="space-y-1">
+                  <div className="flex justify-between gap-3 text-sm"><span>{item.category}</span><span className="font-medium">{item.total}</span></div>
+                  <div className="h-2 rounded bg-muted"><div className="h-2 rounded bg-primary" style={{ width: `${Math.max(4, (item.total / max) * 100)}%` }} /></div>
+                </div>
+              );
+            })}
+            <p className="text-xs text-muted-foreground">Exibimos uma categoria apenas quando ela tem pelo menos {data.privacy.categoryMinimum} solicitações.</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className="text-base">Cobertura de fornecedores</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between text-sm"><span>Lojistas que receberam cotações</span><strong>{data.coverage.vendorsReceivingQuotes}</strong></div>
+            <div className="flex justify-between text-sm"><span>Lojistas que enviaram proposta</span><strong>{data.coverage.vendorsSendingOffers}</strong></div>
+            <div className="flex justify-between text-sm"><span>Lojistas que deram lance em rodadas</span><strong>{data.coverage.vendorsBiddingRounds}</strong></div>
+            <p className="border-t pt-3 text-xs text-muted-foreground">Painel interno com contagens agregadas. Não exibe comprador, contato, nome ou desempenho individual de loja.</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Oportunidades por segmento</CardTitle>
+          <p className="text-sm text-muted-foreground">Cruza pedidos de cotação, propostas e participação nas rodadas. Exibimos somente segmentos com pelo menos cinco solicitações ou participações; os dados não identificam clientes nem lojas.</p>
+        </CardHeader>
+        <CardContent>
+          {data.categoryInsights.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Ainda não há volume suficiente para comparar os segmentos neste período.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Segmento</TableHead>
+                    <TableHead>Cotações</TableHead>
+                    <TableHead>Com proposta</TableHead>
+                    <TableHead>Propostas</TableHead>
+                    <TableHead>Participações em rodadas</TableHead>
+                    <TableHead>Lances</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.categoryInsights.map((item) => (
+                    <TableRow key={item.category}>
+                      <TableCell className="font-medium">{item.category}</TableCell>
+                      <TableCell>{item.quotes}</TableCell>
+                      <TableCell>{item.quotesWithOffers}</TableCell>
+                      <TableCell>{item.offers}</TableCell>
+                      <TableCell>{item.roundParticipants}</TableCell>
+                      <TableCell>{item.roundBids}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <p className="text-xs text-muted-foreground">
+        Período selecionado: {data.days} dias. Atualizado em {new Date(data.generatedAt).toLocaleString("pt-BR")}.
+        Os indicadores descrevem o histórico observado; não são previsão de vendas.
+      </p>
+    </div>
+  );
+}
+
 // ── Página ─────────────────────────────────────────────────────────────────
 
 function AdminContent() {
@@ -418,6 +612,7 @@ function AdminContent() {
             <TabsTrigger value="disputas">Disputas</TabsTrigger>
             <TabsTrigger value="repasses">Repasses</TabsTrigger>
             <TabsTrigger value="comissoes">Comissões</TabsTrigger>
+            <TabsTrigger value="inteligencia">Inteligência</TabsTrigger>
           </TabsList>
           <TabsContent value="embaixadores" className="mt-4">
             <EmbaixadoresTab />
@@ -430,6 +625,9 @@ function AdminContent() {
           </TabsContent>
           <TabsContent value="comissoes" className="mt-4">
             <ComissoesTab />
+          </TabsContent>
+          <TabsContent value="inteligencia" className="mt-4">
+            <InteligenciaTab />
           </TabsContent>
         </Tabs>
       </div>

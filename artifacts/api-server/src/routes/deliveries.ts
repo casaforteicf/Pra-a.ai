@@ -137,7 +137,20 @@ router.patch("/logistica/entregas/:id/status", async (req, res): Promise<void> =
   await evento(deliveryId, status, observacao, latitude, longitude);
   if (status === "em_transito") await db.update(ordersTable).set({ status: "out_for_delivery" }).where(eq(ordersTable.id, delivery.orderId));
   if (status === "entregue") {
-    await db.update(ordersTable).set({ status: "delivered" }).where(eq(ordersTable.id, delivery.orderId));
+    // Um pedido pode conter itens de vários lojistas e gerar uma entrega por
+    // vendedor. Só concluir o pedido depois que todas as entregas vinculadas
+    // estiverem concluídas. O lock serializa entregas simultâneas do mesmo pedido,
+    // para que a última sempre observe o estado atualizado das demais.
+    await db.transaction(async (tx) => {
+      await tx.select({ id: ordersTable.id }).from(ordersTable)
+        .where(eq(ordersTable.id, delivery.orderId)).for("update");
+      const [{ restantes }] = await tx.select({ restantes: sql<number>`count(*)::int` })
+        .from(deliveriesTable)
+        .where(and(eq(deliveriesTable.orderId, delivery.orderId), ne(deliveriesTable.status, "entregue")));
+      if (Number(restantes) === 0) {
+        await tx.update(ordersTable).set({ status: "delivered" }).where(eq(ordersTable.id, delivery.orderId));
+      }
+    });
     const valor = delivery.valorPagoParceiro || "0";
     await db.insert(pracaBankTransactionsTable).values({ partnerId: partner.id, deliveryId, valor, status: "disponivel", descricao: `Entrega #${deliveryId} concluída`, disponivelEm: new Date() }).onConflictDoNothing();
     const [{ restantes }] = await db.select({ restantes: sql<number>`count(*)` }).from(deliveriesTable).where(and(eq(deliveriesTable.partnerId, partner.id), inArray(deliveriesTable.status, STATUS_ATIVOS)));
