@@ -58,6 +58,7 @@ router.post("/quotes", async (req, res): Promise<void> => {
   }
 
   const searchable = cleanItems.map((item: any) => item.description).join(" ").slice(0, 1500);
+  const quoteCity = String(location).split(/[,/|]/)[0]?.trim().slice(0, 100) ?? "";
   let vendorIds: string[] = [];
   try {
     const vendors = await vendorPool.query<{ id: string }>(
@@ -73,7 +74,7 @@ router.post("/quotes", async (req, res): Promise<void> => {
               @@ plainto_tsquery('portuguese', $2)
          )
        LIMIT 30`,
-      [`%${String(category).slice(0, 120)}%`, searchable],
+      [`%${String(category).slice(0, 120)}%`, searchable, quoteCity],
     );
     vendorIds = vendors.rows.map((row) => row.id);
   } catch (error) {
