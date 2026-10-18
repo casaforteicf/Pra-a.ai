@@ -68,6 +68,7 @@ router.post("/quotes", async (req, res): Promise<void> => {
        LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
        WHERE t.vende_no_praca_ai = true AND pc.ativo = true
          AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
+         AND lower(trim(coalesce(t.cidade, ''))) = lower($3)
          AND (
            lower(coalesce(cp.nome, '')) LIKE lower($1)
            OR to_tsvector('portuguese', coalesce(pc.nome, '') || ' ' || coalesce(pc.descricao, ''))
