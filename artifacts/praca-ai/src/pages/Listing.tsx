@@ -443,7 +443,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Agropecuária</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Do curral à lavoura, tudo num só lugar</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Nutrição e saúde animal, sementes, mudas e insumos agrícolas das lojas e produtores da sua região.</p><Button onClick={() => document.getElementById("produtos-agro")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Agropecuária</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Do curral à lavoura, tudo num só lugar</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Nutrição e saúde animal, sementes, mudas e insumos agrícolas das lojas e produtores da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-agro")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Sprout className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -490,7 +490,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Casa, móveis e decoração</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Monte a casa do jeito que você imaginou</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Sofás, mesas, decoração e iluminação com curadoria das lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-moveis")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver móveis</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Casa, móveis e decoração</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Monte a casa do jeito que você imaginou</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Sofás, mesas, decoração e iluminação com curadoria das lojas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-moveis")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver móveis</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Sofa className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -547,7 +547,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Camping, trilha e neve</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Prepare seu próximo desafio</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Equipamento, roupa técnica e suplementação das lojas esportivas da sua região.</p><Button onClick={() => document.getElementById("produtos-esportes")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Camping, trilha e neve</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Prepare seu próximo desafio</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Equipamento, roupa técnica e suplementação das lojas esportivas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-esportes")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Mountain className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -589,7 +589,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Materiais de construção</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Da fundação ao acabamento</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Elétrica, hidráulica, tintas, louças e ferramentas das lojas e distribuidoras da sua região.</p><Button onClick={() => document.getElementById("produtos-construcao")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver materiais</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Materiais de construção</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Da fundação ao acabamento</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Elétrica, hidráulica, tintas, louças e ferramentas das lojas e distribuidoras da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-construcao")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver materiais</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Hammer className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -646,7 +646,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Eletrônicos, câmeras e áudio</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Tecnologia perto de você</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Câmeras, TVs, som, informática e acessórios das lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-eletronicos")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Eletrônicos, câmeras e áudio</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Tecnologia perto de você</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Câmeras, TVs, som, informática e acessórios das lojas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-eletronicos")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Camera className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -688,7 +688,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Eletrodomésticos</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Equipe sua casa do jeito certo</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Geladeiras, fogões, lavadoras e climatização das lojas da sua região, com entrega local.</p><Button onClick={() => document.getElementById("produtos-eletrodomesticos")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Eletrodomésticos</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Equipe sua casa do jeito certo</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Geladeiras, fogões, lavadoras e climatização das lojas da cidade selecionada, com entrega local.</p><Button onClick={() => document.getElementById("produtos-eletrodomesticos")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Refrigerator className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -730,7 +730,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Ferramentas</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">A ferramenta certa pra cada trabalho</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Ferramentas elétricas, manuais, jardinagem e equipamentos de segurança das lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-ferramentas")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver ferramentas</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Ferramentas</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">A ferramenta certa pra cada trabalho</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Ferramentas elétricas, manuais, jardinagem e equipamentos de segurança das lojas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-ferramentas")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver ferramentas</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Drill className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -772,7 +772,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Festas e lembrancinhas</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Toda festa merece um brinde especial</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Decoração, descartáveis, doces e lembrancinhas das lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-festas")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Festas e lembrancinhas</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Toda festa merece um brinde especial</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Decoração, descartáveis, doces e lembrancinhas das lojas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-festas")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><PartyPopper className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -814,7 +814,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Games</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Level up no seu setup</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Consoles, jogos, acessórios e PC gamer das lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-games")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Games</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Level up no seu setup</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Consoles, jogos, acessórios e PC gamer das lojas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-games")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Gamepad2 className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -856,7 +856,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Instrumentos musicais</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Encontre seu próximo instrumento</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Cordas, teclas, sopro, percussão e áudio das lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-musica")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Instrumentos musicais</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Encontre seu próximo instrumento</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Cordas, teclas, sopro, percussão e áudio das lojas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-musica")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Guitar className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -898,7 +898,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Joias e relógios</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Um brilho a mais pra cada momento</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Relógios, anéis, alianças e semijoias das lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-joias")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Joias e relógios</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Um brilho a mais pra cada momento</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Relógios, anéis, alianças e semijoias das lojas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-joias")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Gem className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -940,7 +940,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Livros, revistas e comics</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Sua próxima leitura está aqui</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Romances, didáticos, quadrinhos e revistas das lojas e sebos da sua região.</p><Button onClick={() => document.getElementById("produtos-livros")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Livros, revistas e comics</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Sua próxima leitura está aqui</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Romances, didáticos, quadrinhos e revistas das lojas e sebos da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-livros")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Book className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -982,7 +982,7 @@ export default function ListingPage() {
         <main className="mx-auto max-w-7xl px-4 py-5 sm:px-6 lg:px-8">
           <section className="overflow-hidden rounded-2xl bg-card p-5 shadow-neon-sm sm:p-8">
             <div className="grid items-center gap-5 md:grid-cols-[1fr_auto]">
-              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Pet Shop</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Tudo pro seu melhor amigo</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Ração, brinquedos, higiene e acessórios das lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-pet")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
+              <div><p className="text-xs font-black uppercase tracking-[0.18em] text-primary">Pet Shop</p><h1 className="mt-2 max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Tudo pro seu melhor amigo</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">Ração, brinquedos, higiene e acessórios das lojas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-pet")?.scrollIntoView({ behavior: "smooth" })} className="mt-5 bg-primary font-black text-primary-foreground shadow-neon-sm hover:opacity-90">Ver produtos</Button></div>
               <div className="hidden h-36 w-60 items-center justify-center rounded-2xl border border-border bg-background md:flex"><Dog className="h-24 w-24 text-primary" strokeWidth={1.2} /></div>
             </div>
           </section>
@@ -1030,16 +1030,16 @@ export default function ListingPage() {
       { city: "Foz do Iguaçu, PR", name: "Resort das Cataratas", type: "Resort", rating: "9,2", price: "R$ 580", color: "from-amber-400 to-orange-700" },
     ]
     const flightResults = [
-      { company: "Azul", route: "Chapecó → Guarulhos", duration: "1h 45min", stops: "Voo direto", price: "R$ 412", color: "from-blue-500 to-blue-800" },
-      { company: "Gol", route: "Chapecó → Congonhas", duration: "2h 10min", stops: "1 conexão", price: "R$ 358", color: "from-orange-500 to-red-700" },
-      { company: "Latam", route: "Chapecó → Brasília", duration: "2h 30min", stops: "1 conexão", price: "R$ 499", color: "from-rose-500 to-pink-800" },
-      { company: "Azul", route: "Chapecó → Florianópolis", duration: "55min", stops: "Voo direto", price: "R$ 289", color: "from-indigo-500 to-blue-900" },
+      { company: "Azul", route: "Origem selecionada → Guarulhos", duration: "1h 45min", stops: "Voo direto", price: "R$ 412", color: "from-blue-500 to-blue-800" },
+      { company: "Gol", route: "Origem selecionada → Congonhas", duration: "2h 10min", stops: "1 conexão", price: "R$ 358", color: "from-orange-500 to-red-700" },
+      { company: "Latam", route: "Origem selecionada → Brasília", duration: "2h 30min", stops: "1 conexão", price: "R$ 499", color: "from-rose-500 to-pink-800" },
+      { company: "Azul", route: "Origem selecionada → Florianópolis", duration: "55min", stops: "Voo direto", price: "R$ 289", color: "from-indigo-500 to-blue-900" },
     ]
     const busResults = [
-      { company: "Catarinense", route: "Chapecó → Florianópolis", duration: "6h 30min", stops: "Leito", price: "R$ 149", color: "from-teal-500 to-emerald-800" },
-      { company: "Reunidas", route: "Chapecó → Curitiba", duration: "8h 00min", stops: "Semi-leito", price: "R$ 179", color: "from-lime-500 to-green-800" },
-      { company: "Eucatur", route: "Chapecó → Porto Alegre", duration: "9h 15min", stops: "Leito", price: "R$ 199", color: "from-cyan-500 to-teal-800" },
-      { company: "Catarinense", route: "Chapecó → Curitiba", duration: "7h 45min", stops: "Convencional", price: "R$ 119", color: "from-sky-500 to-blue-800" },
+      { company: "Catarinense", route: "Origem selecionada → Florianópolis", duration: "6h 30min", stops: "Leito", price: "R$ 149", color: "from-teal-500 to-emerald-800" },
+      { company: "Reunidas", route: "Origem selecionada → Curitiba", duration: "8h 00min", stops: "Semi-leito", price: "R$ 179", color: "from-lime-500 to-green-800" },
+      { company: "Eucatur", route: "Origem selecionada → Porto Alegre", duration: "9h 15min", stops: "Leito", price: "R$ 199", color: "from-cyan-500 to-teal-800" },
+      { company: "Catarinense", route: "Origem selecionada → Curitiba", duration: "7h 45min", stops: "Convencional", price: "R$ 119", color: "from-sky-500 to-blue-800" },
     ]
 
     const visibleTrips = destination
@@ -1352,7 +1352,7 @@ export default function ListingPage() {
         </header>
 
         <main>
-          <section className="bg-card"><div className="mx-auto grid min-h-[320px] max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_0.75fr] lg:px-8"><div><span className="rounded-full bg-primary px-3 py-1.5 text-xs font-black uppercase text-primary-foreground">Tecnologia perto de você</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-tight text-foreground sm:text-6xl">Celulares e smartphones</h1><p className="mt-3 max-w-xl text-muted-foreground">Encontre aparelhos, acessórios e ofertas das lojas da sua região, com compra segura e entrega local.</p><Button onClick={() => document.getElementById("produtos-celulares")?.scrollIntoView({ behavior: "smooth" })} className="mt-6 bg-primary text-primary-foreground shadow-neon-sm hover:opacity-90">Ver aparelhos</Button></div><div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-64 w-44 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[2.25rem] border-[10px] border-primary bg-gradient-to-br from-primary/60 to-primary shadow-neon"><Smartphone className="h-24 w-24 -rotate-6 text-primary-foreground" strokeWidth={1.2} /></div><Wifi className="absolute right-12 top-7 h-12 w-12 text-primary" /></div></div></section>
+          <section className="bg-card"><div className="mx-auto grid min-h-[320px] max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_0.75fr] lg:px-8"><div><span className="rounded-full bg-primary px-3 py-1.5 text-xs font-black uppercase text-primary-foreground">Tecnologia perto de você</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-tight text-foreground sm:text-6xl">Celulares e smartphones</h1><p className="mt-3 max-w-xl text-muted-foreground">Encontre aparelhos, acessórios e ofertas das lojas da cidade selecionada, com compra segura e entrega local.</p><Button onClick={() => document.getElementById("produtos-celulares")?.scrollIntoView({ behavior: "smooth" })} className="mt-6 bg-primary text-primary-foreground shadow-neon-sm hover:opacity-90">Ver aparelhos</Button></div><div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-64 w-44 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[2.25rem] border-[10px] border-primary bg-gradient-to-br from-primary/60 to-primary shadow-neon"><Smartphone className="h-24 w-24 -rotate-6 text-primary-foreground" strokeWidth={1.2} /></div><Wifi className="absolute right-12 top-7 h-12 w-12 text-primary" /></div></div></section>
 
           <section className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8"><div className="grid grid-cols-2 gap-3 sm:grid-cols-4"><PhoneBenefit icon={Truck} title="Pronta entrega" text="Receba com rapidez" /><PhoneBenefit icon={ShieldCheck} title="Compra segura" text="Pagamento protegido" /><PhoneBenefit icon={BatteryCharging} title="Novos e seminovos" text="Escolha o ideal" /><PhoneBenefit icon={Headphones} title="Acessórios" text="Complete seu aparelho" /></div></section>
 
@@ -1384,7 +1384,7 @@ export default function ListingPage() {
           <section className="relative overflow-hidden bg-[#e9d8d3]">
             <div className="absolute -right-12 top-0 h-full w-1/3 bg-[#8d214a]/10" /><div className="absolute right-[12%] top-1/2 h-80 w-56 -translate-y-1/2 rotate-6 rounded-full bg-[#8d214a]/80 blur-[1px]" />
             <div className="relative mx-auto grid min-h-[420px] max-w-6xl items-center gap-8 px-6 py-12 lg:grid-cols-[1fr_0.85fr] lg:px-8">
-              <div><span className="text-sm font-bold uppercase tracking-[0.28em] text-[#8d214a]">Moda para todos os estilos</span><h1 className="mt-4 max-w-2xl text-5xl font-black leading-[0.95] sm:text-7xl">Vista o que combina com você</h1><p className="mt-5 max-w-xl text-base text-black/65 sm:text-lg">Roupas, calçados, bolsas e acessórios das melhores lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-moda")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 rounded-none bg-black px-8 text-white hover:bg-[#8d214a]">Comprar agora</Button></div>
+              <div><span className="text-sm font-bold uppercase tracking-[0.28em] text-[#8d214a]">Moda para todos os estilos</span><h1 className="mt-4 max-w-2xl text-5xl font-black leading-[0.95] sm:text-7xl">Vista o que combina com você</h1><p className="mt-5 max-w-xl text-base text-black/65 sm:text-lg">Roupas, calçados, bolsas e acessórios das melhores lojas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-moda")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 rounded-none bg-black px-8 text-white hover:bg-[#8d214a]">Comprar agora</Button></div>
               <div className="relative hidden min-h-72 lg:block"><div className="absolute left-1/2 top-1/2 flex h-72 w-72 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-[28px] border-white/50"><Shirt className="h-40 w-40 text-white" strokeWidth={1} /></div><Sparkles className="absolute right-7 top-5 h-14 w-14 text-white" /></div>
             </div>
           </section>
@@ -1417,7 +1417,7 @@ export default function ListingPage() {
           <section className="mx-auto max-w-6xl px-4 py-7 sm:px-6 lg:px-8">
             <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#5a2a91] via-[#7337aa] to-[#8d40ba] p-7 text-white sm:p-10 lg:min-h-[390px]">
               <div className="absolute -right-20 -top-20 h-80 w-80 rounded-full bg-[#19bfe8]/60" /><div className="absolute -bottom-28 right-1/4 h-64 w-64 rounded-full bg-[#ffdf18]/40" />
-              <div className="relative grid items-center gap-8 lg:grid-cols-[1fr_0.8fr]"><div><span className="inline-flex items-center gap-2 rounded-full bg-[#21c1e6] px-3 py-1.5 text-xs font-black text-[#251745]">Diversão para todas as idades</span><h1 className="mt-5 max-w-xl text-4xl font-black leading-[1.02] sm:text-6xl">Um mundo de brincadeiras</h1><p className="mt-4 max-w-xl text-base text-white/85 sm:text-lg">Brinquedos, jogos e hobbies das lojas da sua região para aprender, imaginar e se divertir.</p><Button onClick={() => document.getElementById("produtos-brinquedos")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-[#ffe915] text-[#251745] hover:bg-[#f5dc00]">Ver brinquedos</Button></div><div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[35%_65%_55%_45%] bg-[#ef3c8f] shadow-2xl"><Rocket className="h-32 w-32 -rotate-6 text-white" strokeWidth={1.2} /></div><Blocks className="absolute bottom-3 left-3 h-16 w-16 text-[#ffe915]" /></div></div>
+              <div className="relative grid items-center gap-8 lg:grid-cols-[1fr_0.8fr]"><div><span className="inline-flex items-center gap-2 rounded-full bg-[#21c1e6] px-3 py-1.5 text-xs font-black text-[#251745]">Diversão para todas as idades</span><h1 className="mt-5 max-w-xl text-4xl font-black leading-[1.02] sm:text-6xl">Um mundo de brincadeiras</h1><p className="mt-4 max-w-xl text-base text-white/85 sm:text-lg">Brinquedos, jogos e hobbies das lojas da cidade selecionada para aprender, imaginar e se divertir.</p><Button onClick={() => document.getElementById("produtos-brinquedos")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-[#ffe915] text-[#251745] hover:bg-[#f5dc00]">Ver brinquedos</Button></div><div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[35%_65%_55%_45%] bg-[#ef3c8f] shadow-2xl"><Rocket className="h-32 w-32 -rotate-6 text-white" strokeWidth={1.2} /></div><Blocks className="absolute bottom-3 left-3 h-16 w-16 text-[#ffe915]" /></div></div>
             </div>
           </section>
 
@@ -1456,7 +1456,7 @@ export default function ListingPage() {
         <main>
           <section className="relative overflow-hidden bg-card">
             <div className="relative mx-auto grid min-h-[390px] max-w-6xl items-center gap-8 px-6 py-10 lg:grid-cols-[1fr_0.75fr] lg:px-8">
-              <div><span className="inline-flex rounded-full bg-primary px-3 py-1.5 text-xs font-black uppercase tracking-wider text-primary-foreground">Seu momento de cuidado</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.05] text-foreground sm:text-6xl">Beleza que combina com você</h1><p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">Cabelos, perfumaria, maquiagem, skincare e bem-estar das melhores lojas da sua região.</p><Button onClick={() => document.getElementById("produtos-beleza")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-primary text-primary-foreground shadow-neon-sm hover:opacity-90">Descobrir produtos</Button></div>
+              <div><span className="inline-flex rounded-full bg-primary px-3 py-1.5 text-xs font-black uppercase tracking-wider text-primary-foreground">Seu momento de cuidado</span><h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.05] text-foreground sm:text-6xl">Beleza que combina com você</h1><p className="mt-4 max-w-xl text-base text-muted-foreground sm:text-lg">Cabelos, perfumaria, maquiagem, skincare e bem-estar das melhores lojas da cidade selecionada.</p><Button onClick={() => document.getElementById("produtos-beleza")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-primary text-primary-foreground shadow-neon-sm hover:opacity-90">Descobrir produtos</Button></div>
               <div className="relative hidden min-h-64 lg:block"><div className="absolute left-1/2 top-1/2 flex h-60 w-60 -translate-x-1/2 -translate-y-1/2 rotate-6 items-center justify-center rounded-[38%_62%_45%_55%] bg-gradient-to-br from-primary/60 to-primary shadow-neon"><Sparkles className="h-28 w-28 -rotate-6 text-primary-foreground" strokeWidth={1.2} /></div><Heart className="absolute bottom-5 left-8 h-12 w-12 fill-primary/70 text-primary/70" /></div>
             </div>
           </section>
@@ -1510,7 +1510,7 @@ export default function ListingPage() {
               <div>
                 <span className="inline-flex items-center gap-2 rounded-full bg-card/70 px-3 py-1.5 text-xs font-black text-[#318d8b]"><Heart className="h-4 w-4 fill-[#f28a22] text-[#f28a22]" /> Cuidado em cada fase</span>
                 <h1 className="mt-5 max-w-2xl text-4xl font-black leading-[1.05] text-[#155d70] sm:text-6xl">Tudo para grandes aventuras</h1>
-                <p className="mt-4 max-w-xl text-base text-[#155d70]/80 sm:text-lg">Produtos para passeio, quarto, alimentação, higiene e diversão do seu bebê, vendidos por lojas da sua região.</p>
+                <p className="mt-4 max-w-xl text-base text-[#155d70]/80 sm:text-lg">Produtos para passeio, quarto, alimentação, higiene e diversão do seu bebê, vendidos por lojas da cidade selecionada.</p>
                 <Button onClick={() => document.getElementById("produtos-bebes")?.scrollIntoView({ behavior: "smooth" })} className="mt-7 bg-[#f28a22] hover:bg-[#dc7817]">Ver produtos</Button>
               </div>
               <div className="relative hidden min-h-64 lg:block">
@@ -1581,7 +1581,7 @@ export default function ListingPage() {
               <Sparkles className="absolute -right-4 -top-5 h-40 w-40 text-white/30" />
               <p className="text-xs font-black uppercase tracking-[0.2em] text-[#174667]">Tudo para criar e aprender</p>
               <h1 className="mt-3 max-w-xl text-3xl font-black leading-tight text-[#123951] sm:text-5xl">Papelaria completa perto de você</h1>
-              <p className="mt-3 max-w-lg text-sm text-[#174667]/80 sm:text-base">Materiais escolares, escrita, arte, escritório e armarinho das lojas da sua região.</p>
+              <p className="mt-3 max-w-lg text-sm text-[#174667]/80 sm:text-base">Materiais escolares, escrita, arte, escritório e armarinho das lojas da cidade selecionada.</p>
               <Button onClick={() => document.getElementById("produtos-papelaria")?.scrollIntoView({ behavior: "smooth" })} className="mt-6 bg-[#174667] hover:bg-[#174667]/90">Ver produtos</Button>
             </div>
             <div className="grid grid-cols-2 gap-3">
