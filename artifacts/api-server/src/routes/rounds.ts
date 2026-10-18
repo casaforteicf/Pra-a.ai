@@ -337,7 +337,7 @@ router.post("/webhooks/asaas",async(req,res):Promise<void>=>{
     );
     let paid=result.rows[0];
     if(!paid) {
-      const retry=await pool.query("SELECT id,round_id,vendor_id,quantity::text,total::text FROM buying_round_orders WHERE id=$1 AND asaas_charge_id=$2 AND status='paid' AND COALESCE(crm_sync_status,'')<>'synced'",[orderId,chargeId]);
+      const retry=await pool.query("SELECT id,round_id,vendor_id,quantity::text,total::text FROM buying_round_orders WHERE id=$1 AND asaas_charge_id=$2 AND status IN ('paid','delivered','released') AND COALESCE(crm_sync_status,'')<>'synced'",[orderId,chargeId]);
       paid=retry.rows[0];
       if(!paid) return void res.status(200).json({received:true,duplicate:true});
     }
