@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Link, useLocation } from "wouter"
-import { Home, Search, Heart, User, Grid2X2, Package } from "lucide-react"
+import { Home, User, ShoppingCart, ClipboardList, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PracaLogo } from "@/components/brand/PracaLogo"
 
@@ -9,16 +9,17 @@ export function BottomNav() {
   
   const navItems = [
     { href: "/", icon: Home, label: "Início" },
-    { href: "/listing", icon: Search, label: "Explorar" },
-    { href: "/feed", icon: Heart, label: "Feed" },
+    { href: "/listing", icon: ShoppingCart, label: "Comprar" },
+    { href: "/cotacao", icon: ClipboardList, label: "Cotação" },
+    { href: "/rodadas", icon: Users, label: "Rodadas" },
     { href: "/profile", icon: User, label: "Conta" },
   ]
 
   const mobileItems = [
     { href: "/", icon: Home, label: "Início" },
-    { href: "/listing", icon: Grid2X2, label: "Categorias" },
-    { href: "/listing?focus=search", icon: Search, label: "Buscar" },
-    { href: "/orders", icon: Package, label: "Pedidos" },
+    { href: "/listing", icon: ShoppingCart, label: "Comprar" },
+    { href: "/cotacao", icon: ClipboardList, label: "Cotação" },
+    { href: "/rodadas", icon: Users, label: "Rodadas" },
     { href: "/profile", icon: User, label: "Conta" },
   ]
   return (

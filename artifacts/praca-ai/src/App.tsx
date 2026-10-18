@@ -34,6 +34,7 @@ import DriverLogistics from '@/pages/DriverLogistics';
 import ResetPassword from '@/pages/ResetPassword';
 import EnergiaSolar from '@/pages/EnergiaSolar';
 import QuoteRequest from '@/pages/QuoteRequest';
+import RoundsPage from '@/pages/Rounds';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: false } },
@@ -105,6 +106,7 @@ function Router() {
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/energia-solar" component={EnergiaSolar} />
       <Route path="/cotacao" component={QuoteRequest} />
+      <Route path="/rodadas" component={RoundsPage} />
       <Route path="/entregador" component={DriverLogistics} />
       <Route component={NotFound} />
     </Switch>
