@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, varchar, integer, numeric, date, timestamp, bigserial, boolean, unique, index } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, varchar, integer, numeric, date, timestamp, bigserial, boolean, unique, index, uniqueIndex, primaryKey } from "drizzle-orm/pg-core";
 import { consumersTable } from "./consumers";
 
 export const buyingRoundsTable = pgTable("buying_rounds", {
@@ -64,7 +64,7 @@ export const buyingRoundOrdersTable = pgTable("buying_round_orders", {
   status: text("status").notNull().default("awaiting_buyer"),
   acceptedAt: timestamp("accepted_at", { withTimezone: true }),
   paymentMethod: text("payment_method"),
-  asaasChargeId: text("asaas_charge_id").unique(),
+  asaasChargeId: text("asaas_charge_id"),
   asaasPixPayload: text("asaas_pix_payload"),
   asaasPixQrcodeImage: text("asaas_pix_qrcode_image"),
   asaasInvoiceUrl: text("asaas_invoice_url"),
@@ -75,7 +75,7 @@ export const buyingRoundOrdersTable = pgTable("buying_round_orders", {
   crmLeadId: text("crm_lead_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-}, (table) => [index("idx_buying_round_orders_status").on(table.status, table.createdAt)]);
+}, (table) => [index("idx_buying_round_orders_status").on(table.status, table.createdAt), uniqueIndex("idx_buying_round_orders_asaas_charge").on(table.asaasChargeId)]);
 
 export const buyingRoundVendorLeadsTable = pgTable("buying_round_vendor_leads", {
   roundId: uuid("round_id").notNull().references(() => buyingRoundsTable.id, { onDelete: "cascade" }),
@@ -83,7 +83,7 @@ export const buyingRoundVendorLeadsTable = pgTable("buying_round_vendor_leads", 
   crmLeadId: text("crm_lead_id").notNull(),
   crmNotified: boolean("crm_notified").notNull().default(false),
   identityRevealedAt: timestamp("identity_revealed_at", { withTimezone: true }),
-}, (table) => [unique("buying_round_vendor_leads_round_vendor_unique").on(table.roundId, table.vendorId)]);
+}, (table) => [primaryKey({ columns: [table.roundId, table.vendorId] })]);
 
 export type BuyingRound = typeof buyingRoundsTable.$inferSelect;
 export type BuyingRoundOrder = typeof buyingRoundOrdersTable.$inferSelect;
