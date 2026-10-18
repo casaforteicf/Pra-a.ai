@@ -19,8 +19,7 @@ router.post("/quotes", async (req, res): Promise<void> => {
     return;
   }
   if (date && (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T12:00:00Z")) ||
-      new Date(date + "T12:00:00Z").toISOString().slice(0, 10) !== date ||
-      date < new Date().toISOString().slice(0, 10))) {
+      new Date(date + "T12:00:00Z").toISOString().slice(0, 10) !== date)) {
     res.status(422).json({ error: "Informe uma data de compra válida, de hoje em diante." });
     return;
   }
