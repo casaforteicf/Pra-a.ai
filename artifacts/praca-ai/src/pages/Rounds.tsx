@@ -60,6 +60,7 @@ export default function RoundsPage() {
   }
   const createDemand=async(event:React.FormEvent)=>{
     event.preventDefault()
+    if (!city || !state) { setError("Escolha sua cidade antes de cadastrar uma demanda."); return }
     if(!authOrLogin()) return
     setSaving(true);setError("");setMessage("")
     try{
@@ -107,7 +108,7 @@ export default function RoundsPage() {
           <h1 className="mt-2 font-[Manrope] text-3xl font-extrabold sm:text-4xl">Rodadas de negócios</h1>
           <p className="mt-2 max-w-2xl text-sm text-[#64748B] sm:text-base">Escolha um lote aberto ou cadastre o material de que precisa. O prazo e a data de entrega ficam visíveis antes de participar.</p><div className="mt-3"><MarketplaceCityPicker /></div>
         </div>
-        <button onClick={()=>{if(authOrLogin())setShowDemand(true)}} className="inline-flex items-center gap-2 rounded-xl bg-[#10D3B8] px-4 py-3 text-sm font-extrabold text-[#0B2240]"><Plus className="h-4 w-4"/>Cadastrar minha demanda</button>
+        <button onClick={()=>{if(authOrLogin())setShowDemand(true)}} className="inline-flex items-center gap-2 rounded-xl bg-[#10D3B8] px-4 py-3 text-sm font-extrabold text-[#0B2240] disabled:cursor-not-allowed disabled:opacity-50" disabled={!city || !state}><Plus className="h-4 w-4"/>Cadastrar minha demanda</button>
       </div>
 
       <section className="mb-6 grid gap-3 md:grid-cols-3">
