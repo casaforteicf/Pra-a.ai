@@ -92,7 +92,6 @@ CREATE TABLE IF NOT EXISTS buying_rounds (
   created_at timestamptz NOT NULL DEFAULT now(),
   closed_at timestamptz,
   CHECK (closes_at > created_at),
-  CHECK (needed_at >= created_at::date)
 );
 CREATE INDEX IF NOT EXISTS idx_buying_rounds_open
   ON buying_rounds (status, closes_at, state, city);
