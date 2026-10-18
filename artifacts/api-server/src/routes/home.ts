@@ -39,12 +39,13 @@ const BANNERS = [
 
 router.get("/home", async (req, res): Promise<void> => {
   const city = typeof req.query.cidade === "string" ? req.query.cidade.trim().slice(0, 100) : undefined;
+  const state = typeof req.query.estado === "string" && /^[A-Za-z]{2}$/.test(req.query.estado.trim()) ? req.query.estado.trim().toUpperCase() : undefined;
   try {
-    const baseCategories = await getRealCategories(undefined, city);
+    const baseCategories = await getRealCategories(undefined, city, state);
     const [marketplace] = await db.select({ total: count() }).from(marketplaceListingsTable).where(eq(marketplaceListingsTable.status, "active"));
     const categories = baseCategories.map((category) => category.slug === "marketplace" ? { ...category, productCount: marketplace?.total ?? 0 } : category);
-    const featuredProducts = await getFeaturedProducts(6, city);
-    const flashDeals = await getPromotedProducts(8, city);
+    const featuredProducts = await getFeaturedProducts(6, city, state);
+    const flashDeals = await getPromotedProducts(8, city, state);
     const stories = await getActiveStoriesGrouped();
     const variedadesHoje = await getVariedadesDeHoje().catch((err) => {
       console.warn("[home] variedadesHoje indisponível (migration ainda não rodou?):", err);
@@ -58,7 +59,7 @@ router.get("/home", async (req, res): Promise<void> => {
     const carousels = await Promise.all(
       topCategories.map(async (category) => ({
         category,
-        products: await getProductsByCategoryName(category.name, 4, city),
+        products: await getProductsByCategoryName(category.name, 4, city, state),
       })),
     );
 
