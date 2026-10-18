@@ -344,7 +344,11 @@ router.get("/admin/inteligencia", async (req, res): Promise<void> => {
           count(*) FILTER (WHERE q.status='aguardando_fornecedores')::int AS "quotesWithoutSuppliers",
           count(*) FILTER (
             WHERE q.status='distribuida'
-              AND q.created_at <= now() - interval '24 hours'
+              AND EXISTS (
+                SELECT 1 FROM quote_recipients r
+                WHERE r.quote_request_id=q.id
+                  AND r.created_at <= now() - interval '24 hours'
+              )
               AND NOT EXISTS (SELECT 1 FROM quote_offers o WHERE o.quote_request_id=q.id)
           )::int AS "quotesWithoutOffer24h",
           count(*) FILTER (WHERE q.needed_at < current_date AND q.status <> 'aceita')::int AS "quotesPastNeededDate"
