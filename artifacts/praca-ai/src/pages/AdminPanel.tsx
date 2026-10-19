@@ -530,6 +530,18 @@ function ComissoesTab() {
 
 // ── Página ─────────────────────────────────────────────────────────────────
 
+
+function NegotiationAuditTab(){
+ const [nsu,setNsu]=useState(""),[data,setData]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const [loadedNsu,setLoadedNsu]=useState("");
+ async function search(more=false){setBusy(true);setError("");try{const key=more?loadedNsu:nsu.trim().toUpperCase();const r=await fetch("/api/admin/negociacoes/"+encodeURIComponent(key)+(more&&data?.nextCursor?"?after="+data.nextCursor:""),{headers:adminHeaders(),cache:"no-store"});const b=await r.json();if(!r.ok)throw Error(b.error??"Falha ao carregar NSU.");setLoadedNsu(key);setData((old:any)=>more&&old?{...b,events:[...old.events,...b.events]}:b)}catch(e){setError(e instanceof Error?e.message:"Falha ao carregar.")}finally{setBusy(false)}}
+ return <section className="space-y-4"><h2 className="text-xl font-bold">Histórico por NSU mestre</h2><form onSubmit={e=>{e.preventDefault();void search()}} className="flex flex-wrap gap-2"><label className="flex-1 text-sm">NSU mestre<Input value={nsu} onChange={e=>setNsu(e.target.value)} placeholder="NSU-123"/></label><Button type="submit" disabled={busy}>Consultar</Button></form>
+ {error&&<p role="alert" className="text-red-700">{error}</p>}
+ {data&&<><p><strong>{data.negotiation.master_nsu}</strong> · {data.negotiation.source_type} · {data.negotiation.source_id}</p><ol className="space-y-3">{data.events.map((e:any)=><li key={e.sequence} className="rounded-xl border bg-white p-3"><p className="font-bold">{e.movement_nsu} · {e.entity_type} · {e.operation}</p><p className="text-xs">{new Date(e.recorded_at).toLocaleString("pt-BR")} · ator: {e.actor_type}{e.actor_id?" / "+e.actor_id:""} · evento {e.sequence}</p><details className="mt-2"><summary>Dados da movimentação</summary><pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify({before:e.before_data,after:e.after_data},null,2)}</pre></details></li>)}</ol>{data.nextCursor&&<Button disabled={busy} onClick={()=>void search(true)}>Carregar mais</Button>}</>}
+ <p className="text-xs text-muted-foreground">Fotografias de migração registram o estado disponível, sem reconstruir alterações antigas. Ator “system” indica que a fonte não identificou um usuário.</p>
+ </section>;
+}
+
 function AdminContent() {
   return (
     <div className="min-h-screen bg-muted/30 p-6">
@@ -543,6 +555,7 @@ function AdminContent() {
             <TabsTrigger value="disputas">Disputas</TabsTrigger>
             <TabsTrigger value="repasses">Repasses</TabsTrigger>
             <TabsTrigger value="comissoes">Comissões</TabsTrigger>
+            <TabsTrigger value="nsu">Histórico NSU</TabsTrigger>
           </TabsList>
           <TabsContent value="embaixadores" className="mt-4">
             <EmbaixadoresTab />
@@ -553,6 +566,7 @@ function AdminContent() {
           <TabsContent value="repasses" className="mt-4">
             <RepassesTab />
           </TabsContent>
+          <TabsContent value="nsu" className="mt-4"><NegotiationAuditTab/></TabsContent>
           <TabsContent value="comissoes" className="mt-4">
             <ComissoesTab />
           </TabsContent>

@@ -1,3 +1,4 @@
+import NegotiationHistory from "@/components/NegotiationHistory";
 import * as React from "react"
 import { useLocation } from "wouter"
 import { ChevronLeft, Package, Truck, CheckCircle2, Clock, ShoppingBag, ChevronDown } from "lucide-react"
@@ -160,6 +161,7 @@ export default function MyOrders() {
                       exit={{ height: 0, opacity: 0 }}
                       className="border-t px-4 py-4 bg-muted/30"
                     >
+                      <NegotiationHistory key={order.id} url={"/api/negotiations/marketplace/"+encodeURIComponent(String(order.id))+"/history"}/>
                       <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">
                         Itens do Pedido
                       </h4>

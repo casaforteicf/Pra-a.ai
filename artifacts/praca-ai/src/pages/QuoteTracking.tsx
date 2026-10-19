@@ -1,3 +1,4 @@
+import NegotiationHistory from "@/components/NegotiationHistory";
 import * as React from "react";
 import { Link, useRoute } from "wouter";
 import { ArrowLeft, Check, Clock3, MapPin, Package, ShieldCheck, Truck } from "lucide-react";
@@ -92,7 +93,7 @@ export default function QuoteTracking() {
       : error && !quote ? <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-800"><p className="font-bold">{error}</p><p className="mt-2 text-sm">Se você ainda não entrou, <Link className="underline" href={"/login?returnTo=" + encodeURIComponent("/cotacao/" + id)}>acesse sua conta</Link>.</p></div>
       : quote ? <>
         <p className="text-xs font-extrabold uppercase tracking-[.16em] text-[#087E8B]">Acompanhar cotação · {quote.protocol}</p>
-        <h1 className="mt-2 font-[Manrope] text-3xl font-extrabold">{quote.title}</h1>
+        <h1 className="mt-2 font-[Manrope] text-3xl font-extrabold">{quote.title}</h1><NegotiationHistory key={quote.id} url={"/api/negotiations/quote/"+encodeURIComponent(quote.id)+"/history"}/>
         <div className="mt-3 flex flex-wrap gap-4 text-sm text-slate-600"><span>{quote.category}</span><span><MapPin className="mr-1 inline h-4 w-4"/>{quote.location}</span>{quote.neededAt && <span><Truck className="mr-1 inline h-4 w-4"/>Precisa até {deadline(quote.neededAt)}</span>}<span className="rounded-full bg-blue-50 px-3 py-1 font-bold text-blue-700">{quote.status === "awaiting_payment" ? "Aguardando pagamento" : ["paid","delivered","released"].includes(quote.status) ? "Pagamento confirmado" : quote.offers.length ? `${quote.offers.length} propostas recebidas` : "Aguardando propostas"}</span></div>
         <section className="mt-6 rounded-2xl border border-[#DDE5ED] bg-white p-5"><h2 className="flex items-center gap-2 font-extrabold"><Package className="h-5 w-5 text-[#087E8B]"/>Itens solicitados</h2><div className="mt-3 divide-y">{quote.items.map(item=><div key={item.id} className="flex flex-wrap justify-between gap-2 py-3 text-sm"><span className="font-semibold">{item.description}{item.brand ? " · " + item.brand : ""}</span><span className="text-slate-600">{item.quantity.toLocaleString("pt-BR")} {item.unit}</span></div>)}</div></section>
         {error && <div role="alert" className="mt-4 rounded-xl bg-red-50 p-3 text-sm text-red-800">{error}</div>}

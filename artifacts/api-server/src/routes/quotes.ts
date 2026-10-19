@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { installNegotiationAudit } from "../lib/negotiationAudit";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createOrGetCustomer, createCharge, getPixQrCode, isAsaasConfigured } from "../lib/asaas";
 import { sendChatMessage } from "../lib/vendorSyncService";
@@ -182,7 +183,7 @@ function ensureDirectQuoteTables(): Promise<void> {
         created_at timestamptz NOT NULL DEFAULT now(),
         PRIMARY KEY (quote_request_id, vendor_id)
       );
-    `).then(() => undefined).catch((error) => { directQuoteTablesReady = null; throw error; });
+    `).then(() => installNegotiationAudit()).catch((error) => { directQuoteTablesReady = null; throw error; });
   }
   return directQuoteTablesReady;
 }

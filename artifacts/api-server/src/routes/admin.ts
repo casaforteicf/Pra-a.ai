@@ -454,4 +454,19 @@ router.patch("/admin/lojas/:vendorId/comissao", async (req, res): Promise<void> 
   res.json({ vendorId, comissaoPercentual });
 });
 
+router.get("/admin/negociacoes/:nsu",async(req,res):Promise<void>=>{
+ if(process.env.PRACA_NSU_AUDIT_ENABLED!=="true")return void res.status(503).json({error:"Auditoria NSU em homologação."});
+ const nsu=String(req.params.nsu),after=typeof req.query.after==="string"?req.query.after:"0";
+ if(!/^NSU-[1-9][0-9]{0,19}$/.test(nsu)||! /^[0-9]{1,18}$/.test(after))return void res.status(422).json({error:"NSU ou página inválida."});
+ try{
+  const root=await pool.query("SELECT id,master_nsu,source_type,source_id,created_at FROM praca_negotiations WHERE master_nsu=$1",[nsu]);
+  if(!root.rows[0])return void res.status(404).json({error:"NSU não encontrado."});
+  const events=await pool.query(`SELECT e.sequence::text,l.movement_nsu,l.scope_type,l.scope_id,e.entity_type,e.entity_id,e.operation,e.actor_type,e.actor_id,e.before_data,e.after_data,e.occurred_at,e.recorded_at
+   FROM praca_negotiation_events e JOIN praca_negotiation_links l ON l.entity_type=e.entity_type AND l.entity_id=e.entity_id
+   WHERE e.master_id=$1 AND e.sequence>$2::bigint ORDER BY e.sequence LIMIT 201`,[root.rows[0].id,after]);
+  const page=events.rows.slice(0,200);
+  res.set("Cache-Control","no-store").json({negotiation:root.rows[0],events:page,nextCursor:events.rows.length>200?page[page.length-1].sequence:null});
+ }catch{res.status(500).json({error:"Falha ao carregar auditoria NSU."})}
+});
+
 export default router;

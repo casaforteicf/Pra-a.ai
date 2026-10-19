@@ -1,3 +1,4 @@
+import { installNegotiationAudit } from "./lib/negotiationAudit";
 import { pool } from "@workspace/db";
 import { logger } from "./lib/logger";
 
@@ -1182,6 +1183,7 @@ CREATE INDEX IF NOT EXISTS idx_asaas_payment_events_payment
 export async function ensurePracaAiTablesExist(): Promise<void> {
   try {
     await pool.query(MIGRATION_SQL);
+    await installNegotiationAudit();
     logger.info("Migração de tabelas do Praça.ai verificada/aplicada");
   } catch (err) {
     logger.error({ err }, "Falha ao aplicar migração de tabelas do Praça.ai");
