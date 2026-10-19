@@ -361,6 +361,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
       guestPhone: consumerId ? null : guestPhone.trim(),
       buyerCpf,
       status: "confirmed",
+      paymentStatus: "pending",
       subtotal: String(subtotal),
       shipping: String(shipping),
       discount: String(discount),
