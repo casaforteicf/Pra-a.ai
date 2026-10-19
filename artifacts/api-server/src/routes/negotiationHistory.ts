@@ -27,7 +27,7 @@ router.get("/negotiations/:type/:id/history",async(req,res):Promise<void>=>{
     FROM praca_negotiation_events e JOIN praca_negotiation_links l ON l.entity_type=e.entity_type AND l.entity_id=e.entity_id
     WHERE e.master_id=$1 AND l.scope_type=$2 AND l.scope_id=$3 AND e.sequence>$4::bigint
       AND e.entity_type=ANY($5::text[]) ORDER BY e.sequence LIMIT 101`,
-    [root.id,type,id,after,["quote_requests","buying_round_orders","orders","praca_marketplace_fulfillment_events","praca_marketplace_fulfillments","praca_delivery_acceptances","praca_order_disputes","praca_order_cancellations"]]);
+    [root.id,type,id,after,["praca_suborders","praca_suborder_events","praca_suborder_receipts","quote_requests","buying_round_orders","orders","praca_marketplace_fulfillment_events","praca_marketplace_fulfillments","praca_delivery_acceptances","praca_order_disputes","praca_order_cancellations"]]);
   const page=events.rows.slice(0,100);
   res.set("Cache-Control","no-store").json({masterNsu:root.master_nsu,movementNsu:root.movement_nsu,events:page,nextCursor:events.rows.length>100?page[page.length-1].sequence:null});
  }catch{res.status(500).json({error:"Não foi possível carregar o histórico."})}

@@ -1,3 +1,4 @@
+import subordersRouter from "./suborders";
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import homeRouter from "./home";
@@ -48,6 +49,7 @@ router.use(homeRouter);
 router.use(categoriesRouter);
 router.use(productsRouter);
 router.use(ordersRouter);
+router.use(subordersRouter);
 router.use(cartRouter);
 router.use(couponsRouter);
 router.use(feedRouter);

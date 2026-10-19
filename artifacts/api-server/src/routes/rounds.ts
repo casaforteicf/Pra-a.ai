@@ -177,7 +177,7 @@ async function closeExpired(): Promise<void> {
       }
       const bid = best.rows[0];
       await client.query(
-        "INSERT INTO buying_round_orders(round_id,participant_id,bid_id,vendor_id,quantity,total) SELECT p.round_id,p.id,$2,$3,p.quantity,round(($4::numeric*p.quantity+$5::numeric*p.quantity/$6::numeric),2) FROM buying_round_participants p WHERE p.round_id=$1 ON CONFLICT(participant_id) DO NOTHING",
+        "WITH shares AS (SELECT p.*,floor(round($5::numeric*100)*p.quantity/$6::numeric) AS base_cents,mod(round($5::numeric*100)*p.quantity,$6::numeric) AS remainder FROM buying_round_participants p WHERE p.round_id=$1), ranked AS (SELECT shares.*,row_number() OVER(ORDER BY remainder DESC,id) AS allocation_rank,round($5::numeric*100)-sum(base_cents) OVER() AS extras FROM shares) INSERT INTO buying_round_orders(round_id,participant_id,bid_id,vendor_id,quantity,total) SELECT round_id,id,$2,$3,quantity,round($4::numeric*quantity,2)+(base_cents+CASE WHEN allocation_rank<=extras THEN 1 ELSE 0 END)/100 FROM ranked ON CONFLICT(participant_id) DO NOTHING",
         [row.id,bid.id,bid.vendor_id,bid.unit_price,bid.freight_total,total],
       );
       await client.query("UPDATE buying_rounds SET status='closed',winning_bid_id=$2,closed_at=now() WHERE id=$1",[row.id,bid.id]);

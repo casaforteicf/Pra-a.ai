@@ -54,7 +54,7 @@ CREATE OR REPLACE FUNCTION praca_nsu_safe_data(d jsonb) RETURNS jsonb LANGUAGE s
  'price_at_purchase','subtotal','total','shipping','discount','freight','freight_total','delivery_days',
  'valor_bruto','comissao_percentual','comissao_valor','valor_liquido','valor','tipo','outcome','event_type',
  'provider_event_id','payment_id','charge_id','asaas_event_id','asaas_charge_id','provider_release_id',
- 'created_at','joined_at','identity_revealed_at','crm_lead_id','from_status','to_status','delivery_mode','delivery_reported_at','accepted_at','paid_at','delivered_at','released_at']);
+ 'subtotal_cents','freight_cents','discount_cents','total_cents','net_cents','release_cents','created_at','joined_at','identity_revealed_at','crm_lead_id','from_status','to_status','delivery_mode','delivery_reported_at','accepted_at','paid_at','delivered_at','released_at']);
 $fn$;
 
 CREATE OR REPLACE FUNCTION praca_nsu_record(tbl text,d jsonb,op text,old_d jsonb DEFAULT NULL)
@@ -79,8 +79,10 @@ BEGIN
    scope_entity:=entity;
  ELSE
    CASE
-   WHEN tbl IN ('order_items','order_deal_links','vendor_payouts','deliveries','disputes','asaas_payment_events')
+   WHEN tbl IN ('praca_suborders','order_items','order_deal_links','vendor_payouts','deliveries','disputes','asaas_payment_events')
      THEN parent_table:='orders';parent_entity:=d->>'order_id';
+   WHEN tbl IN ('praca_suborder_items','praca_suborder_receipts','praca_suborder_events') THEN parent_table:='praca_suborders';parent_entity:=d->>'suborder_id';
+   WHEN tbl='praca_suborder_receipt_items' THEN parent_table:='praca_suborder_receipts';parent_entity:=d->>'receipt_id';
    WHEN tbl IN ('delivery_events','delivery_proofs','praca_bank_transactions')
      THEN parent_table:='deliveries';parent_entity:=d->>'delivery_id';
    WHEN tbl IN ('quote_request_items','quote_recipients','quote_offers','quote_vendor_leads')
@@ -122,7 +124,7 @@ BEGIN
  IF linked_master IS DISTINCT FROM master THEN RAISE EXCEPTION 'Cannot move an entity to another master NSU';END IF;
  IF op='UPDATE' AND d=old_d THEN RETURN master;END IF;
  INSERT INTO praca_negotiation_events(master_id,entity_type,entity_id,operation,actor_type,actor_id,before_data,after_data,occurred_at)
- VALUES(master,tbl,entity,op,coalesce(d->>'actor_type',nullif(current_setting('app.actor_type',true),''),'system'),coalesce(d->>'actor_consumer_id',nullif(current_setting('app.actor_id',true),'')),
+ VALUES(master,tbl,entity,op,coalesce(d->>'actor_type',nullif(current_setting('app.actor_type',true),''),'system'),coalesce(d->>'actor_consumer_id',d->>'actor_id',nullif(current_setting('app.actor_id',true),'')),
    CASE WHEN old_d IS NULL THEN NULL ELSE praca_nsu_safe_data(old_d) END,
    CASE WHEN op='DELETE' THEN NULL ELSE praca_nsu_safe_data(d) END,
    clock_timestamp())
@@ -142,7 +144,7 @@ $fn$;
 DO $install$
 DECLARE tbl text; r jsonb;
 BEGIN
- FOREACH tbl IN ARRAY ARRAY['orders','quote_requests','buying_rounds','buying_round_participants','buying_round_bids','buying_round_bid_events','buying_round_orders','buying_round_vendor_leads','order_items','order_deal_links','vendor_payouts','deliveries','delivery_events','delivery_proofs','disputes','asaas_payment_events','praca_bank_transactions','quote_request_items','quote_recipients','quote_offers','quote_offer_items','quote_vendor_leads','praca_marketplace_fulfillments','praca_marketplace_fulfillment_events','praca_order_disputes','praca_order_dispute_events','praca_order_cancellations','praca_order_cancellation_events','praca_delivery_acceptances','praca_asaas_webhook_events'] LOOP
+ FOREACH tbl IN ARRAY ARRAY['praca_suborders','praca_suborder_items','praca_suborder_receipts','praca_suborder_receipt_items','praca_suborder_events','orders','quote_requests','buying_rounds','buying_round_participants','buying_round_bids','buying_round_bid_events','buying_round_orders','buying_round_vendor_leads','order_items','order_deal_links','vendor_payouts','deliveries','delivery_events','delivery_proofs','disputes','asaas_payment_events','praca_bank_transactions','quote_request_items','quote_recipients','quote_offers','quote_offer_items','quote_vendor_leads','praca_marketplace_fulfillments','praca_marketplace_fulfillment_events','praca_order_disputes','praca_order_dispute_events','praca_order_cancellations','praca_order_cancellation_events','praca_delivery_acceptances','praca_asaas_webhook_events'] LOOP
    IF to_regclass(tbl) IS NULL THEN CONTINUE; END IF;
    EXECUTE format('DROP TRIGGER IF EXISTS praca_nsu_audit ON %I',tbl);
    EXECUTE format('CREATE TRIGGER praca_nsu_audit AFTER INSERT OR UPDATE OR DELETE ON %I FOR EACH ROW EXECUTE FUNCTION praca_nsu_source_trigger()',tbl);
