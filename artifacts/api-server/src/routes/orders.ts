@@ -9,6 +9,7 @@ import { calcularFrete } from "../lib/freteService";
 import { validateCouponWithInfluencer } from "../lib/couponService";
 import { confirmarConversaoCliente } from "./ambassadors";
 import { isAsaasConfigured, createOrGetCustomer, createCharge, getPixQrCode } from "../lib/asaas";
+import { bindMarketplaceSplitIds, marketplaceSplits } from "../lib/providerSettlements";
 
 const router: IRouter = Router();
 
@@ -460,6 +461,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
         };
       }
 
+      const split = await marketplaceSplits(order.id);
       const charge = await createCharge({
         customer: customer.id,
         billingType: asaasBillingType,
@@ -467,8 +469,11 @@ router.post("/checkout", async (req, res): Promise<void> => {
         dueDate: new Date(Date.now() + (asaasBillingType === "BOLETO" ? 3 : 1) * 24 * 60 * 60 * 1000).toISOString().split("T")[0]!,
         description: `Pedido ${orderNumber} — Praça.ai`,
         externalReference: orderNumber,
+        ...(split.length ? { split } : {}),
         ...creditCardPayload,
       });
+
+      await bindMarketplaceSplitIds(order.id, charge.split);
 
       const updateData: Record<string, unknown> = { asaasChargeId: charge.id };
       if (asaasBillingType === "PIX") {

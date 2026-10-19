@@ -1,4 +1,7 @@
 import subordersRouter from "./suborders";
+import partialDeliveriesRouter from "./partialDeliveries";
+import suborderCancellationsRouter from "./suborderCancellations";
+import financialOnboardingRouter from "./financialOnboarding";
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import homeRouter from "./home";
@@ -50,6 +53,9 @@ router.use(categoriesRouter);
 router.use(productsRouter);
 router.use(ordersRouter);
 router.use(subordersRouter);
+  router.use(partialDeliveriesRouter);
+  router.use(suborderCancellationsRouter);
+  router.use(financialOnboardingRouter);
 router.use(cartRouter);
 router.use(couponsRouter);
 router.use(feedRouter);

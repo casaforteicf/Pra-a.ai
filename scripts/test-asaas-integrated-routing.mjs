@@ -23,6 +23,8 @@ async function loadRoute(path, extra = {}) {
     "@workspace/db": { pool: db },
     "../lib/vendorDb": { vendorPool: { query: forbidden } },
     "../lib/vendorSyncService": { sendChatMessage: forbidden },
+    "../lib/providerSettlements": { marketplaceSplits: async () => [], singleVendorSplit: async () => [], bindMarketplaceSplitIds: async () => undefined },
+    "../lib/postPayment": { processMarketplacePostPayment: async () => undefined },
     "../lib/asaas": { createOrGetCustomer: forbidden, createCharge: forbidden, getPixQrCode: forbidden, isAsaasConfigured: forbidden, getPayment: async () => payment },
     "./quotes": { confirmDirectQuotePayment: forbidden },
     ...extra,

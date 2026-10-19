@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { installNegotiationAudit } from "../lib/negotiationAudit";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createOrGetCustomer, createCharge, getPixQrCode, isAsaasConfigured } from "../lib/asaas";
+import { singleVendorSplit } from "../lib/providerSettlements";
 import { sendChatMessage } from "../lib/vendorSyncService";
 import { pool } from "@workspace/db";
 import { vendorPool } from "../lib/vendorDb";
@@ -443,7 +444,7 @@ router.post("/quotes/:id/pay", async (req, res): Promise<void> => {
     await ensureDirectQuoteTables();
     await client.query("BEGIN");
     const found = await client.query(
-      `SELECT q.id,q.status,q.payment_method,q.asaas_charge_id,q.asaas_pix_payload,q.asaas_pix_qrcode_image,q.asaas_invoice_url,
+      `SELECT q.id,q.status,q.payment_method,q.asaas_charge_id,q.asaas_pix_payload,q.asaas_pix_qrcode_image,q.asaas_invoice_url,o.vendor_id,
               c.name,c.email,c.phone,c.cpf,
               ((SELECT COALESCE(sum(oi.unit_price * qi.quantity),0)
                 FROM quote_offer_items oi JOIN quote_request_items qi ON qi.id=oi.request_item_id
@@ -473,11 +474,13 @@ router.post("/quotes/:id/pay", async (req, res): Promise<void> => {
     if (!Number.isFinite(total) || total < 5) { await client.query("ROLLBACK"); return void res.status(422).json({ error: "O valor mínimo para cobrança é R$ 5,00." }); }
     if (method === "boleto" && String(quote.cpf ?? "").replace(/\D/g, "").length !== 11) { await client.query("ROLLBACK"); return void res.status(422).json({ error: "Cadastre um CPF válido para pagar por boleto." }); }
     const customer = await createOrGetCustomer({ name: String(quote.name), email: quote.email ?? undefined, phone: quote.phone ?? undefined, cpfCnpj: quote.cpf ?? undefined });
+    const split = await singleVendorSplit(String(quote.vendor_id), total);
     const charge = await createCharge({
       customer: customer.id, billingType: method === "pix" ? "PIX" : "BOLETO", value: total,
       dueDate: new Date(Date.now() + (method === "boleto" ? 3 : 1) * 86400000).toISOString().slice(0, 10),
       description: "Cotação Praça.ai " + String(req.params.id),
       externalReference: "PRACA_QUOTE_REQUEST:" + String(quote.id),
+      ...(split.length ? { split } : {}),
     });
     const invoiceUrl = method === "boleto" ? (charge.bankSlipUrl ?? charge.invoiceUrl) : charge.invoiceUrl;
     await client.query(

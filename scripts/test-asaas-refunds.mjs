@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const require = createRequire(new URL("../artifacts/api-server/package.json", import.meta.url));
 const { build } = require("esbuild");
@@ -10,7 +11,7 @@ const dir = await mkdtemp(join(tmpdir(), "praca-asaas-refund-"));
 try {
   const outfile = join(dir, "asaas.cjs");
   await build({
-    entryPoints: [new URL("../artifacts/api-server/src/lib/asaas.ts", import.meta.url).pathname],
+    entryPoints: [fileURLToPath(new URL("../artifacts/api-server/src/lib/asaas.ts", import.meta.url))],
     outfile, bundle: true, platform: "node", format: "cjs", logLevel: "silent",
     plugins: [{ name: "stub-logger", setup(plugin) {
       plugin.onResolve({ filter: /\/logger$/ }, () => ({ path: "logger", namespace: "test" }));

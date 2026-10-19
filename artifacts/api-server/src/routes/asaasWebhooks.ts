@@ -2,15 +2,61 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { timingSafeEqual } from "node:crypto";
 import { pool } from "@workspace/db";
 import { getPayment } from "../lib/asaas";
+import { processMarketplacePostPayment } from "../lib/postPayment";
 
 const router: IRouter = Router();
 const PAYMENT_EVENTS = new Set(["PAYMENT_CONFIRMED", "PAYMENT_RECEIVED"]);
+const PROVIDER_EVENTS = new Set(["PAYMENT_SPLIT_DONE", "PAYMENT_REFUNDED", "PAYMENT_REFUND_IN_PROGRESS", "PAYMENT_REFUND_DENIED"]);
 
 function tokenMatches(provided: string | undefined, expected: string): boolean {
   if (!provided) return false;
   const providedBytes = Buffer.from(provided);
   const expectedBytes = Buffer.from(expected);
   return providedBytes.length === expectedBytes.length && timingSafeEqual(providedBytes, expectedBytes);
+}
+
+
+async function reconcileProviderEvent(eventId: string, eventType: string, paymentId: string, body: any): Promise<void> {
+  const payment = await getPayment(paymentId);
+  const splitId = typeof body?.split?.id === "string" ? body.split.id : typeof body?.payment?.split?.id === "string" ? body.payment.split.id : null;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const suborder = splitId
+      ? await client.query("SELECT id FROM praca_suborders WHERE provider_split_id=$1 FOR UPDATE", [splitId])
+      : { rows: [] };
+    const inserted = await client.query(
+      `INSERT INTO praca_provider_events(provider_event_id,event_type,payment_id,split_id,suborder_id,payload)
+       VALUES($1,$2,$3,$4,$5,$6::jsonb) ON CONFLICT(provider_event_id) DO NOTHING RETURNING provider_event_id`,
+      [eventId, eventType, paymentId, splitId, suborder.rows[0]?.id ?? null, JSON.stringify({ status: payment.status })],
+    );
+    if (!inserted.rows.length) {
+      await client.query("COMMIT");
+      return;
+    }
+    if (eventType === "PAYMENT_SPLIT_DONE" && suborder.rows[0]?.id) {
+      await client.query("UPDATE praca_suborders SET settlement_status='escrow_held',settled_cents=total_cents,updated_at=now() WHERE id=$1", [suborder.rows[0].id]);
+      await client.query("UPDATE praca_suborder_receipts SET release_status='escrow_held',updated_at=now() WHERE suborder_id=$1 AND release_status IN ('escrow_pending','blocked_provider')", [suborder.rows[0].id]);
+    }
+    for (const refund of payment.refunds ?? []) {
+      if (!refund.id) continue;
+      const status = refund.status === "DONE" ? "done" : refund.status === "REFUSED" ? "denied" : "processing";
+      const updated = await client.query(
+        `UPDATE praca_suborder_cancellations SET refund_status=$1,status=CASE WHEN $1='done' THEN 'refunded' WHEN $1='denied' THEN 'reconciliation' ELSE status END,updated_at=now()
+         WHERE provider_refund_id=$2 AND refund_status <> 'done' RETURNING suborder_id,refund_cents`,
+        [status, refund.id],
+      );
+      if (status === "done") for (const row of updated.rows) {
+        await client.query("UPDATE praca_suborders SET refunded_cents=LEAST(total_cents,refunded_cents+$1),settlement_status='refunded',updated_at=now() WHERE id=$2", [row.refund_cents, row.suborder_id]);
+      }
+    }
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 router.post("/webhooks/asaas", async (req: Request, res: Response): Promise<void> => {
@@ -36,6 +82,15 @@ router.post("/webhooks/asaas", async (req: Request, res: Response): Promise<void
   const paymentId = typeof req.body?.payment?.id === "string" ? req.body.payment.id : "";
   if (!eventId || !eventType || !paymentId) {
     res.status(400).json({ error: "Evento inválido." });
+    return;
+  }
+  if (PROVIDER_EVENTS.has(eventType)) {
+    try {
+      await reconcileProviderEvent(eventId, eventType, paymentId, req.body);
+      res.status(200).json({ ok: true });
+    } catch {
+      res.status(503).json({ error: "Não foi possível reconciliar o evento financeiro." });
+    }
     return;
   }
   if (!PAYMENT_EVENTS.has(eventType)) {
@@ -110,6 +165,7 @@ router.post("/webhooks/asaas", async (req: Request, res: Response): Promise<void
 
     if (inserted.rows.length === 0) {
       await client.query("COMMIT");
+      await processMarketplacePostPayment(order.id);
       res.status(200).json({ ok: true, duplicate: true });
       return;
     }
@@ -128,6 +184,7 @@ router.post("/webhooks/asaas", async (req: Request, res: Response): Promise<void
       [inserted.rows[0].id],
     );
     await client.query("COMMIT");
+    await processMarketplacePostPayment(order.id);
     res.status(200).json({ ok: true });
   } catch {
     await client.query("ROLLBACK").catch(() => undefined);

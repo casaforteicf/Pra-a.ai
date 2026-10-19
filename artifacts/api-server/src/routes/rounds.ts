@@ -4,6 +4,7 @@ import { pool } from "@workspace/db";
 import { vendorPool } from "../lib/vendorDb";
 import { sendChatMessage } from "../lib/vendorSyncService";
 import { createOrGetCustomer, createCharge, getPixQrCode, isAsaasConfigured } from "../lib/asaas";
+import { singleVendorSplit } from "../lib/providerSettlements";
 import { confirmDirectQuotePayment } from "./quotes";
 
 const router: IRouter = Router();
@@ -327,7 +328,7 @@ router.post("/round-orders/:id/pay",async(req,res):Promise<void>=>{
   try {
     await client.query("BEGIN");
     const found=await client.query(
-      "SELECT o.id,o.status,o.total::text,o.payment_method,o.asaas_charge_id,o.asaas_pix_payload,o.asaas_pix_qrcode_image,o.asaas_invoice_url,c.name,c.email,c.phone,c.cpf,r.code,r.item_name,r.unit FROM buying_round_orders o JOIN buying_round_participants p ON p.id=o.participant_id JOIN consumers c ON c.id=p.consumer_id JOIN buying_rounds r ON r.id=o.round_id WHERE o.id=$1 AND p.consumer_id=$2 FOR UPDATE OF o",
+      "SELECT o.id,o.vendor_id,o.status,o.total::text,o.payment_method,o.asaas_charge_id,o.asaas_pix_payload,o.asaas_pix_qrcode_image,o.asaas_invoice_url,c.name,c.email,c.phone,c.cpf,r.code,r.item_name,r.unit FROM buying_round_orders o JOIN buying_round_participants p ON p.id=o.participant_id JOIN consumers c ON c.id=p.consumer_id JOIN buying_rounds r ON r.id=o.round_id WHERE o.id=$1 AND p.consumer_id=$2 FOR UPDATE OF o",
       [req.params.id,consumer],
     );
     const order=found.rows[0];
@@ -349,11 +350,13 @@ router.post("/round-orders/:id/pay",async(req,res):Promise<void>=>{
     if(method==="boleto"&&String(order.cpf??"").replace(/\D/g,"").length!==11) { await client.query("ROLLBACK"); return void res.status(422).json({error:"Cadastre um CPF válido na sua conta para pagar por boleto."}); }
     const customer=await createOrGetCustomer({name:String(order.name),email:String(order.email),phone:order.phone??undefined,cpfCnpj:order.cpf??undefined});
     const billingType=method==="pix"?"PIX":"BOLETO";
+    const split=await singleVendorSplit(String(order.vendor_id),total);
     const charge=await createCharge({
       customer:customer.id,billingType,value:total,
       dueDate:new Date(Date.now()+(method==="boleto"?3:1)*86400000).toISOString().slice(0,10),
       description:"Rodada Praça.ai "+String(order.code)+" — "+String(order.item_name),
       externalReference:"PRACA_ROUND_ORDER:"+String(order.id),
+      ...(split.length?{split}:{}),
     });
     const invoiceUrl=method==="boleto"?(charge.bankSlipUrl??charge.invoiceUrl):charge.invoiceUrl;
     // Persist the charge id before requesting the QR code. A transient QR API

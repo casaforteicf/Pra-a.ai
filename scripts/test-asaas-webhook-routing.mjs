@@ -17,6 +17,7 @@ const stubs = {
   "@workspace/db": { pool: { query: forbidden, connect: forbidden } },
   "../lib/vendorDb": { vendorPool: { query: forbidden } },
   "../lib/vendorSyncService": { sendChatMessage: forbidden },
+  "../lib/providerSettlements": { singleVendorSplit: async () => [] },
   "../lib/asaas": { createOrGetCustomer: forbidden, createCharge: forbidden, getPixQrCode: forbidden, isAsaasConfigured: forbidden },
   "./quotes": { confirmDirectQuotePayment: forbidden },
 };
