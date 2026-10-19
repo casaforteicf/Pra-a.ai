@@ -44,7 +44,7 @@ export default function Checkout() {
     state: ''
   })
 
-  const [deliveryOption, setDeliveryOption] = React.useState<'express' | 'standard'>('express')
+  const [deliveryOption, setDeliveryOption] = React.useState<'express' | 'standard' | 'pickup'>('standard')
   const [paymentMethod, setPaymentMethod] = React.useState<'credit_card' | 'pix' | 'boleto'>('pix')
 
   const [couponCode, setCouponCode] = React.useState(() => localStorage.getItem('praca-influencer-coupon') || '')
@@ -83,6 +83,26 @@ export default function Checkout() {
     localStorage.removeItem('praca-influencer-coupon')
   }
 
+
+  const [freightQuote,setFreightQuote]=React.useState<{shipping:number;vendors:{vendorId:string;subtotal:number;freight:number;total:number}[]}|null>(null)
+  const [freightError,setFreightError]=React.useState("")
+  const freightKey=JSON.stringify([address.city,address.state,deliveryOption,cart?.items])
+  const [quotedKey,setQuotedKey]=React.useState("")
+  const [freightRevision,setFreightRevision]=React.useState(0)
+  React.useEffect(()=>{
+    const controller=new AbortController()
+    setFreightQuote(null);setFreightError("")
+    if(!cart?.items.length)return()=>controller.abort()
+    const timer=window.setTimeout(()=>{
+      void fetch("/api/checkout/freight",{method:"POST",credentials:"include",signal:controller.signal,headers:{"Content-Type":"application/json"},body:JSON.stringify({deliveryAddress:address,deliveryOption})})
+      .then(async response=>{const body=await response.json();if(!response.ok)throw new Error(body.error??"Frete indisponível.");return body})
+      .then(body=>{if(!controller.signal.aborted){setFreightQuote(body);setQuotedKey(freightKey)}})
+      .catch(error=>{if(!controller.signal.aborted)setFreightError(error.message)})
+    },300)
+    return()=>{window.clearTimeout(timer);controller.abort()}
+  },[freightKey,freightRevision])
+  const freightReady=Boolean(freightQuote&&quotedKey===freightKey)
+
   if (isLoading) return <PageLoader />
   if (!cart || cart.items.length === 0) {
     return (
@@ -116,13 +136,15 @@ export default function Checkout() {
     else window.history.back()
   }
 
-  const shipping = deliveryOption === 'express' ? 12.9 : 0
+  const shipping = freightReady ? freightQuote!.shipping : 0
   const pixDiscount = paymentMethod === 'pix' ? Math.round((cart.subtotal ?? 0) * 0.1 * 100) / 100 : 0
   const couponDiscount = appliedCoupon?.discount ?? 0
   const totalDiscount = pixDiscount + couponDiscount
-  const grandTotal = (cart.subtotal ?? 0) + shipping - totalDiscount
+  const grandTotal = Math.max(0,(cart.subtotal ?? 0) + shipping - totalDiscount)
 
   const handleSubmit = () => {
+    if(!freightReady){toast({title:"Frete pendente",description:freightError||"Aguarde o cálculo do frete.",variant:"destructive"});return}
+
     if (!address.street.trim() || !address.number.trim() || !address.neighborhood.trim() || !address.city.trim() || !/^[A-Za-z]{2}$/.test(address.state.trim()) || address.zipCode.replace(/\D/g, '').length !== 8) {
       toast({ title: "Endereço incompleto", description: "Confira os dados de entrega antes de finalizar.", variant: "destructive" })
       setStep(1)
@@ -153,6 +175,7 @@ export default function Checkout() {
       data: {
         deliveryAddress: address as any,
         deliveryOption: deliveryOption as any,
+        expectedShipping: shipping,
         paymentMethod: paymentMethod as any,
         couponCode: appliedCoupon?.code ?? undefined,
         cpf: cpfDigits,
@@ -171,9 +194,10 @@ export default function Checkout() {
         setLocation(orderId ? `/success/${orderId}` : '/success/0')
       },
       onError: () => {
+        setFreightQuote(null);setFreightRevision(v=>v+1)
         toast({
           title: "Erro ao finalizar",
-          description: "Ocorreu um problema. Tente novamente.",
+          description: "Não foi possível concluir. Confira o frete atualizado antes de tentar novamente.",
           variant: "destructive"
         })
       }
@@ -268,33 +292,11 @@ export default function Checkout() {
             >
               <div>
                 <h2 className="font-bold text-lg mb-4">Opções de Entrega</h2>
-                <div className="flex flex-col gap-3">
-                  <div
-                    onClick={() => setDeliveryOption('express')}
-                    className={`p-4 rounded-2xl border-2 transition-colors cursor-pointer flex items-center justify-between ${
-                      deliveryOption === 'express' ? 'border-primary bg-primary/5' : 'border-muted bg-card'
-                    }`}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-bold">Entrega Expressa</span>
-                      <span className="text-xs text-muted-foreground">Em até 2 horas</span>
-                    </div>
-                    <span className="font-black text-terracota">R$ 12,90</span>
-                  </div>
+                <div className="flex gap-3"><Button variant={deliveryOption==="standard"?"default":"outline"} onClick={()=>setDeliveryOption("standard")}>Entrega pelo vendedor</Button><Button variant={deliveryOption==="pickup"?"default":"outline"} onClick={()=>setDeliveryOption("pickup")}>Retirada no local</Button></div>
+                <p className="mt-3 text-sm">O frete é definido pelas regras de cada loja. O prazo será confirmado pelo vendedor.</p>
+                {freightError&&<div role="alert" className="mt-2 text-sm text-red-700"><p>{freightError}</p><button onClick={()=>setFreightRevision(v=>v+1)} className="underline">Tentar calcular novamente</button></div>}
+                {freightReady&&freightQuote!.vendors.map((vendor,index)=><div key={vendor.vendorId} className="mt-3 rounded-xl border p-3 text-sm"><strong>Loja {index+1}</strong><p>Produtos: {formatMoney(vendor.subtotal)}</p><p>{deliveryOption==="pickup"?"Retirada no local — sem frete":vendor.freight===0?"Frete incluso — R$ 0,00 adicional":"Frete: "+formatMoney(vendor.freight)}</p><p className="font-bold">Produtos + frete: {formatMoney(vendor.total)}</p></div>)}
 
-                  <div
-                    onClick={() => setDeliveryOption('standard')}
-                    className={`p-4 rounded-2xl border-2 transition-colors cursor-pointer flex items-center justify-between ${
-                      deliveryOption === 'standard' ? 'border-primary bg-primary/5' : 'border-muted bg-card'
-                    }`}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-bold">Padrão</span>
-                      <span className="text-xs text-muted-foreground">1 a 2 dias úteis</span>
-                    </div>
-                    <span className="font-black text-primary">Grátis</span>
-                  </div>
-                </div>
               </div>
 
               <div className="bg-card border rounded-2xl p-4">
@@ -420,7 +422,7 @@ export default function Checkout() {
         </div>
         <div className="flex justify-between text-sm mb-1 text-muted-foreground">
           <span>Frete</span>
-          <span>{deliveryOption === 'express' ? 'R$ 12,90' : 'Grátis'}</span>
+          <span>{freightReady ? (deliveryOption==='pickup'?'Retirada — sem frete':shipping===0?'Frete incluso':formatMoney(shipping)) : 'A definir'}</span>
         </div>
         {totalDiscount > 0 && (
           <div className="flex justify-between text-sm mb-1 text-primary font-medium">
@@ -431,7 +433,7 @@ export default function Checkout() {
         <div className="flex justify-between items-end mb-4 mt-2">
           <span className="font-bold">Total</span>
           <span className="text-2xl font-black text-primary">
-            {formatMoney(grandTotal)}
+            {freightReady?formatMoney(grandTotal):'Aguardando frete'}
           </span>
         </div>
 
@@ -444,7 +446,7 @@ export default function Checkout() {
             size="lg"
             className="w-full bg-terracota hover:bg-terracota/90 text-white"
             onClick={handleSubmit}
-            disabled={checkoutMutation.isPending}
+            disabled={checkoutMutation.isPending || !freightReady}
           >
             {checkoutMutation.isPending ? 'Processando...' : 'Finalizar Pedido'}
           </Button>

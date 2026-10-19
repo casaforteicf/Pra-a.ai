@@ -545,11 +545,11 @@ router.post("/internal/quotes/:id/offers", async (req, res): Promise<void> => {
   const tenantId = String(req.body?.tenantId ?? "").trim();
   if (!tenantId) return void res.status(422).json({ error: "Loja inválida." });
   const itemOffers = req.body?.items;
-  const freight = numberValue(req.body?.freight ?? 0);
+  const freight = numberValue(req.body?.freight);
   const deliveryDays = Number(req.body?.deliveryDays ?? 0);
   const terms = typeof req.body?.terms === "string" ? req.body.terms.trim().slice(0, 1200) : "";
   if (!Array.isArray(itemOffers) || itemOffers.length === 0 || itemOffers.length > 100 ||
-      freight === null || freight < 0 || !Number.isInteger(deliveryDays) || deliveryDays < 0 || deliveryDays > 365 ||
+      req.body?.freight == null || String(req.body.freight).trim() === "" || freight === null || freight < 0 || !Number.isInteger(deliveryDays) || deliveryDays < 0 || deliveryDays > 365 ||
       CONTACT_PATTERN.test(terms)) {
     return void res.status(422).json({ error: "Revise itens, frete, prazo e observações. Não inclua telefone ou e-mail." });
   }

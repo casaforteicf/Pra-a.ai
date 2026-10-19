@@ -191,6 +191,36 @@ router.post("/orders", async (req, res): Promise<void> => {
 });
 
 // POST /checkout — read cart, create order, clear cart
+
+async function checkoutFreight(items: any[], address: any, option: string) {
+  if (!["standard","express","pickup"].includes(option)) throw new Error("Escolha entrega ou retirada.");
+  if (option !== "pickup" && (!address?.city?.trim() || !/^[A-Za-z]{2}$/.test(address?.state ?? ""))) throw new Error("Informe cidade e UF para calcular o frete.");
+  const grouped = new Map<string, number>();
+  for (const item of items) {
+    if (!item.vendorId) throw new Error("Produto sem vendedor: solicite uma cotação.");
+    grouped.set(item.vendorId,(grouped.get(item.vendorId)??0)+Number(item.productPrice)*item.quantity);
+  }
+  const vendors = [];
+  for (const [vendorId,subtotal] of grouped) {
+    const freight = option === "pickup" ? 0 : (await calcularFrete(vendorId,address.city,subtotal,address.state)).valor;
+    vendors.push({vendorId,subtotal,freight,total:Math.round((subtotal+freight)*100)/100});
+  }
+  return {vendors,shipping:Math.round(vendors.reduce((sum,v)=>sum+v.freight,0)*100)/100};
+}
+router.post("/checkout/freight",async(req,res):Promise<void>=>{
+  try {
+    const consumerId=req.session?.consumerId;
+    const token=req.session?.cartToken;
+    if(!consumerId&&!token) return void res.status(400).json({error:"Carrinho vazio."});
+    const [cart]=await db.select().from(cartsTable).where(consumerId?eq(cartsTable.consumerId,consumerId):eq(cartsTable.sessionToken,token!)).limit(1);
+    if(!cart) return void res.status(400).json({error:"Carrinho vazio."});
+    const items=await db.select().from(cartItemsTable).where(eq(cartItemsTable.cartId,cart.id));
+    if(!items.length) return void res.status(400).json({error:"Carrinho vazio."});
+    res.setHeader("Cache-Control","private, no-store");
+    res.json(await checkoutFreight(items,req.body?.deliveryAddress,req.body?.deliveryOption));
+  }catch(error){res.status(422).json({error:error instanceof Error?error.message:"Não foi possível definir o frete."});}
+});
+
 router.post("/checkout", async (req, res): Promise<void> => {
   const consumerId = req.session?.consumerId ?? null;
   const { deliveryAddress, deliveryOption, paymentMethod, couponCode, cardNumber, cardHolder, cardExpiry, cardCvv, guestName, guestPhone, cpf } = req.body;
@@ -306,29 +336,12 @@ router.post("/checkout", async (req, res): Promise<void> => {
     subtotal += Number(item.productPrice) * item.quantity;
   }
 
-  // Frete real, calculado por vendedor (carrinho multi-vendedor, seção 9.7)
-  // e somado no total do pedido — retirada na loja não tem frete;
-  // pra qualquer outro modo, calcula por vendedor via calcularFrete().
-  let shipping = 0;
-  const cidadeCliente = typeof deliveryAddress === "object" ? deliveryAddress?.city : undefined;
-  if (deliveryOption !== "pickup") {
-    const itemsByVendorForFrete = new Map<string, typeof cartItems>();
-    for (const item of cartItems) {
-      if (!item.vendorId) continue;
-      const list = itemsByVendorForFrete.get(item.vendorId) ?? [];
-      list.push(item);
-      itemsByVendorForFrete.set(item.vendorId, list);
-    }
-    for (const [vendorId, vendorItems] of itemsByVendorForFrete) {
-      const vendorSubtotal = vendorItems.reduce((sum, i) => sum + Number(i.productPrice) * i.quantity, 0);
-      try {
-        const resultado = await calcularFrete(vendorId, cidadeCliente, vendorSubtotal);
-        shipping += resultado.valor;
-      } catch (freteErr) {
-        console.error("[checkout] erro ao calcular frete por vendedor, usando fallback:", freteErr);
-        shipping += deliveryOption === "express" ? 12.9 : 0;
-      }
-    }
+  let freightSummary: Awaited<ReturnType<typeof checkoutFreight>>;
+  try { freightSummary=await checkoutFreight(cartItems,deliveryAddress,deliveryOption); }
+  catch(error) { res.status(422).json({error:error instanceof Error?error.message:"Frete indisponível."}); return; }
+  const shipping=freightSummary.shipping;
+  if(req.body.expectedShipping == null || Number(req.body.expectedShipping)!==shipping) {
+    res.status(409).json({error:"Confira o frete atualizado antes de pagar.",shipping}); return;
   }
 
   // Pix e cupom são benefícios distintos. O cupom é revalidado no servidor
@@ -428,7 +441,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
         vendorId,
         origem: "produto",
         status: "preparando",
-        valorPagoParceiro: String(vendorIds.length ? shipping / vendorIds.length : 0),
+        valorPagoParceiro: String(freightSummary.vendors.find(v=>v.vendorId===vendorId)?.freight ?? 0),
       }).returning();
       await db.insert(deliveryEventsTable).values({ deliveryId: delivery.id, status: "preparando", observacao: "Entrega criada automaticamente após a confirmação do pedido." });
     }
