@@ -496,8 +496,8 @@ export const GetCartResponse = zod.object({
   "selectedSize": zod.string().nullish()
 })),
   "subtotal": zod.number(),
-  "shipping": zod.number(),
-  "total": zod.number(),
+  "shipping": zod.number().nullable(),
+  "total": zod.number().nullable(),
   "itemCount": zod.number()
 })
 
@@ -545,8 +545,8 @@ export const AddToCartResponse = zod.object({
   "selectedSize": zod.string().nullish()
 })),
   "subtotal": zod.number(),
-  "shipping": zod.number(),
-  "total": zod.number(),
+  "shipping": zod.number().nullable(),
+  "total": zod.number().nullable(),
   "itemCount": zod.number()
 })
 
@@ -592,8 +592,8 @@ export const RemoveFromCartResponse = zod.object({
   "selectedSize": zod.string().nullish()
 })),
   "subtotal": zod.number(),
-  "shipping": zod.number(),
-  "total": zod.number(),
+  "shipping": zod.number().nullable(),
+  "total": zod.number().nullable(),
   "itemCount": zod.number()
 })
 

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES, vendorPayoutsTable, ambassadorsTable, influencerConversionsTable, deliveriesTable, deliveryEventsTable } from "@workspace/db";
-import { getProductById, getProductsByIds } from "../lib/catalogService";
+import { getProductsByIds } from "../lib/catalogService";
 import { vendorPool } from "../lib/vendorDb";
 import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncService";
 import { calcularFrete } from "../lib/freteService";
@@ -125,8 +125,18 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
   res.json(formatOrder(order, items));
 });
 
-// NOTA DE AUDITORIA: este endpoint não é chamado por nenhum lugar do
-// frontend real (confirmado por busca completa) — o fluxo de verdade é
+// O checkout único valida carrinho, frete por loja e pagamento.
+// Integrações legadas recebem instrução explícita, sem criar pedido ou cobrança.
+router.post("/orders", async (_req, res): Promise<void> => {
+  res.status(410).json({
+    error: "Este checkout foi substituído. Monte o carrinho, consulte o frete e finalize pelo checkout.",
+    code: "CHECKOUT_LEGACY_RETIRED",
+    cartEndpoint: "/api/cart/items",
+    freightEndpoint: "/api/checkout/freight",
+    checkoutEndpoint: "/api/checkout",
+  });
+});
+
 // POST /checkout, abaixo, que lê do carrinho, calcula frete por vendedor
 // e valida cupom de verdade. Esse aqui é mais simples/incompleto
 // (não valida cupom, não faz frete multi-vendedor) — mantido por
