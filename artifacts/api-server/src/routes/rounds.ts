@@ -376,19 +376,24 @@ router.post("/round-orders/:id/pay",async(req,res):Promise<void>=>{
   } finally { client.release(); }
 });
 
-router.post("/webhooks/asaas",async(req,res):Promise<void>=>{
+router.post("/webhooks/asaas",async(req,res,next):Promise<void>=>{
+  const payment=req.body?.payment;
+  const externalReference=typeof payment?.externalReference==="string"?payment.externalReference:"";
+  const isRoundOrder=externalReference.startsWith("PRACA_ROUND_ORDER:");
+  const isDirectQuote=externalReference.startsWith("PRACA_QUOTE_REQUEST:");
+  // O checkout tradicional tem outro handler no mesmo endpoint.
+  // Encaminhe eventos fora deste escopo sem confirmá-los como processados.
+  if(!isRoundOrder&&!isDirectQuote) return void next();
   const expected=process.env.ASAAS_WEBHOOK_TOKEN??"";
   const supplied=req.header("asaas-access-token")??"";
-  if(expected.length<32||supplied.length!==expected.length||!timingSafeEqual(Buffer.from(expected),Buffer.from(supplied))) {
+  const expectedBytes=Buffer.from(expected);
+  const suppliedBytes=Buffer.from(supplied);
+  if(expected.length<32||suppliedBytes.length!==expectedBytes.length||!timingSafeEqual(expectedBytes,suppliedBytes)) {
     return void res.status(401).json({error:"Webhook não autorizado."});
   }
   const event=String(req.body?.event??"");
-  const payment=req.body?.payment;
-  const chargeId=String(payment?.id??"");
-  const externalReference=String(payment?.externalReference??"");
-  const isRoundOrder=externalReference.startsWith("PRACA_ROUND_ORDER:");
-  const isDirectQuote=externalReference.startsWith("PRACA_QUOTE_REQUEST:");
-  if(!chargeId||(!isRoundOrder&&!isDirectQuote)) return void res.status(200).json({received:true,ignored:true});
+  const chargeId=typeof payment?.id==="string"?payment.id:"";
+  if(!chargeId) return void res.status(400).json({error:"Evento sem identificador de cobrança."});
   const orderId=externalReference.slice(isRoundOrder?"PRACA_ROUND_ORDER:".length:"PRACA_QUOTE_REQUEST:".length);
   if(["PAYMENT_REFUNDED","PAYMENT_PARTIALLY_REFUNDED","PAYMENT_REFUND_IN_PROGRESS","PAYMENT_REFUND_DENIED"].includes(event)) {
     try {
