@@ -602,6 +602,7 @@ export const RemoveFromCartResponse = zod.object({
  * @summary Process checkout and create order
  */
 export const ProcessCheckoutBody = zod.object({
+  "expectedShipping": zod.number().finite().nonnegative(),
   "deliveryAddress": zod.object({
   "street": zod.string(),
   "number": zod.string(),

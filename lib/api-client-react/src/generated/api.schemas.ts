@@ -237,6 +237,8 @@ export const CheckoutInputPaymentMethod = {
 } as const;
 
 export interface CheckoutInput {
+  /** Frete exibido ao comprador; servidor recalcula e rejeita divergência. */
+  expectedShipping: number;
   deliveryAddress: AddressInput;
   deliveryOption: CheckoutInputDeliveryOption;
   paymentMethod: CheckoutInputPaymentMethod;
