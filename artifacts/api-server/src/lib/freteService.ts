@@ -13,33 +13,35 @@ export interface FreteResultado {
  * geolocalização (Google Maps/Mapbox), não dá pra calcular distância exata
  * em km — isso é um TODO explícito, não uma limitação escondida.
  */
-export async function calcularFrete(vendorId: string, cidadeCliente: string | undefined, subtotalVendor: number): Promise<FreteResultado> {
+export async function calcularFrete(vendorId: string, cidadeCliente: string | undefined, subtotalVendor: number, estadoCliente?: string): Promise<FreteResultado> {
   const result = await vendorPool.query(
-    `SELECT cidade AS tenant_cidade, frete_mesma_cidade, frete_outra_cidade, frete_gratis_acima_de
+    `SELECT cidade AS tenant_cidade, estado AS tenant_estado, frete_mesma_cidade, frete_outra_cidade, frete_gratis_acima_de
      FROM tenants WHERE id = $1 AND vende_no_praca_ai = true`,
     [vendorId],
   );
 
   if (result.rows.length === 0) {
-    return { valor: 0, motivo: "loja_nao_encontrada" };
+    throw new Error("Loja indisponível para calcular o frete.");
   }
 
-  const { tenant_cidade, frete_mesma_cidade, frete_outra_cidade, frete_gratis_acima_de } = result.rows[0];
-  const freteGratisAcimaDe = Number(frete_gratis_acima_de ?? 79);
+  const { tenant_cidade, tenant_estado, frete_mesma_cidade, frete_outra_cidade, frete_gratis_acima_de } = result.rows[0];
+  const freteGratisAcimaDe = frete_gratis_acima_de == null ? null : Number(frete_gratis_acima_de);
 
-  if (subtotalVendor >= freteGratisAcimaDe) {
+  if (freteGratisAcimaDe !== null && subtotalVendor >= freteGratisAcimaDe) {
     return { valor: 0, motivo: "frete_gratis_progressivo", freteGratisAcimaDe };
   }
 
   const mesmaCidade =
-    cidadeCliente && tenant_cidade && cidadeCliente.trim().toLowerCase() === String(tenant_cidade).trim().toLowerCase();
+    estadoCliente && tenant_estado && estadoCliente.trim().toUpperCase() === String(tenant_estado).trim().toUpperCase() && cidadeCliente && tenant_cidade && cidadeCliente.trim().toLowerCase() === String(tenant_cidade).trim().toLowerCase();
 
-  const valor = mesmaCidade ? Number(frete_mesma_cidade ?? 0) : Number(frete_outra_cidade ?? 15.9);
+  const configured = mesmaCidade ? frete_mesma_cidade : frete_outra_cidade;
+  if (configured == null || !Number.isFinite(Number(configured)) || Number(configured) < 0) throw new Error("Frete ainda não definido pelo vendedor.");
+  const valor = Number(configured);
 
   return {
     valor,
     motivo: mesmaCidade ? "mesma_cidade" : "outra_cidade",
-    freteGratisAcimaDe,
+    ...(freteGratisAcimaDe === null ? {} : { freteGratisAcimaDe }),
     aproximado: true,
   };
 }

@@ -260,7 +260,8 @@ paths:
     post:
       operationId: createOrder
       tags: [orders]
-      summary: Create a new order
+      deprecated: true
+      summary: Checkout legado desativado; usar carrinho e checkout
       requestBody:
         required: true
         content:
@@ -268,12 +269,17 @@ paths:
             schema:
               $ref: "#/components/schemas/OrderInput"
       responses:
-        "201":
-          description: Order created
+        "410":
+          description: Use /cart/items, /checkout/freight e /checkout
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Order"
+                type: object
+                properties:
+                  error:
+                    type: string
+                  code:
+                    type: string
 
   /orders/{id}:
     get:
@@ -344,6 +350,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Cart"
+
+  /checkout/freight:
+    post:
+      operationId: quoteCheckoutFreight
+      tags: [orders]
+      summary: Consultar frete por vendedor do carrinho da sessão
+      description: Não cria pedido ou cobrança. Informe a entrega antes de confirmar o pagamento.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deliveryAddress, deliveryOption]
+              properties:
+                deliveryAddress:
+                  $ref: "#/components/schemas/AddressInput"
+                deliveryOption:
+                  type: string
+                  enum: [standard, express, pickup]
+      responses:
+        "200":
+          description: Frete atual por loja
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [shipping, vendors]
+                properties:
+                  shipping:
+                    type: number
+                    minimum: 0
+                  vendors:
+                    type: array
+                    items:
+                      type: object
+                      required: [vendorId, subtotal, freight, total]
+                      properties:
+                        vendorId:
+                          type: string
+                        subtotal:
+                          type: number
+                        freight:
+                          type: number
+                        total:
+                          type: number
+        "400":
+          description: Carrinho vazio
+        "422":
+          description: Entrega inválida ou frete não definido
 
   /checkout:
     post:
@@ -816,9 +872,11 @@ components:
           items:
             $ref: "#/components/schemas/CartItem"
         subtotal:
-          type: number
+          description: Total final indisponível até definir o frete no checkout.
+          type: ["number", "null"]
         shipping:
-          type: number
+          description: Definido somente no checkout após informar destino e modalidade.
+          type: ["number", "null"]
         total:
           type: number
         itemCount:
@@ -984,6 +1042,10 @@ components:
     CheckoutInput:
       type: object
       properties:
+        expectedShipping:
+          type: number
+          minimum: 0
+          description: Frete mostrado ao comprador. O servidor recalcula e retorna 409 se houver divergência.
         deliveryAddress:
           $ref: "#/components/schemas/AddressInput"
         deliveryOption:
@@ -1003,6 +1065,7 @@ components:
         cardCvv:
           type: ["string", "null"]
       required:
+        - expectedShipping
         - deliveryAddress
         - deliveryOption
         - paymentMethod

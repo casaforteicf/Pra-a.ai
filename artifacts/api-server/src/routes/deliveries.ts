@@ -44,11 +44,17 @@ async function encontrarParceiro(praca: string, cidadeDestino: string | null) {
   return disponiveis[0] ?? null;
 }
 
+async function orderPaid(orderId:number){
+ const [o]=await db.select({paymentStatus:ordersTable.paymentStatus}).from(ordersTable).where(eq(ordersTable.id,orderId)).limit(1);
+ return o?.paymentStatus==="paid";
+}
 async function ofertar(deliveryId: number) {
   const [delivery] = await db.select().from(deliveriesTable).where(eq(deliveriesTable.id, deliveryId)).limit(1);
-  if (!delivery) return null;
+  if (!delivery || !(await orderPaid(delivery.orderId))) return null;
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, delivery.orderId)).limit(1);
-  const partner = await encontrarParceiro("Chapecó", order ? cidadeDoEndereco(order.deliveryAddress) : null);
+  const destination=order ? cidadeDoEndereco(order.deliveryAddress) : null;
+  if(!destination)return null;
+  const partner = await encontrarParceiro(destination, destination);
   if (!partner) return delivery;
   const expira = new Date(Date.now() + 5 * 60_000);
   const [updated] = await db.update(deliveriesTable).set({ partnerId: partner.id, status: "ofertada", ofertaExpiraEm: expira }).where(eq(deliveriesTable.id, delivery.id)).returning();
@@ -104,6 +110,7 @@ router.post("/logistica/entregas/:id/resposta", async (req, res): Promise<void> 
   const aceitar = req.body.aceitar === true;
   if (!partner) return void res.status(401).json({ error: "Acesso exclusivo do entregador." });
   const [delivery] = await db.select().from(deliveriesTable).where(and(eq(deliveriesTable.id, deliveryId), eq(deliveriesTable.partnerId, partner.id))).limit(1);
+  if (delivery && !(await orderPaid(delivery.orderId))) return void res.status(409).json({error:"Aguarde a confirmação do pagamento."});
   if (!delivery || delivery.status !== "ofertada") return void res.status(409).json({ error: "Esta oferta não está mais disponível." });
   if (delivery.ofertaExpiraEm && delivery.ofertaExpiraEm < new Date()) return void res.status(410).json({ error: "A oferta expirou." });
   if (!aceitar) {
@@ -124,6 +131,7 @@ router.patch("/logistica/entregas/:id/status", async (req, res): Promise<void> =
   const { status, observacao, latitude, longitude } = req.body;
   if (!partner) return void res.status(401).json({ error: "Acesso exclusivo do entregador." });
   const [delivery] = await db.select().from(deliveriesTable).where(and(eq(deliveriesTable.id, deliveryId), eq(deliveriesTable.partnerId, partner.id))).limit(1);
+  if (delivery && !(await orderPaid(delivery.orderId))) return void res.status(409).json({error:"Aguarde a confirmação do pagamento."});
   if (!delivery) return void res.status(404).json({ error: "Entrega não encontrada." });
   if (!(TRANSICOES[delivery.status] || []).includes(status)) return void res.status(409).json({ error: `Não é possível passar de ${delivery.status} para ${status}.` });
   if (status === "entregue") {
@@ -137,9 +145,10 @@ router.patch("/logistica/entregas/:id/status", async (req, res): Promise<void> =
   await evento(deliveryId, status, observacao, latitude, longitude);
   if (status === "em_transito") await db.update(ordersTable).set({ status: "out_for_delivery" }).where(eq(ordersTable.id, delivery.orderId));
   if (status === "entregue") {
-    await db.update(ordersTable).set({ status: "delivered" }).where(eq(ordersTable.id, delivery.orderId));
+    // Comprovação do transportador não substitui o aceite do comprador.
+    // O pedido mestre não é concluído por uma única entrega.
     const valor = delivery.valorPagoParceiro || "0";
-    await db.insert(pracaBankTransactionsTable).values({ partnerId: partner.id, deliveryId, valor, status: "disponivel", descricao: `Entrega #${deliveryId} concluída`, disponivelEm: new Date() }).onConflictDoNothing();
+    await db.insert(pracaBankTransactionsTable).values({ partnerId: partner.id, deliveryId, valor, status: "pendente", descricao: `Entrega #${deliveryId} informada; aguarda aceite e conciliação` }).onConflictDoNothing();
     const [{ restantes }] = await db.select({ restantes: sql<number>`count(*)` }).from(deliveriesTable).where(and(eq(deliveriesTable.partnerId, partner.id), inArray(deliveriesTable.status, STATUS_ATIVOS)));
     if (Number(restantes) === 0) await db.update(deliveryPartnersTable).set({ status: "disponivel" }).where(eq(deliveryPartnersTable.id, partner.id));
   }
@@ -158,21 +167,12 @@ router.post("/logistica/entregas/:id/comprovante", async (req, res): Promise<voi
   res.status(201).json(proof);
 });
 
-router.post("/pedidos/:id/entrega", async (req, res): Promise<void> => {
-  const orderId = Number(req.params.id);
-  const { vendorId, supportPointId, larguraCm, alturaCm, profundidadeCm, pesoKg, volumeFotoUrl, valorPagoParceiro } = req.body;
-  if (!orderId || !vendorId) return void res.status(400).json({ error: "Pedido e vendedor são obrigatórios." });
-  const [delivery] = await db.insert(deliveriesTable).values({ orderId, vendorId, supportPointId: supportPointId || null, status: "preparando", larguraCm: larguraCm ? String(larguraCm) : null, alturaCm: alturaCm ? String(alturaCm) : null, profundidadeCm: profundidadeCm ? String(profundidadeCm) : null, pesoKg: pesoKg ? String(pesoKg) : null, volumeFotoUrl: volumeFotoUrl || null, valorPagoParceiro: valorPagoParceiro ? String(valorPagoParceiro) : "0" }).returning();
-  await evento(delivery.id, "preparando");
-  res.status(201).json(delivery);
+router.post("/pedidos/:id/entrega",async(_req,res):Promise<void>=>{
+ res.status(410).json({error:"Use o fluxo autenticado do vendedor para informar a entrega."});
 });
 
-router.post("/logistica/entregas/:id/pronto", async (req, res): Promise<void> => {
-  const deliveryId = Number(req.params.id);
-  const [delivery] = await db.update(deliveriesTable).set({ status: "aguardando_motorista" }).where(and(eq(deliveriesTable.id, deliveryId), eq(deliveriesTable.status, "preparando"))).returning();
-  if (!delivery) return void res.status(409).json({ error: "Entrega não está em preparação." });
-  await evento(deliveryId, "pronto_coleta");
-  res.json(await ofertar(deliveryId));
+router.post("/logistica/entregas/:id/pronto",async(_req,res):Promise<void>=>{
+ res.status(410).json({error:"Use o fluxo autenticado do vendedor para informar a entrega."});
 });
 
 router.get("/pedidos/:id/rastreio", async (req, res): Promise<void> => {
@@ -185,6 +185,6 @@ router.get("/pedidos/:id/rastreio", async (req, res): Promise<void> => {
 
 // Compatibilidade com integrações anteriores.
 router.patch("/entregas/:id/status", async (_req, res) => res.status(410).json({ error: "Use o fluxo autenticado /logistica/entregas/:id/status." }));
-router.post("/entregas/:id/tentar-atribuir", async (req, res) => res.json(await ofertar(Number(req.params.id))));
+router.post("/entregas/:id/tentar-atribuir", async (_req, res) => res.status(410).json({error:"Use o fluxo autenticado de logística."}));
 
 export default router;

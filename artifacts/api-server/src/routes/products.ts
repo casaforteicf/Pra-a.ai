@@ -103,7 +103,7 @@ router.get("/products/filters", async (req, res): Promise<void> => {
 });
 
 router.get("/products", async (req, res): Promise<void> => {
-  const { category, categories, search, sort, page = "1", limit = "20", precoMin, precoMax, marca, cidade, specs } =
+  const { category, categories, search, sort, page = "1", limit = "20", precoMin, precoMax, marca, cidade, estado, specs } =
     req.query as Record<string, string>;
 
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
@@ -171,9 +171,13 @@ router.get("/products", async (req, res): Promise<void> => {
   // pra filtrar por raio real em km — comparação por cidade cadastrada do
   // lojista é a aproximação disponível hoje. TODO: trocar por raio real
   // quando existir geocoding (mesma limitação do cálculo de frete).
-  if (cidade) {
-    params.push(cidade);
-    conditions.push(`lower(t.cidade) = lower($${params.length})`);
+  if (cidade || estado) {
+    if (!cidade || !estado || !/^[A-Za-z]{2}$/.test(estado)) {
+      conditions.push("false");
+    } else {
+      params.push(cidade, estado);
+      conditions.push(`lower(trim(t.cidade)) = lower(${params.length - 1}) AND upper(trim(t.estado)) = upper(${params.length})`);
+    }
   }
 
   let orderBy = "pc.destaque DESC, pc.created_at DESC";

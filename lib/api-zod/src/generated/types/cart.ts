@@ -9,8 +9,8 @@ import type { CartItem } from './cartItem';
 
 export interface Cart {
   items: CartItem[];
-  subtotal: number;
-  shipping: number;
+  subtotal: number | null;
+  shipping: number | null;
   total: number;
   itemCount: number;
 }

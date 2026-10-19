@@ -156,6 +156,10 @@ const DISPUTA_STATUS_COLOR: Record<string, "default" | "secondary" | "destructiv
 
 function DisputasTab() {
   const [statusFilter, setStatusFilter] = useState("todos");
+  const [resolutionNotes, setResolutionNotes] = useState<Record<string, string>>({});
+  const [cancellationNotes, setCancellationNotes] = useState<Record<string, string>>({});
+  const qc = useQueryClient();
+  const { toast } = useToast();
 
   const { data: disputas = [], isLoading } = useQuery<any[]>({
     queryKey: ["admin-disputas", statusFilter],
@@ -164,7 +168,68 @@ function DisputasTab() {
         .then((r) => r.json()),
   });
 
-  if (isLoading) return <Loader2 className="h-5 w-5 animate-spin mx-auto mt-8" />;
+  const { data: marketplaceDisputas = [], isLoading: marketplaceLoading } = useQuery<any[]>({
+    queryKey: ["admin-marketplace-disputas", statusFilter],
+    queryFn: () => fetch(`/api/admin/marketplace-disputas${statusFilter !== "todos" ? `?status=${statusFilter}` : ""}`, { headers: adminHeaders() }).then((r) => r.json()),
+  });
+  const { data: marketplaceCancellations = [], isLoading: cancellationLoading } = useQuery<any[]>({
+    queryKey: ["admin-marketplace-cancelamentos"],
+    queryFn: () => fetch("/api/admin/marketplace-cancelamentos", { headers: adminHeaders() }).then((r) => r.json()),
+  });
+  const updateMarketplaceDispute = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const resolutionText = resolutionNotes[id] ?? "";
+      const response = await fetch(`/api/admin/marketplace-disputas/${encodeURIComponent(id)}`, {
+        method: "PATCH", headers: adminHeaders(), body: JSON.stringify({ status, resolutionText }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Não foi possível atualizar a disputa.");
+      return body;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["admin-marketplace-disputas"] });
+      toast({ title: "Disputa atualizada" });
+    },
+    onError: (error: Error) => toast({ title: "Não foi possível atualizar", description: error.message, variant: "destructive" }),
+  });
+
+  const updateMarketplaceCancellation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const resolutionNote = cancellationNotes[id] ?? "";
+      const response = await fetch(`/api/admin/marketplace-cancelamentos/${encodeURIComponent(id)}`, {
+        method: "PATCH", headers: adminHeaders(), body: JSON.stringify({ status, resolutionNote }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Não foi possível atualizar a solicitação.");
+      return body;
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["admin-marketplace-cancelamentos"] });
+      toast({ title: "Solicitação de cancelamento atualizada" });
+    },
+    onError: (error: Error) => toast({ title: "Não foi possível atualizar", description: error.message, variant: "destructive" }),
+  });
+  const requestMarketplaceRefund = useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const note = cancellationNotes[id] ?? "";
+      const response = await fetch(`/api/admin/marketplace-cancelamentos/${encodeURIComponent(id)}/estorno`, {
+        method: "POST", headers: adminHeaders(), body: JSON.stringify({ note }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Não foi possível solicitar o estorno.");
+      return body;
+    },
+    onSuccess: (result) => {
+      void qc.invalidateQueries({ queryKey: ["admin-marketplace-cancelamentos"] });
+      toast({ title: "Estorno enviado ao Asaas", description: result.message });
+    },
+    onError: (error: Error) => {
+      void qc.invalidateQueries({ queryKey: ["admin-marketplace-cancelamentos"] });
+      toast({ title: "Estorno não confirmado", description: error.message, variant: "destructive" });
+    },
+  });
+
+  if (isLoading || marketplaceLoading || cancellationLoading) return <Loader2 className="h-5 w-5 animate-spin mx-auto mt-8" />;
 
   return (
     <div className="space-y-4">
@@ -174,7 +239,9 @@ function DisputasTab() {
           <SelectItem value="todos">Todos os status</SelectItem>
           <SelectItem value="aberta">Abertas</SelectItem>
           <SelectItem value="em_analise">Em análise</SelectItem>
+          <SelectItem value="aguardando_comprador">Aguardando comprador</SelectItem>
           <SelectItem value="resolvida">Resolvidas</SelectItem>
+          <SelectItem value="rejeitada">Rejeitadas</SelectItem>
         </SelectContent>
       </Select>
 
@@ -208,6 +275,64 @@ function DisputasTab() {
                   </TableRow>
                 ))
               )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Disputas de cotações e rodadas</CardTitle></CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader><TableRow><TableHead>Pedido</TableHead><TableHead>Comprador</TableHead><TableHead>Motivo e relato</TableHead><TableHead>Status</TableHead><TableHead>Tratamento</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {marketplaceDisputas.length === 0 ? <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Nenhuma disputa de cotação ou rodada.</TableCell></TableRow> : marketplaceDisputas.map((d: any) => (
+                <TableRow key={d.id}>
+                  <TableCell className="min-w-36"><b>{d.order_code ?? d.order_id.slice(0, 8)}</b><p className="text-xs text-muted-foreground">{d.order_type === "quote" ? "Cotação" : "Rodada"} · {d.item_title}</p></TableCell>
+                  <TableCell>{d.buyer_name}<p className="text-xs text-muted-foreground">{d.buyer_email}</p></TableCell>
+                  <TableCell className="min-w-64"><b>{d.reason_code}</b><p className="whitespace-pre-wrap text-sm">{d.description}</p>{d.evidence_url && <a className="text-xs font-bold text-primary underline" href={d.evidence_url} target="_blank" rel="noreferrer">Abrir evidência</a>}</TableCell>
+                  <TableCell><Badge variant={DISPUTA_STATUS_COLOR[d.status] ?? "secondary"}>{d.status}</Badge>{d.buyer_response && <p className="mt-1 max-w-48 whitespace-pre-wrap text-xs"><b>Retorno do comprador:</b> {d.buyer_response}</p>}{d.vendor_response && <p className="mt-1 max-w-48 whitespace-pre-wrap text-xs"><b>Resposta da loja:</b> {d.vendor_response}</p>}{d.resolution_text && <p className="mt-1 max-w-48 text-xs text-muted-foreground">{d.resolution_text}</p>}</TableCell>
+                  <TableCell className="min-w-56 space-y-2">
+                    {!['resolvida','rejeitada'].includes(d.status) ? <>
+                      <Input value={resolutionNotes[d.id] ?? ""} onChange={(event) => setResolutionNotes((current) => ({ ...current, [d.id]: event.target.value }))} placeholder="Observação para o histórico" />
+                      {d.status === "aberta" && <Button size="sm" variant="outline" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "em_analise" })}>Iniciar análise</Button>}
+                      {d.status === "em_analise" && <div className="flex flex-wrap gap-1"><Button size="sm" variant="outline" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "aguardando_comprador" })}>Pedir retorno</Button><Button size="sm" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "resolvida" })}>Resolver</Button><Button size="sm" variant="destructive" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "rejeitada" })}>Rejeitar</Button></div>}
+                      {d.status === "aguardando_comprador" && <div className="flex gap-1"><Button size="sm" variant="outline" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "em_analise" })}>Retomar análise</Button><Button size="sm" disabled={updateMarketplaceDispute.isPending} onClick={() => updateMarketplaceDispute.mutate({ id: d.id, status: "resolvida" })}>Resolver</Button></div>}
+                    </> : <span className="text-xs text-muted-foreground">Concluída · {d.resolved_at ? new Date(d.resolved_at).toLocaleString("pt-BR") : ""}</span>}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Solicitações de cancelamento</CardTitle><p className="text-sm text-muted-foreground">O estorno integral é solicitado ao Asaas e só aparece como concluído após confirmação por webhook. Respostas inconclusivas ficam bloqueadas para conciliação manual.</p></CardHeader>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader><TableRow><TableHead>Pedido</TableHead><TableHead>Comprador</TableHead><TableHead>Motivo</TableHead><TableHead>Status</TableHead><TableHead>Atendimento</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {marketplaceCancellations.length === 0 ? <TableRow><TableCell colSpan={5} className="py-8 text-center text-muted-foreground">Nenhuma solicitação de cancelamento.</TableCell></TableRow> : marketplaceCancellations.map((item: any) => (
+                <TableRow key={item.id}>
+                  <TableCell className="min-w-36"><b>{item.order_code ?? item.order_id.slice(0, 8)}</b><p className="text-xs text-muted-foreground">{item.order_type === "quote" ? "Cotação" : "Rodada"} · {item.item_title}</p></TableCell>
+                  <TableCell>{item.buyer_name}<p className="text-xs text-muted-foreground">{item.buyer_email}</p></TableCell>
+                  <TableCell className="min-w-52"><b>{item.reason}</b><p className="whitespace-pre-wrap text-sm">{item.description}</p></TableCell>
+                  <TableCell><Badge variant={item.status === "solicitada" ? "destructive" : item.status === "atendida" ? "default" : "secondary"}>{item.status}</Badge><p className="mt-1 text-xs">Estorno: {item.refund_status ?? "nao_solicitado"}</p>{item.refund_error && <p className="mt-1 max-w-48 whitespace-pre-wrap text-xs text-destructive">{item.refund_error}</p>}{item.asaas_refunded_at && <p className="mt-1 text-xs text-muted-foreground">Confirmado em {new Date(item.asaas_refunded_at).toLocaleString("pt-BR")}</p>}{item.resolution_note && <p className="mt-1 max-w-48 whitespace-pre-wrap text-xs">{item.resolution_note}</p>}</TableCell>
+                  <TableCell className="min-w-56 space-y-2">
+                    {!['atendida','recusada'].includes(item.status) ? <>
+                      <Input value={cancellationNotes[item.id] ?? ""} onChange={(event) => setCancellationNotes((current) => ({ ...current, [item.id]: event.target.value }))} placeholder="Resultado / nota para o histórico" />
+                      {item.status === "solicitada" && <Button size="sm" variant="outline" disabled={updateMarketplaceCancellation.isPending} onClick={() => updateMarketplaceCancellation.mutate({ id: item.id, status: "em_analise" })}>Iniciar análise</Button>}
+                      {item.status === "em_analise" && <div className="flex flex-wrap gap-1">
+                        {["nao_solicitado", "negado"].includes(item.refund_status ?? "nao_solicitado") && <Button size="sm" disabled={requestMarketplaceRefund.isPending || (cancellationNotes[item.id] ?? "").trim().length < 8} onClick={() => { if (window.confirm("Solicitar estorno integral desta cobrança no Asaas? O pedido será concluído somente após confirmação do webhook.")) requestMarketplaceRefund.mutate({ id: item.id }); }}>Solicitar estorno integral</Button>}
+                        {["solicitado", "em_processamento"].includes(item.refund_status) && <span className="text-xs text-muted-foreground">Aguardando confirmação do Asaas. Não solicite novamente.</span>}
+                        {["parcial", "reconciliacao"].includes(item.refund_status) && <span className="text-xs font-semibold text-amber-700">Conciliação manual necessária antes de concluir.</span>}
+                        {!(["solicitado", "em_processamento", "estornado", "parcial", "reconciliacao"].includes(item.refund_status)) && <Button size="sm" variant="destructive" disabled={updateMarketplaceCancellation.isPending} onClick={() => updateMarketplaceCancellation.mutate({ id: item.id, status: "recusada" })}>Recusar</Button>}
+                      </div>}
+                    </> : <span className="text-xs text-muted-foreground">Concluída · {item.resolved_at ? new Date(item.resolved_at).toLocaleString("pt-BR") : ""}</span>}
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>
@@ -405,6 +530,18 @@ function ComissoesTab() {
 
 // ── Página ─────────────────────────────────────────────────────────────────
 
+
+function NegotiationAuditTab(){
+ const [nsu,setNsu]=useState(""),[data,setData]=useState<any>(null),[busy,setBusy]=useState(false),[error,setError]=useState("");
+ const [loadedNsu,setLoadedNsu]=useState("");
+ async function search(more=false){setBusy(true);setError("");try{const key=more?loadedNsu:nsu.trim().toUpperCase();const r=await fetch("/api/admin/negociacoes/"+encodeURIComponent(key)+(more&&data?.nextCursor?"?after="+data.nextCursor:""),{headers:adminHeaders(),cache:"no-store"});const b=await r.json();if(!r.ok)throw Error(b.error??"Falha ao carregar NSU.");setLoadedNsu(key);setData((old:any)=>more&&old?{...b,events:[...old.events,...b.events]}:b)}catch(e){setError(e instanceof Error?e.message:"Falha ao carregar.")}finally{setBusy(false)}}
+ return <section className="space-y-4"><h2 className="text-xl font-bold">Histórico por NSU mestre</h2><form onSubmit={e=>{e.preventDefault();void search()}} className="flex flex-wrap gap-2"><label className="flex-1 text-sm">NSU mestre<Input value={nsu} onChange={e=>setNsu(e.target.value)} placeholder="NSU-123"/></label><Button type="submit" disabled={busy}>Consultar</Button></form>
+ {error&&<p role="alert" className="text-red-700">{error}</p>}
+ {data&&<><p><strong>{data.negotiation.master_nsu}</strong> · {data.negotiation.source_type} · {data.negotiation.source_id}</p><ol className="space-y-3">{data.events.map((e:any)=><li key={e.sequence} className="rounded-xl border bg-white p-3"><p className="font-bold">{e.movement_nsu} · {e.entity_type} · {e.operation}</p><p className="text-xs">{new Date(e.recorded_at).toLocaleString("pt-BR")} · ator: {e.actor_type}{e.actor_id?" / "+e.actor_id:""} · evento {e.sequence}</p><details className="mt-2"><summary>Dados da movimentação</summary><pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs">{JSON.stringify({before:e.before_data,after:e.after_data},null,2)}</pre></details></li>)}</ol>{data.nextCursor&&<Button disabled={busy} onClick={()=>void search(true)}>Carregar mais</Button>}</>}
+ <p className="text-xs text-muted-foreground">Fotografias de migração registram o estado disponível, sem reconstruir alterações antigas. Ator “system” indica que a fonte não identificou um usuário.</p>
+ </section>;
+}
+
 function AdminContent() {
   return (
     <div className="min-h-screen bg-muted/30 p-6">
@@ -418,6 +555,7 @@ function AdminContent() {
             <TabsTrigger value="disputas">Disputas</TabsTrigger>
             <TabsTrigger value="repasses">Repasses</TabsTrigger>
             <TabsTrigger value="comissoes">Comissões</TabsTrigger>
+            <TabsTrigger value="nsu">Histórico NSU</TabsTrigger>
           </TabsList>
           <TabsContent value="embaixadores" className="mt-4">
             <EmbaixadoresTab />
@@ -428,6 +566,7 @@ function AdminContent() {
           <TabsContent value="repasses" className="mt-4">
             <RepassesTab />
           </TabsContent>
+          <TabsContent value="nsu" className="mt-4"><NegotiationAuditTab/></TabsContent>
           <TabsContent value="comissoes" className="mt-4">
             <ComissoesTab />
           </TabsContent>

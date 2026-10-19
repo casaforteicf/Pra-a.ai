@@ -3,6 +3,9 @@ import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { pool } from "@workspace/db";
 import { vendorPool } from "../lib/vendorDb";
 import { sendChatMessage } from "../lib/vendorSyncService";
+import { createOrGetCustomer, createCharge, getPixQrCode, isAsaasConfigured } from "../lib/asaas";
+import { singleVendorSplit } from "../lib/providerSettlements";
+import { confirmDirectQuotePayment } from "./quotes";
 
 const router: IRouter = Router();
 const CONTACT_PATTERN = /(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?\d[\s().-]*){10,})/i;
@@ -10,6 +13,76 @@ const CONTACT_PATTERN = /(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?\d[\s().-]*){10,})
 function buyerId(req: any): number | null {
   const id = Number(req.session?.consumerId);
   return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+async function processRefundWebhook(input: {
+  eventId: string; event: string; chargeId: string; orderId: string; orderType: "quote" | "round";
+}): Promise<{ duplicate: boolean; matched: boolean; refundStatus?: string }> {
+  const statusByEvent: Record<string, string> = {
+    PAYMENT_REFUNDED: "estornado",
+    PAYMENT_PARTIALLY_REFUNDED: "parcial",
+    PAYMENT_REFUND_IN_PROGRESS: "em_processamento",
+    PAYMENT_REFUND_DENIED: "negado",
+  };
+  const refundStatus = statusByEvent[input.event];
+  if (!refundStatus) return { duplicate: false, matched: false };
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    if (input.eventId) {
+      const inserted = await client.query(
+        `INSERT INTO praca_asaas_webhook_events(asaas_event_id,event_type,charge_id)
+         VALUES($1,$2,$3) ON CONFLICT(asaas_event_id) DO NOTHING RETURNING asaas_event_id`,
+        [input.eventId, input.event, input.chargeId],
+      );
+      if (!inserted.rows[0]) { await client.query("COMMIT"); return { duplicate: true, matched: false }; }
+    }
+
+    const found = await client.query(
+      `SELECT id,status,refund_status FROM praca_order_cancellations
+        WHERE order_type=$1 AND order_id=$2 FOR UPDATE`, [input.orderType, input.orderId],
+    );
+    const cancellation = found.rows[0];
+    if (!cancellation) { await client.query("COMMIT"); return { duplicate: false, matched: false }; }
+
+    const orderPayment = input.orderType === "quote"
+      ? await client.query("SELECT asaas_charge_id FROM quote_requests WHERE id=$1", [input.orderId])
+      : await client.query("SELECT asaas_charge_id FROM buying_round_orders WHERE id=$1", [input.orderId]);
+    if (String(orderPayment.rows[0]?.asaas_charge_id ?? "") !== input.chargeId) {
+      await client.query("ROLLBACK");
+      return { duplicate: false, matched: false };
+    }
+    if (cancellation.refund_status === "estornado") {
+      await client.query("COMMIT");
+      return { duplicate: false, matched: true, refundStatus: "estornado" };
+    }
+
+    await client.query(
+      `UPDATE praca_order_cancellations SET refund_status=$2,
+          asaas_refunded_at=CASE WHEN $2='estornado' THEN COALESCE(asaas_refunded_at,now()) ELSE asaas_refunded_at END,
+          refund_error=CASE WHEN $2='negado' THEN 'O Asaas informou que o estorno foi negado.' ELSE NULL END,
+          status=CASE WHEN $2='estornado' THEN 'atendida' ELSE status END,
+          resolution_note=CASE WHEN $2='estornado' THEN COALESCE(NULLIF(resolution_note,''),'Estorno integral confirmado pelo webhook Asaas.') ELSE resolution_note END,
+          resolved_at=CASE WHEN $2='estornado' THEN COALESCE(resolved_at,now()) ELSE resolved_at END,
+          updated_at=now()
+        WHERE id=$1`, [cancellation.id, refundStatus],
+    );
+    if (refundStatus === "estornado") {
+      if (input.orderType === "quote") await client.query("UPDATE quote_requests SET status='cancelled' WHERE id=$1", [input.orderId]);
+      else await client.query("UPDATE buying_round_orders SET status='cancelled' WHERE id=$1 AND status IN ('paid','delivered','released')", [input.orderId]);
+    }
+    await client.query(
+      `INSERT INTO praca_order_cancellation_events(cancellation_id,from_status,to_status,actor_type,note)
+       VALUES($1,$2,$2,'admin',$3)`,
+      [cancellation.id, cancellation.status, `Atualização Asaas: ${input.event} (${refundStatus}).`],
+    );
+    await client.query("COMMIT");
+    return { duplicate: false, matched: true, refundStatus };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally { client.release(); }
 }
 function authorizedVendor(req: any, res: any): boolean {
   const expected = process.env.PRACA_ROUNDS_VENDOR_TOKEN;
@@ -71,7 +144,7 @@ async function ensureRoundLead(params: { roundId: string; vendorId: string; code
     await sendChatMessage({
       tenantId: params.vendorId, leadId,
       conteudo: "Praça.ai — novo lead anônimo de rodada. " + params.demand +
-        " Identificação e contato do comprador serão liberados somente depois que ele aceitar a oferta vencedora.",
+        " Identificação e contato do comprador serão liberados somente depois que o pagamento for confirmado.",
     });
     await pool.query(
       "UPDATE buying_round_vendor_leads SET crm_notified=true WHERE round_id=$1 AND vendor_id=$2",
@@ -105,7 +178,7 @@ async function closeExpired(): Promise<void> {
       }
       const bid = best.rows[0];
       await client.query(
-        "INSERT INTO buying_round_orders(round_id,participant_id,bid_id,vendor_id,quantity,total) SELECT p.round_id,p.id,$2,$3,p.quantity,round(($4::numeric*p.quantity+$5::numeric*p.quantity/$6::numeric),2) FROM buying_round_participants p WHERE p.round_id=$1 ON CONFLICT(participant_id) DO NOTHING",
+        "WITH shares AS (SELECT p.*,floor(round($5::numeric*100)*p.quantity/$6::numeric) AS base_cents,mod(round($5::numeric*100)*p.quantity,$6::numeric) AS remainder FROM buying_round_participants p WHERE p.round_id=$1), ranked AS (SELECT shares.*,row_number() OVER(ORDER BY remainder DESC,id) AS allocation_rank,round($5::numeric*100)-sum(base_cents) OVER() AS extras FROM shares) INSERT INTO buying_round_orders(round_id,participant_id,bid_id,vendor_id,quantity,total) SELECT round_id,id,$2,$3,quantity,round($4::numeric*quantity,2)+(base_cents+CASE WHEN allocation_rank<=extras THEN 1 ELSE 0 END)/100 FROM ranked ON CONFLICT(participant_id) DO NOTHING",
         [row.id,bid.id,bid.vendor_id,bid.unit_price,bid.freight_total,total],
       );
       await client.query("UPDATE buying_rounds SET status='closed',winning_bid_id=$2,closed_at=now() WHERE id=$1",[row.id,bid.id]);
@@ -131,9 +204,12 @@ router.get("/rounds", async (req,res):Promise<void>=>{
   try {
     await closeExpired();
     const category=typeof req.query.category==="string"?req.query.category.slice(0,120):null;
+    const city=typeof req.query.city==="string"?req.query.city.trim().slice(0,100):"";
+    const state=typeof req.query.state==="string"?req.query.state.trim().toUpperCase().slice(0,2):"";
+    if (!city || !state) return void res.json([]);
     const result=await pool.query(
-      "SELECT r.id,r.code,r.category,r.item_name,r.specification,r.unit,r.city,r.state,r.needed_at,r.closes_at,COALESCE(sum(p.quantity),0)::text AS total_quantity FROM buying_rounds r LEFT JOIN buying_round_participants p ON p.round_id=r.id WHERE r.status='open' AND r.closes_at>now() AND ($1::text IS NULL OR lower(r.category)=lower($1)) GROUP BY r.id ORDER BY r.closes_at ASC LIMIT 100",
-      [category],
+      "SELECT r.id,r.code,r.category,r.item_name,r.specification,r.unit,r.city,r.state,r.needed_at,r.closes_at,COALESCE(sum(p.quantity),0)::text AS total_quantity FROM buying_rounds r LEFT JOIN buying_round_participants p ON p.round_id=r.id WHERE r.status='open' AND r.closes_at>now() AND lower(r.city)=lower($1) AND upper(r.state)=upper($2) AND ($3::text IS NULL OR lower(r.category)=lower($3)) GROUP BY r.id ORDER BY r.closes_at ASC LIMIT 100",
+      [city,state,category],
     );
     res.json(result.rows.map((r:any)=>({id:r.id,code:r.code,category:r.category,itemName:r.item_name,specification:r.specification,unit:r.unit,city:r.city,state:r.state,neededAt:r.needed_at,closesAt:r.closes_at,totalQuantity:Number(r.total_quantity)})));
   } catch(error) {
@@ -205,15 +281,16 @@ router.get("/round-orders",async(req,res):Promise<void>=>{
   if(!consumer) return void res.status(401).json({error:"Entre na sua conta para acompanhar suas rodadas."});
   try {
     await closeExpired();
-    const result=await pool.query("SELECT COALESCE(o.id,p.id) AS id,COALESCE(o.status,CASE WHEN r.status='no_offers' THEN 'no_offers' WHEN r.status='open' THEN 'participating' ELSE 'closed' END) AS status,p.quantity::text,o.total::text,o.accepted_at,o.vendor_id,b.delivery_days,r.code,r.category,r.item_name,r.specification,r.unit,r.needed_at FROM buying_round_participants p JOIN buying_rounds r ON r.id=p.round_id LEFT JOIN buying_round_orders o ON o.participant_id=p.id LEFT JOIN buying_round_bids b ON b.id=o.bid_id WHERE p.consumer_id=$1 ORDER BY p.joined_at DESC",[consumer]);
+    const result=await pool.query("SELECT COALESCE(o.id,p.id) AS id,COALESCE(o.status,CASE WHEN r.status='no_offers' THEN 'no_offers' WHEN r.status='open' THEN 'participating' ELSE 'closed' END) AS status,p.quantity::text,o.total::text,round(b.unit_price*p.quantity,2)::text AS products_subtotal,o.accepted_at,o.vendor_id,b.delivery_days,o.asaas_pix_payload,o.asaas_pix_qrcode_image,o.asaas_invoice_url,r.code,r.category,r.item_name,r.specification,r.unit,r.needed_at,f.status AS fulfillment_status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at AS fulfillment_updated_at,d.id AS dispute_id,d.reason_code AS dispute_reason,d.description AS dispute_description,d.status AS dispute_status,d.vendor_response AS dispute_vendor_response,d.resolution_text AS dispute_resolution_text,d.created_at AS dispute_created_at,d.updated_at AS dispute_updated_at,d.resolved_at AS dispute_resolved_at FROM buying_round_participants p JOIN buying_rounds r ON r.id=p.round_id LEFT JOIN buying_round_orders o ON o.participant_id=p.id LEFT JOIN buying_round_bids b ON b.id=o.bid_id LEFT JOIN praca_marketplace_fulfillments f ON f.order_type='round' AND f.order_id=o.id AND f.vendor_id=o.vendor_id LEFT JOIN praca_order_disputes d ON d.order_type='round' AND d.order_id=o.id AND d.consumer_id=p.consumer_id WHERE p.consumer_id=$1 ORDER BY p.joined_at DESC",[consumer]);
     const response=[];
     for(const row of result.rows){
       let vendor=null;
-      if(row.status==="awaiting_payment"||row.status==="paid"){
+      // A identidade do lojista só aparece depois da confirmação do pagamento.
+      if(row.status==="paid"||row.status==="delivered"||row.status==="released"){
         const store=await vendorPool.query("SELECT id,nome_empresa FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[row.vendor_id]);
         if(store.rows[0]) vendor={id:store.rows[0].id,name:store.rows[0].nome_empresa,storeUrl:"/listing?vendorId="+encodeURIComponent(String(store.rows[0].id))};
       }
-      response.push({id:row.id,status:row.status,quantity:Number(row.quantity),total:row.total===null?null:Number(row.total),deliveryDays:row.delivery_days===null?null:Number(row.delivery_days),acceptedAt:row.accepted_at,code:row.code,category:row.category,itemName:row.item_name,specification:row.specification,unit:row.unit,neededAt:row.needed_at,vendor});
+      response.push({id:row.id,status:row.status,quantity:Number(row.quantity),total:row.total===null?null:Number(row.total),subtotal:row.products_subtotal==null?null:Number(row.products_subtotal),freight:row.total==null||row.products_subtotal==null?null:Math.round((Number(row.total)-Number(row.products_subtotal))*100)/100,deliveryDays:row.delivery_days===null?null:Number(row.delivery_days),acceptedAt:row.accepted_at,code:row.code,category:row.category,itemName:row.item_name,specification:row.specification,unit:row.unit,neededAt:row.needed_at,pixPayload:row.asaas_pix_payload,pixQrcodeImage:row.asaas_pix_qrcode_image,invoiceUrl:row.asaas_invoice_url,vendor,fulfillment:row.fulfillment_status?{status:row.fulfillment_status,deliveryMode:row.delivery_mode,carrier:row.carrier,trackingCode:row.tracking_code,sellerNote:row.seller_note,shippedAt:row.shipped_at,updatedAt:row.fulfillment_updated_at}:null,dispute:row.dispute_id?{id:row.dispute_id,reason:row.dispute_reason,description:row.dispute_description,status:row.dispute_status,vendorResponse:row.dispute_vendor_response,resolutionText:row.dispute_resolution_text,createdAt:row.dispute_created_at,updatedAt:row.dispute_updated_at,resolvedAt:row.dispute_resolved_at}:null});
     }
     res.json(response);
   } catch(error) {
@@ -224,43 +301,156 @@ router.get("/round-orders",async(req,res):Promise<void>=>{
 router.post("/round-orders/:id/accept",async(req,res):Promise<void>=>{
   const consumer=buyerId(req);
   if(!consumer) return void res.status(401).json({error:"Entre na sua conta para aceitar a proposta."});
-  const client=await pool.connect();
-  let order:any;
   try {
-    await client.query("BEGIN");
-    const found=await client.query("SELECT o.id,o.status,o.round_id,o.vendor_id,o.quantity::text,o.total::text,r.code,r.item_name,r.unit,p.consumer_id FROM buying_round_orders o JOIN buying_rounds r ON r.id=o.round_id JOIN buying_round_participants p ON p.id=o.participant_id WHERE o.id=$1 FOR UPDATE OF o",[req.params.id]);
-    order=found.rows[0];
-    if(!order||Number(order.consumer_id)!==consumer){await client.query("ROLLBACK");return void res.status(404).json({error:"Proposta não encontrada."});}
-    if(order.status==="awaiting_buyer"){
-      await client.query("UPDATE buying_round_orders SET status='awaiting_payment',accepted_at=now() WHERE id=$1",[order.id]);
-    } else if(order.status!=="awaiting_payment"){
-      await client.query("ROLLBACK");return void res.status(409).json({error:"Esta proposta não está mais disponível."});
+    const result=await pool.query(
+      "UPDATE buying_round_orders o SET status='awaiting_payment',accepted_at=COALESCE(accepted_at,now()),updated_at=now() FROM buying_round_participants p WHERE o.participant_id=p.id AND o.id=$1 AND p.consumer_id=$2 AND o.status='awaiting_buyer' RETURNING o.id,o.total",
+      [req.params.id,consumer],
+    );
+    if(!result.rows[0]) {
+      const existing=await pool.query("SELECT o.id,o.status,o.total FROM buying_round_orders o JOIN buying_round_participants p ON p.id=o.participant_id WHERE o.id=$1 AND p.consumer_id=$2",[req.params.id,consumer]);
+      if(existing.rows[0]?.status!=="awaiting_payment") return void res.status(404).json({error:"Proposta não encontrada ou indisponível."});
+      return void res.json({id:existing.rows[0].id,status:"awaiting_payment",total:Number(existing.rows[0].total),paymentStatus:"Proposta aceita. Gere o pagamento para confirmar o pedido."});
     }
-    await client.query("COMMIT");
+    res.json({id:result.rows[0].id,status:"awaiting_payment",total:Number(result.rows[0].total),paymentStatus:"Proposta aceita. Gere o pagamento para confirmar o pedido."});
   } catch(error) {
-    await client.query("ROLLBACK"); console.error("[rounds] accept failed:",error); return void res.status(500).json({error:"Não foi possível aceitar a proposta agora."});
-  } finally { client.release(); }
-
-  try {
-    const [buyer,store]=await Promise.all([
-      pool.query("SELECT name,email,phone FROM consumers WHERE id=$1",[consumer]),
-      vendorPool.query("SELECT id,nome_empresa FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[order.vendor_id]),
-    ]);
-    const customer=buyer.rows[0],seller=store.rows[0];
-    if(!customer||!seller){await pool.query("UPDATE buying_round_orders SET crm_sync_status='failed' WHERE id=$1",[order.id]);return void res.status(202).json({id:order.id,status:"awaiting_payment",total:Number(order.total),paymentStatus:"Aceitação registrada; a loja será conectada para formalizar o pagamento."});}
-    const leadId=await ensureRoundLead({
-      roundId:String(order.round_id), vendorId:String(order.vendor_id), code:String(order.code),
-      demand:String(order.quantity)+" "+String(order.unit)+" de "+String(order.item_name)+". Total: R$ "+Number(order.total).toFixed(2)+". Formalize entrega e pagamento com o cliente.",
-      buyer:{name:String(customer.name),email:customer.email??null,phone:customer.phone??null},
-    });
-    await pool.query("UPDATE buying_round_orders SET crm_sync_status='synced',crm_lead_id=$2 WHERE id=$1",[order.id,leadId]);
-    res.json({id:order.id,status:"awaiting_payment",total:Number(order.total),vendor:{id:seller.id,name:seller.nome_empresa,storeUrl:"/listing?vendorId="+encodeURIComponent(String(seller.id))},paymentStatus:"A loja recebeu o lead para formalizar o pedido e o pagamento."});
-  } catch(error) {
-    console.error("[rounds] CRM sync failed after buyer acceptance:",error);
-    await pool.query("UPDATE buying_round_orders SET crm_sync_status='failed' WHERE id=$1",[order.id]);
-    res.status(202).json({id:order.id,status:"awaiting_payment",total:Number(order.total),paymentStatus:"Aceitação registrada; a loja será conectada para formalizar o pagamento."});
+    console.error("[rounds] accept failed:",error);
+    res.status(500).json({error:"Não foi possível aceitar a proposta agora."});
   }
 });
+
+router.post("/round-orders/:id/pay",async(req,res):Promise<void>=>{
+  const consumer=buyerId(req);
+  if(!consumer) return void res.status(401).json({error:"Entre na sua conta para pagar o pedido."});
+  const method=String(req.body?.paymentMethod??"pix");
+  if(method!=="pix"&&method!=="boleto") return void res.status(422).json({error:"Escolha Pix ou boleto."});
+  if(!isAsaasConfigured()) return void res.status(503).json({error:"Pagamento temporariamente indisponível. A loja permanece oculta até a confirmação do pagamento."});
+  const client=await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const found=await client.query(
+      "SELECT o.id,o.vendor_id,o.status,o.total::text,o.payment_method,o.asaas_charge_id,o.asaas_pix_payload,o.asaas_pix_qrcode_image,o.asaas_invoice_url,c.name,c.email,c.phone,c.cpf,r.code,r.item_name,r.unit FROM buying_round_orders o JOIN buying_round_participants p ON p.id=o.participant_id JOIN consumers c ON c.id=p.consumer_id JOIN buying_rounds r ON r.id=o.round_id WHERE o.id=$1 AND p.consumer_id=$2 FOR UPDATE OF o",
+      [req.params.id,consumer],
+    );
+    const order=found.rows[0];
+    if(!order) { await client.query("ROLLBACK"); return void res.status(404).json({error:"Pedido não encontrado."}); }
+    if(order.status!=="awaiting_payment") { await client.query("ROLLBACK"); return void res.status(409).json({error:"Este pedido não está aguardando pagamento."}); }
+    if(order.asaas_charge_id) {
+      if(order.payment_method!==method) { await client.query("ROLLBACK"); return void res.status(409).json({error:"Já existe uma cobrança ativa para este pedido. Use o meio de pagamento escolhido."}); }
+      await client.query("COMMIT");
+      let pixPayload=order.asaas_pix_payload,pixQrcodeImage=order.asaas_pix_qrcode_image;
+      if(order.payment_method==="pix"&&!pixPayload) {
+        const pix=await getPixQrCode(String(order.asaas_charge_id));
+        pixPayload=pix.payload;pixQrcodeImage=pix.encodedImage;
+        await pool.query("UPDATE buying_round_orders SET asaas_pix_payload=$2,asaas_pix_qrcode_image=$3,updated_at=now() WHERE id=$1",[order.id,pixPayload,pixQrcodeImage]);
+      }
+      return void res.json({id:order.id,status:order.status,paymentMethod:order.payment_method,pixPayload,pixQrcodeImage,invoiceUrl:order.asaas_invoice_url});
+    }
+    const total=Number(order.total);
+    if(!Number.isFinite(total)||total<5) { await client.query("ROLLBACK"); return void res.status(422).json({error:"O valor mínimo para cobrança é R$ 5,00."}); }
+    if(method==="boleto"&&String(order.cpf??"").replace(/\D/g,"").length!==11) { await client.query("ROLLBACK"); return void res.status(422).json({error:"Cadastre um CPF válido na sua conta para pagar por boleto."}); }
+    const customer=await createOrGetCustomer({name:String(order.name),email:String(order.email),phone:order.phone??undefined,cpfCnpj:order.cpf??undefined});
+    const billingType=method==="pix"?"PIX":"BOLETO";
+    const split=await singleVendorSplit(String(order.vendor_id),total);
+    const charge=await createCharge({
+      customer:customer.id,billingType,value:total,
+      dueDate:new Date(Date.now()+(method==="boleto"?3:1)*86400000).toISOString().slice(0,10),
+      description:"Rodada Praça.ai "+String(order.code)+" — "+String(order.item_name),
+      externalReference:"PRACA_ROUND_ORDER:"+String(order.id),
+      ...(split.length?{split}:{}),
+    });
+    const invoiceUrl=method==="boleto"?(charge.bankSlipUrl??charge.invoiceUrl):charge.invoiceUrl;
+    // Persist the charge id before requesting the QR code. A transient QR API
+    // error can then be retried without creating a second live charge.
+    await client.query(
+      "UPDATE buying_round_orders SET payment_method=$2,asaas_charge_id=$3,asaas_invoice_url=$4,updated_at=now() WHERE id=$1",
+      [order.id,method,charge.id,invoiceUrl??null],
+    );
+    await client.query("COMMIT");
+    let pix:any=null;
+    if(method==="pix") {
+      pix=await getPixQrCode(charge.id);
+      await pool.query("UPDATE buying_round_orders SET asaas_pix_payload=$2,asaas_pix_qrcode_image=$3,updated_at=now() WHERE id=$1",[order.id,pix.payload,pix.encodedImage]);
+    }
+    res.status(201).json({id:order.id,status:"awaiting_payment",paymentMethod:method,pixPayload:pix?.payload??null,pixQrcodeImage:pix?.encodedImage??null,invoiceUrl});
+  } catch(error) {
+    await client.query("ROLLBACK");
+    console.error("[rounds] payment create failed:",error);
+    res.status(502).json({error:"Não foi possível gerar a cobrança. Tente novamente mais tarde."});
+  } finally { client.release(); }
+});
+
+router.post("/webhooks/asaas",async(req,res,next):Promise<void>=>{
+  const payment=req.body?.payment;
+  const externalReference=typeof payment?.externalReference==="string"?payment.externalReference:"";
+  const isRoundOrder=externalReference.startsWith("PRACA_ROUND_ORDER:");
+  const isDirectQuote=externalReference.startsWith("PRACA_QUOTE_REQUEST:");
+  // O checkout tradicional tem outro handler no mesmo endpoint.
+  // Encaminhe eventos fora deste escopo sem confirmá-los como processados.
+  if(!isRoundOrder&&!isDirectQuote) return void next();
+  const expected=process.env.ASAAS_WEBHOOK_TOKEN??"";
+  const supplied=req.header("asaas-access-token")??"";
+  const expectedBytes=Buffer.from(expected);
+  const suppliedBytes=Buffer.from(supplied);
+  if(expected.length<32||suppliedBytes.length!==expectedBytes.length||!timingSafeEqual(expectedBytes,suppliedBytes)) {
+    return void res.status(401).json({error:"Webhook não autorizado."});
+  }
+  const event=String(req.body?.event??"");
+  const chargeId=typeof payment?.id==="string"?payment.id:"";
+  if(!chargeId) return void res.status(400).json({error:"Evento sem identificador de cobrança."});
+  const orderId=externalReference.slice(isRoundOrder?"PRACA_ROUND_ORDER:".length:"PRACA_QUOTE_REQUEST:".length);
+  if(["PAYMENT_REFUNDED","PAYMENT_PARTIALLY_REFUNDED","PAYMENT_REFUND_IN_PROGRESS","PAYMENT_REFUND_DENIED"].includes(event)) {
+    try {
+      const refund = await processRefundWebhook({
+        eventId: String(req.body?.id ?? ""), event, chargeId, orderId,
+        orderType: isRoundOrder ? "round" : "quote",
+      });
+      return void res.json({ received:true, ...refund });
+    } catch(error) {
+      console.error("[asaas] refund webhook failed:",error);
+      return void res.status(500).json({error:"Não foi possível processar a atualização do estorno agora."});
+    }
+  }
+  if(event!=="PAYMENT_RECEIVED"&&event!=="PAYMENT_CONFIRMED") return void res.status(200).json({received:true});
+  if(isDirectQuote) {
+    try {
+      const paid=await confirmDirectQuotePayment(orderId,chargeId);
+      return void res.json({received:true,paid});
+    } catch(error) {
+      console.error("[quotes] Asaas webhook failed:",error);
+      return void res.status(500).json({error:"Não foi possível processar a confirmação agora."});
+    }
+  }
+  try {
+    const result=await pool.query(
+      "UPDATE buying_round_orders SET status='paid',paid_at=COALESCE(paid_at,now()),updated_at=now() WHERE id=$1 AND asaas_charge_id=$2 AND status='awaiting_payment' RETURNING id,round_id,vendor_id,quantity::text,total::text",
+      [orderId,chargeId],
+    );
+    let paid=result.rows[0];
+    if(!paid) {
+      const retry=await pool.query("SELECT id,round_id,vendor_id,quantity::text,total::text FROM buying_round_orders WHERE id=$1 AND asaas_charge_id=$2 AND status IN ('paid','delivered','released') AND COALESCE(crm_sync_status,'')<>'synced'",[orderId,chargeId]);
+      paid=retry.rows[0];
+      if(!paid) return void res.status(200).json({received:true,duplicate:true});
+    }
+    const [buyer,round]=await Promise.all([
+      pool.query("SELECT c.name,c.email,c.phone FROM buying_round_participants p JOIN consumers c ON c.id=p.consumer_id JOIN buying_round_orders o ON o.participant_id=p.id WHERE o.id=$1",[orderId]),
+      pool.query("SELECT r.code,r.item_name,r.unit FROM buying_rounds r WHERE r.id=$1",[paid.round_id]),
+    ]);
+    const customer=buyer.rows[0],details=round.rows[0];
+    if(customer&&details) {
+      const leadId=await ensureRoundLead({
+        roundId:String(paid.round_id),vendorId:String(paid.vendor_id),code:String(details.code),
+        demand:String(paid.quantity)+" "+String(details.unit)+" de "+String(details.item_name)+". Pagamento confirmado; combinar entrega e confirmação no Praça.ai.",
+        buyer:{name:String(customer.name),email:customer.email??null,phone:customer.phone??null},
+      });
+      await pool.query("UPDATE buying_round_orders SET crm_sync_status='synced',crm_lead_id=$2 WHERE id=$1",[orderId,leadId]);
+    }
+    res.json({received:true,paid:true});
+  } catch(error) {
+    console.error("[rounds] Asaas webhook failed:",error);
+    res.status(500).json({error:"Não foi possível processar a confirmação agora."});
+  }
+});
+
 
 router.post("/round-orders/:id/decline",async(req,res):Promise<void>=>{
   const consumer=buyerId(req);
@@ -278,9 +468,11 @@ router.get("/internal/rounds",async(req,res):Promise<void>=>{
   if(!tenantId) return void res.status(422).json({error:"Tenant obrigatório."});
   try {
     await closeExpired();
-    const enabled=await vendorPool.query("SELECT id FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[tenantId]);
+    const enabled=await vendorPool.query("SELECT id,cidade,estado FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[tenantId]);
     if(!enabled.rows[0]) return void res.status(403).json({error:"Loja não habilitada no Praça.ai."});
-    const result=await pool.query("SELECT r.id,r.code,r.category,r.item_name,r.specification,r.unit,r.city,r.state,r.needed_at,r.closes_at,COALESCE(sum(p.quantity),0)::text AS total_quantity,mine.unit_price::text AS my_price,mine.freight_total::text AS my_freight,best.unit_price::text AS best_price,best.freight_total::text AS best_freight FROM buying_rounds r JOIN buying_round_participants p ON p.round_id=r.id LEFT JOIN buying_round_bids mine ON mine.round_id=r.id AND mine.vendor_id=$1 LEFT JOIN LATERAL (SELECT b.unit_price,b.freight_total FROM buying_round_bids b WHERE b.round_id=r.id ORDER BY b.unit_price + b.freight_total / NULLIF((SELECT sum(quantity) FROM buying_round_participants WHERE round_id=r.id),0),b.updated_at ASC LIMIT 1) best ON true WHERE r.status='open' AND r.closes_at>now() GROUP BY r.id,mine.unit_price,mine.freight_total,best.unit_price,best.freight_total ORDER BY r.closes_at ASC LIMIT 100",[tenantId]);
+    const sellerCity=String(enabled.rows[0].cidade??"").trim(),sellerState=String(enabled.rows[0].estado??"").trim().toUpperCase();
+    if(!sellerCity||!/^[A-Z]{2}$/.test(sellerState)) return void res.status(409).json({error:"Cadastre cidade e UF no perfil do AppVendor.ai para acessar rodadas."});
+    const result=await pool.query("SELECT r.id,r.code,r.category,r.item_name,r.specification,r.unit,r.city,r.state,r.needed_at,r.closes_at,COALESCE(sum(p.quantity),0)::text AS total_quantity,mine.unit_price::text AS my_price,mine.freight_total::text AS my_freight,best.unit_price::text AS best_price,best.freight_total::text AS best_freight FROM buying_rounds r JOIN buying_round_participants p ON p.round_id=r.id LEFT JOIN buying_round_bids mine ON mine.round_id=r.id AND mine.vendor_id=$1 LEFT JOIN LATERAL (SELECT b.unit_price,b.freight_total FROM buying_round_bids b WHERE b.round_id=r.id ORDER BY b.unit_price + b.freight_total / NULLIF((SELECT sum(quantity) FROM buying_round_participants WHERE round_id=r.id),0),b.updated_at ASC LIMIT 1) best ON true WHERE r.status='open' AND r.closes_at>now() AND lower(trim(r.city))=lower($2) AND upper(trim(r.state))=upper($3) GROUP BY r.id,mine.unit_price,mine.freight_total,best.unit_price,best.freight_total ORDER BY r.closes_at ASC LIMIT 100",[tenantId,sellerCity,sellerState]);
     res.json(result.rows.map((r:any)=>({id:r.id,code:r.code,category:r.category,itemName:r.item_name,specification:r.specification,unit:r.unit,city:r.city,state:r.state,neededAt:r.needed_at,closesAt:r.closes_at,totalQuantity:Number(r.total_quantity),myOffer:r.my_price?{unitPrice:Number(r.my_price),freight:Number(r.my_freight??0)}:null,bestOffer:r.best_price?{unitPrice:Number(r.best_price),freight:Number(r.best_freight??0)}:null})));
   } catch(error){console.error("[rounds] internal list failed:",error);res.status(500).json({error:"Não foi possível carregar oportunidades."});}
 });
@@ -288,17 +480,20 @@ router.get("/internal/rounds",async(req,res):Promise<void>=>{
 router.post("/internal/rounds/:id/bids",async(req,res):Promise<void>=>{
   if(!authorizedVendor(req,res)) return;
   const tenantId=String(req.body?.tenantId??"").trim();
-  const unitPrice=Number(req.body?.unitPrice),freight=Number(req.body?.freight??0),deliveryDays=Number(req.body?.deliveryDays);
+  const unitPrice=Number(req.body?.unitPrice),freight=Number(req.body?.freight),deliveryDays=Number(req.body?.deliveryDays);
   const terms=typeof req.body?.terms==="string"?req.body.terms.trim().slice(0,1000):"";
-  if(!tenantId||!Number.isFinite(unitPrice)||unitPrice<=0||!Number.isFinite(freight)||freight<0||!Number.isInteger(deliveryDays)||deliveryDays<0||containsContact(terms)) return void res.status(422).json({error:"Informe preço, frete e prazo válidos. Não inclua contatos nas condições."});
+  if(req.body?.freight==null||String(req.body.freight).trim()===""||!tenantId||!Number.isFinite(unitPrice)||unitPrice<=0||!Number.isFinite(freight)||freight<0||!Number.isInteger(deliveryDays)||deliveryDays<0||containsContact(terms)) return void res.status(422).json({error:"Informe preço, frete e prazo válidos. Não inclua contatos nas condições."});
   try {
-    const enabled=await vendorPool.query("SELECT id FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[tenantId]);
+    const enabled=await vendorPool.query("SELECT id,cidade,estado FROM tenants WHERE id=$1 AND vende_no_praca_ai=true",[tenantId]);
     if(!enabled.rows[0]) return void res.status(403).json({error:"Loja não habilitada no Praça.ai."});
+    const sellerCity=String(enabled.rows[0].cidade??"").trim(),sellerState=String(enabled.rows[0].estado??"").trim().toUpperCase();
+    if(!sellerCity||!/^[A-Z]{2}$/.test(sellerState)) return void res.status(409).json({error:"Cadastre cidade e UF no perfil do AppVendor.ai para enviar lances."});
     const client=await pool.connect();
     try {
       await client.query("BEGIN");
       const round=await client.query("SELECT id,code,category,item_name,specification,unit,city,state,needed_at,status,closes_at FROM buying_rounds WHERE id=$1 FOR UPDATE",[req.params.id]);
       if(!round.rows[0]||round.rows[0].status!=="open"||new Date(round.rows[0].closes_at).getTime()<=Date.now()){await client.query("ROLLBACK");return void res.status(409).json({error:"Rodada encerrada."});}
+      if(String(round.rows[0].city).trim().toLowerCase()!==sellerCity.toLowerCase()||String(round.rows[0].state).trim().toUpperCase()!==sellerState){await client.query("ROLLBACK");return void res.status(403).json({error:"Esta rodada pertence a outro município."});}
       const deliveryDeadline=new Date(round.rows[0].needed_at).getTime()+24*60*60*1000;
       const availableAfterClose=deliveryDeadline-new Date(round.rows[0].closes_at).getTime();
       if(deliveryDays*24*60*60*1000>availableAfterClose){await client.query("ROLLBACK");return void res.status(422).json({error:"O prazo de entrega precisa caber antes da data solicitada pelo comprador."});}

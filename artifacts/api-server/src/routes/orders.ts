@@ -1,13 +1,15 @@
+import { createSuborders, subordersEnabled } from "../lib/suborders";
 import { Router, type IRouter } from "express";
 import { eq, and, desc } from "drizzle-orm";
 import { db, ordersTable, orderItemsTable, cartsTable, cartItemsTable, orderDealLinksTable, consumersTable, coinTransactionsTable, COIN_RULES, vendorPayoutsTable, ambassadorsTable, influencerConversionsTable, deliveriesTable, deliveryEventsTable } from "@workspace/db";
-import { getProductById, getProductsByIds } from "../lib/catalogService";
+import { getProductsByIds } from "../lib/catalogService";
 import { vendorPool } from "../lib/vendorDb";
 import { findOrCreateLead, createDealFromPracaOrder } from "../lib/vendorSyncService";
 import { calcularFrete } from "../lib/freteService";
 import { validateCouponWithInfluencer } from "../lib/couponService";
 import { confirmarConversaoCliente } from "./ambassadors";
 import { isAsaasConfigured, createOrGetCustomer, createCharge, getPixQrCode } from "../lib/asaas";
+import { bindMarketplaceSplitIds, marketplaceSplits } from "../lib/providerSettlements";
 
 const router: IRouter = Router();
 
@@ -112,7 +114,8 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
   // (sequencial, fácil de adivinhar) via endereço, itens e valor de
   // pedido de outra pessoa. GET /orders (lista) já fazia certo.
   const consumerId = req.session?.consumerId;
-  if (order.consumerId && order.consumerId !== consumerId) {
+  const guestOwned=!order.consumerId && ((req.session as any)?.guestOrderIds??[]).includes(order.id);
+  if (order.consumerId ? order.consumerId !== consumerId : !guestOwned) {
     res.status(403).json({ error: "Acesso negado a este pedido." });
     return;
   }
@@ -125,75 +128,54 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
   res.json(formatOrder(order, items));
 });
 
-// NOTA DE AUDITORIA: este endpoint não é chamado por nenhum lugar do
-// frontend real (confirmado por busca completa) — o fluxo de verdade é
-// POST /checkout, abaixo, que lê do carrinho, calcula frete por vendedor
-// e valida cupom de verdade. Esse aqui é mais simples/incompleto
-// (não valida cupom, não faz frete multi-vendedor) — mantido por
-// enquanto caso algum integrador externo dependa dele, mas não é o
-// caminho usado pela UI.
-router.post("/orders", async (req, res): Promise<void> => {
-  const consumerId = req.session?.consumerId ?? null;
-  const { items, deliveryAddress, deliveryOption, paymentMethod, couponCode } = req.body;
-
-  const shipping = deliveryOption === "express" ? 12.9 : 0;
-  const isPixDiscount = paymentMethod === "pix";
-
-  let subtotal = 0;
-  const enrichedItems: any[] = [];
-  for (const item of items ?? []) {
-    const product = await getProductById(item.productId);
-    const price = product?.price ?? 0;
-    subtotal += price * (item.quantity ?? 1);
-    enrichedItems.push({ ...item, price, product });
-  }
-
-  const discount = isPixDiscount ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
-  const total = subtotal + shipping - discount;
-  const orderNumber = `PCA-${Date.now().toString().slice(-8)}`;
-
-  const [order] = await db
-    .insert(ordersTable)
-    .values({
-      orderNumber,
-      consumerId,
-      status: "confirmed",
-      subtotal: String(subtotal),
-      shipping: String(shipping),
-      discount: String(discount),
-      total: String(total),
-      paymentMethod,
-      deliveryAddress: JSON.stringify(deliveryAddress),
-      deliveryOption,
-      couponCode: couponCode ?? null,
-      estimatedDelivery: new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0],
-    })
-    .returning();
-
-  for (const item of enrichedItems) {
-    await db.insert(orderItemsTable).values({
-      orderId: order.id,
-      productId: item.productId,
-      productName: item.product?.name ?? "Produto",
-      productImageUrl: item.product?.imageUrl ?? "",
-      quantity: item.quantity ?? 1,
-      priceAtPurchase: String(item.price),
-      selectedSize: item.selectedSize ?? null,
-    });
-  }
-
-  const savedItems = await db
-    .select()
-    .from(orderItemsTable)
-    .where(eq(orderItemsTable.orderId, order.id));
-
-  res.status(201).json(formatOrder(order, savedItems));
+// O checkout único valida carrinho, frete por loja e pagamento.
+// Integrações legadas recebem instrução explícita, sem criar pedido ou cobrança.
+router.post("/orders", async (_req, res): Promise<void> => {
+  res.status(410).json({
+    error: "Este checkout foi substituído. Monte o carrinho, consulte o frete e finalize pelo checkout.",
+    code: "CHECKOUT_LEGACY_RETIRED",
+    cartEndpoint: "/api/cart/items",
+    freightEndpoint: "/api/checkout/freight",
+    checkoutEndpoint: "/api/checkout",
+  });
 });
 
 // POST /checkout — read cart, create order, clear cart
+
+async function checkoutFreight(items: any[], address: any, option: string) {
+  if (!["standard","express","pickup"].includes(option)) throw new Error("Escolha entrega ou retirada.");
+  if (option !== "pickup" && (!address?.city?.trim() || !/^[A-Za-z]{2}$/.test(address?.state ?? ""))) throw new Error("Informe cidade e UF para calcular o frete.");
+  const grouped = new Map<string, number>();
+  for (const item of items) {
+    if (!item.vendorId) throw new Error("Produto sem vendedor: solicite uma cotação.");
+    grouped.set(item.vendorId,(grouped.get(item.vendorId)??0)+Number(item.productPrice)*item.quantity);
+  }
+  const vendors = [];
+  for (const [vendorId,subtotal] of grouped) {
+    const freight = option === "pickup" ? 0 : (await calcularFrete(vendorId,address.city,subtotal,address.state)).valor;
+    vendors.push({vendorId,subtotal,freight,total:Math.round((subtotal+freight)*100)/100});
+  }
+  return {vendors,shipping:Math.round(vendors.reduce((sum,v)=>sum+v.freight,0)*100)/100};
+}
+router.post("/checkout/freight",async(req,res):Promise<void>=>{
+  try {
+    const consumerId=req.session?.consumerId;
+    const token=req.session?.cartToken;
+    if(!consumerId&&!token) return void res.status(400).json({error:"Carrinho vazio."});
+    const [cart]=await db.select().from(cartsTable).where(consumerId?eq(cartsTable.consumerId,consumerId):eq(cartsTable.sessionToken,token!)).limit(1);
+    if(!cart) return void res.status(400).json({error:"Carrinho vazio."});
+    const items=await db.select().from(cartItemsTable).where(eq(cartItemsTable.cartId,cart.id));
+    if(!items.length) return void res.status(400).json({error:"Carrinho vazio."});
+    res.setHeader("Cache-Control","private, no-store");
+    res.json(await checkoutFreight(items,req.body?.deliveryAddress,req.body?.deliveryOption));
+  }catch(error){res.status(422).json({error:error instanceof Error?error.message:"Não foi possível definir o frete."});}
+});
+
 router.post("/checkout", async (req, res): Promise<void> => {
   const consumerId = req.session?.consumerId ?? null;
   const { deliveryAddress, deliveryOption, paymentMethod, couponCode, cardNumber, cardHolder, cardExpiry, cardCvv, guestName, guestPhone, cpf } = req.body;
+
+  if(subordersEnabled()&&!consumerId){res.status(401).json({error:"Entre na sua conta para acompanhar os pedidos por loja."});return;}
 
   // Pedido sem login precisa de nome e telefone de contato — não dá pra
   // criar lead de qualidade nem entregar sem isso.
@@ -306,29 +288,12 @@ router.post("/checkout", async (req, res): Promise<void> => {
     subtotal += Number(item.productPrice) * item.quantity;
   }
 
-  // Frete real, calculado por vendedor (carrinho multi-vendedor, seção 9.7)
-  // e somado no total do pedido — retirada na loja não tem frete;
-  // pra qualquer outro modo, calcula por vendedor via calcularFrete().
-  let shipping = 0;
-  const cidadeCliente = typeof deliveryAddress === "object" ? deliveryAddress?.city : undefined;
-  if (deliveryOption !== "pickup") {
-    const itemsByVendorForFrete = new Map<string, typeof cartItems>();
-    for (const item of cartItems) {
-      if (!item.vendorId) continue;
-      const list = itemsByVendorForFrete.get(item.vendorId) ?? [];
-      list.push(item);
-      itemsByVendorForFrete.set(item.vendorId, list);
-    }
-    for (const [vendorId, vendorItems] of itemsByVendorForFrete) {
-      const vendorSubtotal = vendorItems.reduce((sum, i) => sum + Number(i.productPrice) * i.quantity, 0);
-      try {
-        const resultado = await calcularFrete(vendorId, cidadeCliente, vendorSubtotal);
-        shipping += resultado.valor;
-      } catch (freteErr) {
-        console.error("[checkout] erro ao calcular frete por vendedor, usando fallback:", freteErr);
-        shipping += deliveryOption === "express" ? 12.9 : 0;
-      }
-    }
+  let freightSummary: Awaited<ReturnType<typeof checkoutFreight>>;
+  try { freightSummary=await checkoutFreight(cartItems,deliveryAddress,deliveryOption); }
+  catch(error) { res.status(422).json({error:error instanceof Error?error.message:"Frete indisponível."}); return; }
+  const shipping=freightSummary.shipping;
+  if(req.body.expectedShipping == null || Number(req.body.expectedShipping)!==shipping) {
+    res.status(409).json({error:"Confira o frete atualizado antes de pagar.",shipping}); return;
   }
 
   // Pix e cupom são benefícios distintos. O cupom é revalidado no servidor
@@ -361,6 +326,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
       guestPhone: consumerId ? null : guestPhone.trim(),
       buyerCpf,
       status: "confirmed",
+      paymentStatus: "pending",
       subtotal: String(subtotal),
       shipping: String(shipping),
       discount: String(discount),
@@ -373,7 +339,9 @@ router.post("/checkout", async (req, res): Promise<void> => {
     })
     .returning();
 
-  if (influencerId) {
+  if(!consumerId){const session=req.session as any;session.guestOrderIds=[...(session.guestOrderIds??[]).filter((id:number)=>id!==order.id),order.id].slice(-20)}
+
+  if (order.paymentStatus === "paid" && influencerId) {
     const [influencer] = await db.select().from(ambassadorsTable).where(eq(ambassadorsTable.id, influencerId)).limit(1);
     if (influencer) {
       const commission = Math.round(subtotal * Number(influencer.comissaoPercentual) * 100) / 10000;
@@ -427,10 +395,16 @@ router.post("/checkout", async (req, res): Promise<void> => {
         vendorId,
         origem: "produto",
         status: "preparando",
-        valorPagoParceiro: String(vendorIds.length ? shipping / vendorIds.length : 0),
+        valorPagoParceiro: String(freightSummary.vendors.find(v=>v.vendorId===vendorId)?.freight ?? 0),
       }).returning();
       await db.insert(deliveryEventsTable).values({ deliveryId: delivery.id, status: "preparando", observacao: "Entrega criada automaticamente após a confirmação do pedido." });
     }
+  }
+
+  try { await createSuborders(order.id,freightSummary.vendors,discount); }
+  catch {
+    res.status(503).json({error:"A separação por loja não foi concluída. Nenhuma cobrança foi iniciada.",orderId:order.id});
+    return;
   }
 
   // Cobrança real via Asaas — PIX, boleto e cartão de crédito. Dado de
@@ -487,6 +461,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
         };
       }
 
+      const split = await marketplaceSplits(order.id);
       const charge = await createCharge({
         customer: customer.id,
         billingType: asaasBillingType,
@@ -494,8 +469,11 @@ router.post("/checkout", async (req, res): Promise<void> => {
         dueDate: new Date(Date.now() + (asaasBillingType === "BOLETO" ? 3 : 1) * 24 * 60 * 60 * 1000).toISOString().split("T")[0]!,
         description: `Pedido ${orderNumber} — Praça.ai`,
         externalReference: orderNumber,
+        ...(split.length ? { split } : {}),
         ...creditCardPayload,
       });
+
+      await bindMarketplaceSplitIds(order.id, charge.split);
 
       const updateData: Record<string, unknown> = { asaasChargeId: charge.id };
       if (asaasBillingType === "PIX") {
@@ -526,12 +504,16 @@ router.post("/checkout", async (req, res): Promise<void> => {
     }
   }
 
+  const [financialOrder] = await db.select({paymentStatus:ordersTable.paymentStatus}).from(ordersTable).where(eq(ordersTable.id,order.id)).limit(1);
+  const paymentConfirmed=financialOrder?.paymentStatus==="paid";
+  // Dados pessoais e benefícios somente após confirmação canônica do pagamento.
+  // A sincronização pendente requer reprocessamento pós-pagamento.
   // Sincroniza com o Vendor.ai: cada pedido vira 1+ negócios (deal), um por
   // lojista presente no carrinho (carrinho multi-vendedor — seção 9.7).
   // Falha na sincronização não deve derrubar o pedido em si (o pagamento já
   // foi confirmado do lado do Praça.ai) — registra o erro e segue.
-  try {
-    let consumerInfo = { nome: guestName.trim(), telefone: guestPhone.trim() as string | null, email: null as string | null };
+  if(paymentConfirmed) try {
+    let consumerInfo = { nome: String(guestName??"").trim(), telefone: String(guestPhone??"").trim() as string | null, email: null as string | null };
     if (consumerId) {
       const [consumer] = await db.select().from(consumersTable).where(eq(consumersTable.id, consumerId)).limit(1);
       if (consumer) {
@@ -541,7 +523,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
     // Pedido anônimo (sem login) agora captura nome/telefone no próprio
     // checkout (obrigatório, validado acima) — lead chega completo.
     const enderecoStr = typeof deliveryAddress === "object"
-      ? `${deliveryAddress.street ?? ""}, ${deliveryAddress.number ?? ""}, ${deliveryAddress.neighborhood ?? ""}, ${deliveryAddress.city ?? "Chapecó"} - ${deliveryAddress.state ?? "SC"}`
+      ? `${deliveryAddress.street ?? ""}, ${deliveryAddress.number ?? ""}, ${deliveryAddress.neighborhood ?? ""}, ${deliveryAddress.city ?? ""} - ${deliveryAddress.state ?? ""}`
       : String(deliveryAddress ?? "");
 
     const itemsByVendor = new Map<string, typeof cartItems>();
@@ -596,7 +578,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
   // Programa de Embaixadores: se esse é o primeiro pedido do consumidor e
   // existe uma indicação pendente pra ele, confirma a conversão e credita
   // a comissão do embaixador.
-  if (consumerId) {
+  if (paymentConfirmed && consumerId) {
     try {
       const pedidosAnteriores = await db
         .select({ id: ordersTable.id })
@@ -612,7 +594,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
 
   // Moeda de fidelidade: 1 moeda a cada R$10 gastos (compra concluída).
   // Só pra consumidor logado — convidado não tem saldo pra creditar.
-  if (consumerId) {
+  if (paymentConfirmed && consumerId) {
     try {
       const moedasGanhas = Math.floor(subtotal / 10) * COIN_RULES.COMPRA_A_CADA_R10;
       if (moedasGanhas > 0) {

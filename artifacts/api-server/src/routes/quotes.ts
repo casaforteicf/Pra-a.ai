@@ -1,4 +1,9 @@
 import { Router, type IRouter } from "express";
+import { installNegotiationAudit } from "../lib/negotiationAudit";
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import { createOrGetCustomer, createCharge, getPixQrCode, isAsaasConfigured } from "../lib/asaas";
+import { singleVendorSplit } from "../lib/providerSettlements";
+import { sendChatMessage } from "../lib/vendorSyncService";
 import { pool } from "@workspace/db";
 import { vendorPool } from "../lib/vendorDb";
 
@@ -16,22 +21,49 @@ router.post("/quotes", async (req, res): Promise<void> => {
     res.status(422).json({ error: "Preencha categoria, título, região e pelo menos um item." });
     return;
   }
+  const todayInBrazil = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+  if (date && (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(date + "T12:00:00Z")) ||
+      new Date(date + "T12:00:00Z").toISOString().slice(0, 10) !== date || date < todayInBrazil)) {
+    res.status(422).json({ error: "Informe uma data de compra válida, de hoje em diante." });
+    return;
+  }
+
+  if (ADDRESS_PATTERN.test(String(location)) || [category, title, description, location].some((value) => typeof value === "string" && CONTACT_PATTERN.test(value)) ||
+      items.some((item: any) => [item?.description, item?.brand].some((value) => typeof value === "string" && CONTACT_PATTERN.test(value)))) {
+    res.status(422).json({ error: "Informe apenas cidade ou região e não inclua telefone, e-mail ou endereço completo." });
+    return;
+  }
 
   const cleanItems = items
     .map((item: any) => ({
-      quantity: Number(String(item.quantity ?? "1").replace(",", ".")) || 1,
+      quantity: Number(String(item.quantity ?? "1").replace(",", ".")),
       unit: String(item.unit ?? "un").slice(0, 30),
       description: String(item.description ?? "").trim().slice(0, 500),
       brand: String(item.brand ?? "").trim().slice(0, 120) || null,
       productId: item.productId ? String(item.productId).slice(0, 100) : null,
     }))
-    .filter((item: any) => item.description);
+    .filter((item: any) => item.description && Number.isFinite(item.quantity) && item.quantity > 0 && item.quantity <= 1_000_000);
   if (!cleanItems.length) {
     res.status(422).json({ error: "Adicione pelo menos um item válido." });
     return;
   }
 
+  try {
+    const privateText = [category, title, description, location, ...cleanItems.flatMap((item: any) => [item.description, item.brand])];
+    if (await buyerNameAppears(consumerId, privateText)) {
+      res.status(422).json({ error: "Remova seu nome dos detalhes; sua identificação será compartilhada com a loja apenas após a confirmação do pagamento." });
+      return;
+    }
+  } catch (error) {
+    console.error("[quotes] não foi possível validar dados privados:", error);
+    res.status(500).json({ error: "Não foi possível validar a cotação agora." });
+    return;
+  }
+
   const searchable = cleanItems.map((item: any) => item.description).join(" ").slice(0, 1500);
+  const quoteLocationParts = String(location).split(/[,/|]/).map((part) => part.trim());
+  const quoteCity = quoteLocationParts[0]?.slice(0, 100) ?? "";
+  const quoteUf = quoteLocationParts[1]?.slice(0, 2).toUpperCase() ?? "";
   let vendorIds: string[] = [];
   try {
     const vendors = await vendorPool.query<{ id: string }>(
@@ -41,13 +73,15 @@ router.post("/quotes", async (req, res): Promise<void> => {
        LEFT JOIN categorias_produto cp ON cp.id = pc.categoria_id
        WHERE t.vende_no_praca_ai = true AND pc.ativo = true
          AND (pc.vende_no_praca_ai_produto IS NULL OR pc.vende_no_praca_ai_produto = true)
+         AND lower(trim(coalesce(t.cidade, ''))) = lower($3)
+         AND upper(trim(coalesce(t.estado, ''))) = upper($4)
          AND (
            lower(coalesce(cp.nome, '')) LIKE lower($1)
            OR to_tsvector('portuguese', coalesce(pc.nome, '') || ' ' || coalesce(pc.descricao, ''))
               @@ plainto_tsquery('portuguese', $2)
          )
        LIMIT 30`,
-      [`%${String(category).slice(0, 120)}%`, searchable],
+      [`%${String(category).slice(0, 120)}%`, searchable, quoteCity, quoteUf],
     );
     vendorIds = vendors.rows.map((row) => row.id);
   } catch (error) {
@@ -57,6 +91,12 @@ router.post("/quotes", async (req, res): Promise<void> => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const recent = await client.query("SELECT COUNT(*)::int AS total FROM quote_requests WHERE consumer_id=$1 AND created_at>now()-interval '24 hours'", [consumerId]);
+    if (Number(recent.rows[0]?.total ?? 0) >= 5) {
+      await client.query("ROLLBACK");
+      res.status(429).json({ error: "Você atingiu o limite de cinco cotações por dia. Tente novamente amanhã." });
+      return;
+    }
     const protocol = `COT-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
     const inserted = await client.query<{ id: string }>(
       `INSERT INTO quote_requests
@@ -79,7 +119,14 @@ router.post("/quotes", async (req, res): Promise<void> => {
       );
     }
     await client.query("COMMIT");
-    res.status(201).json({ id: quoteId, protocol, recipients: vendorIds.length, status: vendorIds.length ? "distribuida" : "aguardando_fornecedores" });
+    const crmResults = await Promise.allSettled(vendorIds.map((vendorId) => notifyQuoteLead(quoteId, vendorId)));
+    const crmFailures = crmResults.filter((result) => result.status === "rejected").length;
+    if (crmFailures) console.error("[quotes] CRM notification pending for " + crmFailures + " vendor(s).");
+    res.status(201).json({
+      id: quoteId, protocol, recipients: vendorIds.length,
+      status: vendorIds.length ? "distribuida" : "aguardando_fornecedores",
+      crmPending: crmFailures,
+    });
   } catch (error) {
     await client.query("ROLLBACK");
     console.error("[quotes] erro ao criar solicitação:", error);
@@ -87,6 +134,470 @@ router.post("/quotes", async (req, res): Promise<void> => {
   } finally {
     client.release();
   }
+});
+
+const CONTACT_PATTERN = /(?:[\w.+-]+@[\w.-]+\.[a-z]{2,}|(?:\+?\d[\s().-]*){10,})/i;
+const ADDRESS_PATTERN = /\b(rua|avenida|av\.|rodovia|travessa|bairro|apartamento|apto|cep|casa|quadra|lote)\b|\b\d{5}-?\d{3}\b/i;
+let directQuoteTablesReady: Promise<void> | null = null;
+
+function ensureDirectQuoteTables(): Promise<void> {
+  if (!directQuoteTablesReady) {
+    directQuoteTablesReady = pool.query(`
+      ALTER TABLE quote_requests
+        ADD COLUMN IF NOT EXISTS payment_method text,
+        ADD COLUMN IF NOT EXISTS asaas_charge_id text,
+        ADD COLUMN IF NOT EXISTS asaas_pix_payload text,
+        ADD COLUMN IF NOT EXISTS asaas_pix_qrcode_image text,
+        ADD COLUMN IF NOT EXISTS asaas_invoice_url text,
+        ADD COLUMN IF NOT EXISTS paid_at timestamptz,
+        ADD COLUMN IF NOT EXISTS delivered_at timestamptz,
+        ADD COLUMN IF NOT EXISTS released_at timestamptz;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_quote_requests_asaas_charge
+        ON quote_requests(asaas_charge_id) WHERE asaas_charge_id IS NOT NULL;
+      CREATE TABLE IF NOT EXISTS quote_offers (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        quote_request_id uuid NOT NULL REFERENCES quote_requests(id) ON DELETE CASCADE,
+        vendor_id text NOT NULL,
+        freight numeric(12,2) NOT NULL DEFAULT 0 CHECK (freight >= 0),
+        delivery_days integer NOT NULL DEFAULT 0 CHECK (delivery_days >= 0),
+        terms text,
+        status text NOT NULL DEFAULT 'enviada' CHECK (status IN ('enviada','aceita','recusada')),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        accepted_at timestamptz,
+        UNIQUE (quote_request_id, vendor_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_quote_offers_request ON quote_offers(quote_request_id, created_at);
+      CREATE TABLE IF NOT EXISTS quote_offer_items (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        offer_id uuid NOT NULL REFERENCES quote_offers(id) ON DELETE CASCADE,
+        request_item_id uuid NOT NULL REFERENCES quote_request_items(id) ON DELETE CASCADE,
+        unit_price numeric(12,2) NOT NULL CHECK (unit_price > 0),
+        UNIQUE (offer_id, request_item_id)
+      );
+      CREATE TABLE IF NOT EXISTS quote_vendor_leads (
+        quote_request_id uuid NOT NULL REFERENCES quote_requests(id) ON DELETE CASCADE,
+        vendor_id text NOT NULL,
+        crm_lead_id uuid NOT NULL,
+        crm_notified boolean NOT NULL DEFAULT false,
+        identity_revealed_at timestamptz,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        PRIMARY KEY (quote_request_id, vendor_id)
+      );
+    `).then(() => installNegotiationAudit()).catch((error) => { directQuoteTablesReady = null; throw error; });
+  }
+  return directQuoteTablesReady;
+}
+
+function validVendorToken(req: any, res: any): boolean {
+  const expected = process.env.PRACA_ROUNDS_VENDOR_TOKEN;
+  const supplied = req.header("x-praca-rounds-token");
+  if (!expected || expected.length < 32) {
+    res.status(503).json({ error: "Integração com lojistas indisponível." });
+    return false;
+  }
+  if (typeof supplied !== "string") {
+    res.status(401).json({ error: "Acesso não autorizado." });
+    return false;
+  }
+  const a = Buffer.from(expected), b = Buffer.from(supplied);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) {
+    res.status(401).json({ error: "Acesso não autorizado." });
+    return false;
+  }
+  return true;
+}
+
+function consumerId(req: any): number | null {
+  const id = Number(req.session?.consumerId);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+function normalizePrivateText(value: string): string {
+  return value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+async function buyerNameAppears(consumer: number, values: unknown[]): Promise<boolean> {
+  const result = await pool.query<{ name: string | null }>("SELECT name FROM consumers WHERE id=$1", [consumer]);
+  const buyerName = normalizePrivateText(String(result.rows[0]?.name ?? ""));
+  if (buyerName.length < 8 || buyerName.split(" ").filter(Boolean).length < 2) return false;
+  const phrase = " " + buyerName + " ";
+  return values.some((value) => typeof value === "string" && (" " + normalizePrivateText(value) + " ").includes(phrase));
+}
+
+function numberValue(value: unknown): number | null {
+  if (typeof value !== "number" && typeof value !== "string") return null;
+  const parsed = Number(String(value).replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+async function ensureQuoteLead(quoteId: string, vendorId: string): Promise<{ leadId: string; notified: boolean; revealedAt: string | null }> {
+  await ensureDirectQuoteTables();
+  const map = await pool.query(
+    "INSERT INTO quote_vendor_leads(quote_request_id,vendor_id,crm_lead_id) VALUES($1,$2,$3) ON CONFLICT(quote_request_id,vendor_id) DO UPDATE SET vendor_id=EXCLUDED.vendor_id RETURNING crm_lead_id,crm_notified,identity_revealed_at",
+    [quoteId, vendorId, randomUUID()],
+  );
+  const leadId = String(map.rows[0].crm_lead_id);
+  await vendorPool.query(
+    "INSERT INTO leads(id,tenant_id,nome,telefone,email,endereco,source,status,tipo) VALUES($1,$2,$3,NULL,NULL,NULL,'praca_ai_cotacao','novo','cliente') ON CONFLICT(id) DO NOTHING",
+    [leadId, vendorId, "Cotação anônima Praça.ai"],
+  );
+  return { leadId, notified: Boolean(map.rows[0].crm_notified), revealedAt: map.rows[0].identity_revealed_at };
+}
+
+async function notifyQuoteLead(quoteId: string, vendorId: string, revealBuyer = false): Promise<void> {
+  const lead = await ensureQuoteLead(quoteId, vendorId);
+  const quote = await pool.query(
+    "SELECT q.protocol,q.category,q.title,q.location,q.needed_at,q.paid_at,c.name,c.email,c.phone FROM quote_requests q JOIN consumers c ON c.id=q.consumer_id WHERE q.id=$1",
+    [quoteId],
+  );
+  if (!quote.rows[0]) return;
+  const row = quote.rows[0];
+  const items = await pool.query("SELECT quantity,unit,description FROM quote_request_items WHERE quote_request_id=$1 ORDER BY id", [quoteId]);
+  const demand = [
+    "Cotação " + row.protocol + " — " + row.category + ": " + row.title,
+    ...items.rows.map((item: any) => `• ${item.quantity} ${item.unit} — ${item.description}`),
+    "Região: " + row.location,
+    row.needed_at ? "Data desejada: " + new Date(row.needed_at).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "",
+  ].filter(Boolean).join("\n");
+  if (revealBuyer && row.paid_at) {
+    if (lead.revealedAt) return;
+    await vendorPool.query(
+      "UPDATE leads SET nome=$3,telefone=$4,email=$5,source='praca_ai_cotacao' WHERE id=$1 AND tenant_id=$2",
+      [lead.leadId, vendorId, row.name, row.phone, row.email],
+    );
+    await sendChatMessage({
+      tenantId: vendorId, leadId: lead.leadId,
+      conteudo: "Praça.ai — pagamento confirmado. Cliente: " + row.name +
+        (row.phone ? " · Telefone: " + row.phone : "") + (row.email ? " · E-mail: " + row.email : "") +
+        ". Formalize pagamento e entrega com o cliente.\n" + demand,
+    });
+    await pool.query("UPDATE quote_vendor_leads SET identity_revealed_at=COALESCE(identity_revealed_at,now()),crm_notified=true WHERE quote_request_id=$1 AND vendor_id=$2", [quoteId, vendorId]);
+  } else if (!lead.notified) {
+    await sendChatMessage({
+      tenantId: vendorId, leadId: lead.leadId,
+      conteudo: "Praça.ai — nova cotação direta. Envie sua proposta pelo AppVendor.ai. Nome e contato do comprador ficam ocultos até a confirmação do pagamento.\\n" + demand,
+    });
+    await pool.query("UPDATE quote_vendor_leads SET crm_notified=true WHERE quote_request_id=$1 AND vendor_id=$2", [quoteId, vendorId]);
+  }
+}
+
+async function quoteItems(quoteId: string) {
+  const result = await pool.query(
+    "SELECT id,quantity::text,unit,description,brand,product_id FROM quote_request_items WHERE quote_request_id=$1 ORDER BY id",
+    [quoteId],
+  );
+  return result.rows.map((item: any) => ({
+    id: item.id, quantity: Number(item.quantity), unit: item.unit,
+    description: item.description, brand: item.brand, productId: item.product_id,
+  }));
+}
+
+router.get("/quotes", async (req, res): Promise<void> => {
+  const buyer = consumerId(req);
+  if (!buyer) return void res.status(401).json({ error: "Entre na sua conta para acompanhar cotações." });
+  try {
+    await ensureDirectQuoteTables();
+    const result = await pool.query(
+      "SELECT id,protocol,category,title,location,needed_at,status,created_at FROM quote_requests WHERE consumer_id=$1 ORDER BY created_at DESC LIMIT 100",
+      [buyer],
+    );
+    res.set("Cache-Control", "no-store").json(result.rows.map((row: any) => ({
+      id: row.id, protocol: row.protocol, category: row.category, title: row.title,
+      location: row.location, neededAt: row.needed_at, status: row.status, createdAt: row.created_at,
+    })));
+  } catch (error) {
+    console.error("[quotes] list failed:", error);
+    res.status(500).json({ error: "Não foi possível carregar suas cotações." });
+  }
+});
+
+router.get("/quotes/:id", async (req, res): Promise<void> => {
+  const buyer = consumerId(req);
+  if (!buyer) return void res.status(401).json({ error: "Entre na sua conta para acompanhar cotações." });
+  try {
+    await ensureDirectQuoteTables();
+    const result = await pool.query(
+      "SELECT id,protocol,consumer_id,category,title,description,location,needed_at,status,created_at,payment_method,asaas_pix_payload,asaas_pix_qrcode_image,asaas_invoice_url FROM quote_requests WHERE id=$1 AND consumer_id=$2",
+      [req.params.id, buyer],
+    );
+    const quote = result.rows[0];
+    if (!quote) return void res.status(404).json({ error: "Cotação não encontrada." });
+    const identityReleased = ["paid","delivered","released"].includes(String(quote.status));
+    if (identityReleased) {
+      const winner = await pool.query("SELECT vendor_id FROM quote_offers WHERE quote_request_id=$1 AND status='aceita' LIMIT 1", [quote.id]);
+      if (winner.rows[0]) {
+        try { await notifyQuoteLead(quote.id, String(winner.rows[0].vendor_id), true); }
+        catch (error) { console.error("[quotes] pending CRM identity release retry failed:", error); }
+      }
+    }
+    const offers = await pool.query(
+      `SELECT o.id,o.freight::text,o.delivery_days,o.terms,o.status,o.created_at,
+              COALESCE(sum(oi.unit_price * qi.quantity),0)::numeric(12,2)::text AS subtotal,
+              CASE WHEN $2::boolean THEN o.vendor_id ELSE NULL END AS vendor_id
+       FROM quote_offers o
+       LEFT JOIN quote_offer_items oi ON oi.offer_id=o.id
+       LEFT JOIN quote_request_items qi ON qi.id=oi.request_item_id
+       WHERE o.quote_request_id=$1 AND o.status <> 'recusada'
+       GROUP BY o.id ORDER BY (sum(oi.unit_price * qi.quantity)+o.freight) ASC,o.created_at ASC`,
+      [quote.id, identityReleased],
+    );
+    const fulfillment = identityReleased ? (await pool.query(
+      `SELECT f.status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at
+       FROM quote_offers o JOIN praca_marketplace_fulfillments f
+         ON f.order_type='quote' AND f.order_id=o.quote_request_id AND f.vendor_id=o.vendor_id
+       WHERE o.quote_request_id=$1 AND o.status='aceita' LIMIT 1`,
+      [quote.id],
+    )).rows[0] ?? null : null;
+    const dispute = identityReleased ? (await pool.query(
+      `SELECT id,reason_code,description,status,vendor_response,resolution_text,created_at,updated_at,resolved_at
+       FROM praca_order_disputes WHERE order_type='quote' AND order_id=$1 AND consumer_id=$2 LIMIT 1`,
+      [quote.id, buyer],
+    )).rows[0] ?? null : null;
+    const visibleOffers = [];
+    for (const offer of offers.rows) {
+      let vendor = null;
+      if (identityReleased && offer.status === "aceita" && offer.vendor_id) {
+        const store = await vendorPool.query("SELECT id,nome_empresa FROM tenants WHERE id=$1 AND vende_no_praca_ai=true", [offer.vendor_id]);
+        if (store.rows[0]) vendor = { id: store.rows[0].id, name: store.rows[0].nome_empresa };
+      }
+      const itemPrices = await pool.query("SELECT oi.request_item_id,oi.unit_price::text,qi.quantity::text,qi.unit,qi.description FROM quote_offer_items oi JOIN quote_request_items qi ON qi.id=oi.request_item_id WHERE oi.offer_id=$1 ORDER BY qi.id", [offer.id]);
+      visibleOffers.push({
+        id: offer.id, subtotal: Number(offer.subtotal), freight: Number(offer.freight),
+        total: Number(offer.subtotal) + Number(offer.freight), deliveryDays: Number(offer.delivery_days),
+        terms: offer.terms, status: offer.status, createdAt: offer.created_at, vendor,
+        items: itemPrices.rows.map((item) => ({ itemId: item.request_item_id, unitPrice: Number(item.unit_price), quantity: Number(item.quantity), unit: item.unit, description: item.description })),
+      });
+    }
+    res.set("Cache-Control", "no-store").json({
+      id: quote.id, protocol: quote.protocol, category: quote.category, title: quote.title,
+      description: quote.description, location: quote.location, neededAt: quote.needed_at,
+      status: quote.status, createdAt: quote.created_at, paymentMethod: quote.payment_method, pixPayload: quote.asaas_pix_payload, pixQrcodeImage: quote.asaas_pix_qrcode_image, invoiceUrl: quote.asaas_invoice_url, items: await quoteItems(quote.id),
+      offers: visibleOffers,
+      fulfillment: fulfillment ? {
+        status: fulfillment.status, deliveryMode: fulfillment.delivery_mode, carrier: fulfillment.carrier,
+        trackingCode: fulfillment.tracking_code, sellerNote: fulfillment.seller_note,
+        shippedAt: fulfillment.shipped_at, updatedAt: fulfillment.updated_at,
+      } : null,
+      dispute: dispute ? {
+        id: dispute.id, reason: dispute.reason_code, description: dispute.description,
+        status: dispute.status, resolutionText: dispute.resolution_text,
+        vendorResponse: dispute.vendor_response,
+        createdAt: dispute.created_at, updatedAt: dispute.updated_at, resolvedAt: dispute.resolved_at,
+      } : null,
+    });
+  } catch (error) {
+    console.error("[quotes] detail failed:", error);
+    res.status(500).json({ error: "Não foi possível carregar as propostas agora." });
+  }
+});
+
+router.post("/quotes/:id/accept", async (req, res): Promise<void> => {
+  const buyer = consumerId(req);
+  if (!buyer) return void res.status(401).json({ error: "Entre na sua conta para aceitar uma proposta." });
+  const offerId = String(req.body?.offerId ?? "");
+  if (!/^[0-9a-f-]{36}$/i.test(offerId)) return void res.status(422).json({ error: "Selecione uma proposta válida." });
+  const client = await pool.connect();
+  try {
+    await ensureDirectQuoteTables();
+    await client.query("BEGIN");
+    const locked = await client.query("SELECT id,status FROM quote_requests WHERE id=$1 AND consumer_id=$2 FOR UPDATE", [req.params.id, buyer]);
+    if (!locked.rows[0]) { await client.query("ROLLBACK"); return void res.status(404).json({ error: "Cotação não encontrada." }); }
+    if (locked.rows[0].status === "aceita") { await client.query("ROLLBACK"); return void res.status(409).json({ error: "Você já aceitou uma proposta desta cotação." }); }
+    const selected = await client.query("SELECT id,vendor_id FROM quote_offers WHERE id=$1 AND quote_request_id=$2 AND status='enviada' FOR UPDATE", [offerId, req.params.id]);
+    if (!selected.rows[0]) { await client.query("ROLLBACK"); return void res.status(409).json({ error: "Esta proposta não está mais disponível." }); }
+    await client.query("UPDATE quote_offers SET status=CASE WHEN id=$2 THEN 'aceita' ELSE 'recusada' END,accepted_at=CASE WHEN id=$2 THEN now() ELSE accepted_at END,updated_at=now() WHERE quote_request_id=$1", [req.params.id, offerId]);
+    await client.query("UPDATE quote_requests SET status='awaiting_payment' WHERE id=$1", [req.params.id]);
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("[quotes] accept failed:", error);
+    return void res.status(500).json({ error: "Não foi possível aceitar essa proposta agora." });
+  } finally { client.release(); }
+  res.json({ status: "awaiting_payment", paymentStatus: "Proposta selecionada. Gere o pagamento para confirmar o pedido." });
+});
+
+export async function confirmDirectQuotePayment(quoteId: string, chargeId: string): Promise<boolean> {
+  await ensureDirectQuoteTables();
+  const paid = await pool.query(
+    "UPDATE quote_requests SET status='paid',paid_at=COALESCE(paid_at,now()) WHERE id=$1 AND asaas_charge_id=$2 AND status='awaiting_payment' RETURNING id",
+    [quoteId, chargeId],
+  );
+  const known = paid.rows[0] ?? (await pool.query(
+    "SELECT id FROM quote_requests WHERE id=$1 AND asaas_charge_id=$2 AND status IN ('paid','delivered','released')",
+    [quoteId, chargeId],
+  )).rows[0];
+  if (!known) return false;
+  const winner = await pool.query("SELECT vendor_id FROM quote_offers WHERE quote_request_id=$1 AND status='aceita' LIMIT 1", [quoteId]);
+  if (winner.rows[0]) await notifyQuoteLead(quoteId, String(winner.rows[0].vendor_id), true);
+  return true;
+}
+
+router.post("/quotes/:id/pay", async (req, res): Promise<void> => {
+  const buyer = consumerId(req);
+  if (!buyer) return void res.status(401).json({ error: "Entre na sua conta para pagar o pedido." });
+  const method = String(req.body?.paymentMethod ?? "pix");
+  if (method !== "pix" && method !== "boleto") return void res.status(422).json({ error: "Escolha Pix ou boleto." });
+  if (!isAsaasConfigured()) return void res.status(503).json({ error: "Pagamento temporariamente indisponível." });
+  const client = await pool.connect();
+  try {
+    await ensureDirectQuoteTables();
+    await client.query("BEGIN");
+    const found = await client.query(
+      `SELECT q.id,q.status,q.payment_method,q.asaas_charge_id,q.asaas_pix_payload,q.asaas_pix_qrcode_image,q.asaas_invoice_url,o.vendor_id,
+              c.name,c.email,c.phone,c.cpf,
+              ((SELECT COALESCE(sum(oi.unit_price * qi.quantity),0)
+                FROM quote_offer_items oi JOIN quote_request_items qi ON qi.id=oi.request_item_id
+                WHERE oi.offer_id=o.id)+o.freight)::numeric(12,2)::text AS total
+       FROM quote_requests q
+       JOIN consumers c ON c.id=q.consumer_id
+       JOIN quote_offers o ON o.quote_request_id=q.id AND o.status='aceita'
+       WHERE q.id=$1 AND q.consumer_id=$2
+       FOR UPDATE OF q`,
+      [req.params.id, buyer],
+    );
+    const quote = found.rows[0];
+    if (!quote) { await client.query("ROLLBACK"); return void res.status(404).json({ error: "Pedido não encontrado." }); }
+    if (quote.status !== "awaiting_payment") { await client.query("ROLLBACK"); return void res.status(409).json({ error: "Este pedido não está aguardando pagamento." }); }
+    if (quote.asaas_charge_id) {
+      if (quote.payment_method !== method) { await client.query("ROLLBACK"); return void res.status(409).json({ error: "Já existe uma cobrança ativa para este pedido. Use o meio de pagamento escolhido." }); }
+      await client.query("COMMIT");
+      let pixPayload = quote.asaas_pix_payload, pixQrcodeImage = quote.asaas_pix_qrcode_image;
+      if (method === "pix" && !pixPayload) {
+        const pix = await getPixQrCode(String(quote.asaas_charge_id));
+        pixPayload = pix.payload; pixQrcodeImage = pix.encodedImage;
+        await pool.query("UPDATE quote_requests SET asaas_pix_payload=$2,asaas_pix_qrcode_image=$3 WHERE id=$1", [quote.id, pixPayload, pixQrcodeImage]);
+      }
+      return void res.json({ id: quote.id, status: quote.status, paymentMethod: method, pixPayload, pixQrcodeImage, invoiceUrl: quote.asaas_invoice_url });
+    }
+    const total = Number(quote.total);
+    if (!Number.isFinite(total) || total < 5) { await client.query("ROLLBACK"); return void res.status(422).json({ error: "O valor mínimo para cobrança é R$ 5,00." }); }
+    if (method === "boleto" && String(quote.cpf ?? "").replace(/\D/g, "").length !== 11) { await client.query("ROLLBACK"); return void res.status(422).json({ error: "Cadastre um CPF válido para pagar por boleto." }); }
+    const customer = await createOrGetCustomer({ name: String(quote.name), email: quote.email ?? undefined, phone: quote.phone ?? undefined, cpfCnpj: quote.cpf ?? undefined });
+    const split = await singleVendorSplit(String(quote.vendor_id), total);
+    const charge = await createCharge({
+      customer: customer.id, billingType: method === "pix" ? "PIX" : "BOLETO", value: total,
+      dueDate: new Date(Date.now() + (method === "boleto" ? 3 : 1) * 86400000).toISOString().slice(0, 10),
+      description: "Cotação Praça.ai " + String(req.params.id),
+      externalReference: "PRACA_QUOTE_REQUEST:" + String(quote.id),
+      ...(split.length ? { split } : {}),
+    });
+    const invoiceUrl = method === "boleto" ? (charge.bankSlipUrl ?? charge.invoiceUrl) : charge.invoiceUrl;
+    await client.query(
+      "UPDATE quote_requests SET payment_method=$2,asaas_charge_id=$3,asaas_invoice_url=$4 WHERE id=$1",
+      [quote.id, method, charge.id, invoiceUrl ?? null],
+    );
+    await client.query("COMMIT");
+    let pix: any = null;
+    if (method === "pix") {
+      pix = await getPixQrCode(charge.id);
+      await pool.query("UPDATE quote_requests SET asaas_pix_payload=$2,asaas_pix_qrcode_image=$3 WHERE id=$1", [quote.id, pix.payload, pix.encodedImage]);
+    }
+    res.status(201).json({ id: quote.id, status: "awaiting_payment", paymentMethod: method, pixPayload: pix?.payload ?? null, pixQrcodeImage: pix?.encodedImage ?? null, invoiceUrl });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("[quotes] payment create failed:", error);
+    res.status(502).json({ error: "Não foi possível gerar a cobrança. Tente novamente mais tarde." });
+  } finally { client.release(); }
+});
+
+
+router.get("/internal/quotes", async (req, res): Promise<void> => {
+  if (!validVendorToken(req, res)) return;
+  const tenantId = typeof req.query.tenantId === "string" ? req.query.tenantId.trim() : "";
+  if (!tenantId) return void res.status(422).json({ error: "Loja inválida." });
+  try {
+    await ensureDirectQuoteTables();
+    const result = await pool.query(
+      `SELECT q.id,q.protocol,q.category,q.title,q.description,q.location,q.needed_at,q.created_at,
+              o.id AS offer_id,o.freight::text,o.delivery_days,o.terms,
+              COALESCE(sum(oi.unit_price * qi.quantity),0)::numeric(12,2)::text AS subtotal
+       FROM quote_recipients r JOIN quote_requests q ON q.id=r.quote_request_id
+       LEFT JOIN quote_offers o ON o.quote_request_id=q.id AND o.vendor_id=r.vendor_id AND o.status='enviada'
+       LEFT JOIN quote_offer_items oi ON oi.offer_id=o.id
+       LEFT JOIN quote_request_items qi ON qi.id=oi.request_item_id
+       WHERE r.vendor_id=$1 AND q.status IN ('distribuida','aguardando_fornecedores')
+       GROUP BY q.id,o.id ORDER BY q.needed_at NULLS LAST,q.created_at DESC LIMIT 100`,
+      [tenantId],
+    );
+    const opportunities = [];
+    for (const row of result.rows) {
+      const items = await quoteItems(row.id);
+      const lead = await ensureQuoteLead(row.id, tenantId);
+      if (!lead.notified) {
+        try { await notifyQuoteLead(row.id, tenantId); } catch (error) { console.error("[quotes] CRM lead notification failed:", error); }
+      }
+      opportunities.push({
+        id: row.id, protocol: row.protocol, category: row.category, title: row.title,
+        description: row.description, location: row.location, neededAt: row.needed_at,
+        createdAt: row.created_at, items, myOffer: row.offer_id ? {
+          id: row.offer_id, subtotal: Number(row.subtotal), freight: Number(row.freight),
+          deliveryDays: Number(row.delivery_days), terms: row.terms,
+        } : null,
+      });
+    }
+    res.set("Cache-Control", "no-store").json(opportunities);
+  } catch (error) {
+    console.error("[quotes] internal list failed:", error);
+    res.status(500).json({ error: "Não foi possível carregar as cotações agora." });
+  }
+});
+
+router.post("/internal/quotes/:id/offers", async (req, res): Promise<void> => {
+  if (!validVendorToken(req, res)) return;
+  const tenantId = String(req.body?.tenantId ?? "").trim();
+  if (!tenantId) return void res.status(422).json({ error: "Loja inválida." });
+  const itemOffers = req.body?.items;
+  const freight = numberValue(req.body?.freight);
+  const deliveryDays = Number(req.body?.deliveryDays ?? 0);
+  const terms = typeof req.body?.terms === "string" ? req.body.terms.trim().slice(0, 1200) : "";
+  if (!Array.isArray(itemOffers) || itemOffers.length === 0 || itemOffers.length > 100 ||
+      req.body?.freight == null || String(req.body.freight).trim() === "" || freight === null || freight < 0 || !Number.isInteger(deliveryDays) || deliveryDays < 0 || deliveryDays > 365 ||
+      CONTACT_PATTERN.test(terms)) {
+    return void res.status(422).json({ error: "Revise itens, frete, prazo e observações. Não inclua telefone ou e-mail." });
+  }
+  const normalized = itemOffers.map((item: any) => ({
+    itemId: String(item.itemId ?? ""), unitPrice: numberValue(item.unitPrice),
+  }));
+  if (normalized.some((item: any) => !/^[0-9a-f-]{36}$/i.test(item.itemId) || item.unitPrice === null || item.unitPrice <= 0)) {
+    return void res.status(422).json({ error: "Informe um preço válido para cada item." });
+  }
+  const uniqueIds = new Set(normalized.map((item: any) => item.itemId));
+  if (uniqueIds.size !== normalized.length) return void res.status(422).json({ error: "A proposta contém itens repetidos." });
+  const client = await pool.connect();
+  try {
+    await ensureDirectQuoteTables();
+    await client.query("BEGIN");
+    const quote = await client.query(
+      "SELECT q.id,q.status FROM quote_requests q JOIN quote_recipients r ON r.quote_request_id=q.id WHERE q.id=$1 AND r.vendor_id=$2 FOR UPDATE OF q",
+      [req.params.id, tenantId],
+    );
+    if (!quote.rows[0] || !["distribuida","aguardando_fornecedores"].includes(String(quote.rows[0].status))) {
+      await client.query("ROLLBACK"); return void res.status(404).json({ error: "Cotação encerrada ou indisponível para sua loja." });
+    }
+    const requested = await client.query("SELECT id FROM quote_request_items WHERE quote_request_id=$1", [req.params.id]);
+    const requestedIds = new Set(requested.rows.map((item: any) => String(item.id)));
+    if (requestedIds.size !== uniqueIds.size || [...uniqueIds].some((id) => !requestedIds.has(id))) {
+      await client.query("ROLLBACK"); return void res.status(422).json({ error: "A proposta precisa cobrir todos os itens solicitados." });
+    }
+    const upsert = await client.query(
+      "INSERT INTO quote_offers(quote_request_id,vendor_id,freight,delivery_days,terms) VALUES($1,$2,$3,$4,$5) ON CONFLICT(quote_request_id,vendor_id) DO UPDATE SET freight=EXCLUDED.freight,delivery_days=EXCLUDED.delivery_days,terms=EXCLUDED.terms,updated_at=now() WHERE quote_offers.status='enviada' RETURNING id",
+      [req.params.id, tenantId, freight, deliveryDays, terms || null],
+    );
+    if (!upsert.rows[0]) { await client.query("ROLLBACK"); return void res.status(409).json({ error: "A cotação já foi encerrada." }); }
+    const offerId = String(upsert.rows[0].id);
+    await client.query("DELETE FROM quote_offer_items WHERE offer_id=$1", [offerId]);
+    for (const item of normalized) {
+      await client.query("INSERT INTO quote_offer_items(offer_id,request_item_id,unit_price) VALUES($1,$2,$3)", [offerId, item.itemId, item.unitPrice]);
+    }
+    await client.query("COMMIT");
+    await ensureQuoteLead(req.params.id, tenantId);
+    res.status(201).json({ offerId, status: "enviada" });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    console.error("[quotes] vendor offer failed:", error);
+    res.status(500).json({ error: "Não foi possível enviar a proposta agora." });
+  } finally { client.release(); }
 });
 
 export default router;

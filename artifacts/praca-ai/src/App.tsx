@@ -3,38 +3,41 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import NotFound from '@/pages/not-found';
+import { PageLoader } from '@/components/ui/skeleton';
 import { Route, Switch, Router as WouterRouter, useLocation } from 'wouter';
 import { PhoneFrame } from '@/components/layout/PhoneFrame';
 import { AuthProvider } from '@/contexts/AuthContext';
 
-import HomePage from '@/pages/Home';
-import ListingPage from '@/pages/Listing';
-import ProductDetail from '@/pages/ProductDetail';
-import Checkout from '@/pages/Checkout';
-import Success from '@/pages/Success';
-import Feed from '@/pages/Feed';
-import Profile from '@/pages/Profile';
-import Login from '@/pages/Login';
-import MyOrders from '@/pages/MyOrders';
-import MyFavorites from '@/pages/MyFavorites';
-import Account from '@/pages/Account';
-import AdminPanel from '@/pages/AdminPanel';
-import VeiculosListing from '@/pages/VeiculosListing';
-import VeiculoDetail from '@/pages/VeiculoDetail';
-import ImoveisListing from '@/pages/ImoveisListing';
-import ImovelDetail from '@/pages/ImovelDetail';
-import FarmaciaListing from '@/pages/FarmaciaListing';
-import FarmaciaProdutoDetail from '@/pages/FarmaciaProdutoDetail';
-import ServicosPage from '@/pages/ServicosPage';
-import FretesPage from '@/pages/FretesPage';
-import RestaurantesListing from '@/pages/RestaurantesListing';
-import RestauranteCardapio from '@/pages/RestauranteCardapio';
-import Marketplace from '@/pages/Marketplace';
-import DriverLogistics from '@/pages/DriverLogistics';
-import ResetPassword from '@/pages/ResetPassword';
-import EnergiaSolar from '@/pages/EnergiaSolar';
-import QuoteRequest from '@/pages/QuoteRequest';
-import RoundsPage from '@/pages/Rounds';
+const HomePage = React.lazy(() => import('@/pages/Home'));
+const ListingPage = React.lazy(() => import('@/pages/Listing'));
+const ProductDetail = React.lazy(() => import('@/pages/ProductDetail'));
+const Checkout = React.lazy(() => import('@/pages/Checkout'));
+const Success = React.lazy(() => import('@/pages/Success'));
+const Feed = React.lazy(() => import('@/pages/Feed'));
+const Profile = React.lazy(() => import('@/pages/Profile'));
+const Login = React.lazy(() => import('@/pages/Login'));
+const MyOrders = React.lazy(() => import('@/pages/MyOrders'));
+const MyFavorites = React.lazy(() => import('@/pages/MyFavorites'));
+const Account = React.lazy(() => import('@/pages/Account'));
+const AdminPanel = React.lazy(() => import('@/pages/AdminPanel'));
+const VeiculosListing = React.lazy(() => import('@/pages/VeiculosListing'));
+const VeiculoDetail = React.lazy(() => import('@/pages/VeiculoDetail'));
+const ImoveisListing = React.lazy(() => import('@/pages/ImoveisListing'));
+const ImovelDetail = React.lazy(() => import('@/pages/ImovelDetail'));
+const FarmaciaListing = React.lazy(() => import('@/pages/FarmaciaListing'));
+const FarmaciaProdutoDetail = React.lazy(() => import('@/pages/FarmaciaProdutoDetail'));
+const ServicosPage = React.lazy(() => import('@/pages/ServicosPage'));
+const FretesPage = React.lazy(() => import('@/pages/FretesPage'));
+const RestaurantesListing = React.lazy(() => import('@/pages/RestaurantesListing'));
+const RestauranteCardapio = React.lazy(() => import('@/pages/RestauranteCardapio'));
+const Marketplace = React.lazy(() => import('@/pages/Marketplace'));
+const DriverLogistics = React.lazy(() => import('@/pages/DriverLogistics'));
+const ResetPassword = React.lazy(() => import('@/pages/ResetPassword'));
+const EnergiaSolar = React.lazy(() => import('@/pages/EnergiaSolar'));
+const QuoteRequest = React.lazy(() => import('@/pages/QuoteRequest'));
+const RoundsPage = React.lazy(() => import('@/pages/Rounds'));
+const QuoteTracking = React.lazy(() => import('@/pages/QuoteTracking'));
+const QuoteHistory = React.lazy(() => import('@/pages/QuoteHistory'));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: false } },
@@ -106,6 +109,8 @@ function Router() {
       <Route path="/marketplace" component={Marketplace} />
       <Route path="/energia-solar" component={EnergiaSolar} />
       <Route path="/cotacao" component={QuoteRequest} />
+      <Route path="/cotacao/:id" component={QuoteTracking} />
+      <Route path="/minhas-cotacoes" component={QuoteHistory} />
       <Route path="/rodadas" component={RoundsPage} />
       <Route path="/entregador" component={DriverLogistics} />
       <Route component={NotFound} />
@@ -121,9 +126,9 @@ function AppShell() {
     <>
       <SeoManager />
       {isAdmin ? (
-        <Switch><Route path="/admin" component={AdminPanel} /></Switch>
+        <React.Suspense fallback={<PageLoader />}><Switch><Route path="/admin" component={AdminPanel} /></Switch></React.Suspense>
       ) : (
-        <PhoneFrame><Router /></PhoneFrame>
+        <PhoneFrame><React.Suspense fallback={<PageLoader />}><Router /></React.Suspense></PhoneFrame>
       )}
     </>
   );

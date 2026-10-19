@@ -13,16 +13,16 @@ const router: IRouter = Router();
 const BANNERS = [
   {
     id: "b1",
-    title: "Frete Grátis em Chapecó",
-    subtitle: "Para compras acima de R$ 79",
+    title: "Lojas disponíveis na sua cidade",
+    subtitle: "Produtos e ofertas do município selecionado",
     imageUrl: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&q=80",
     linkUrl: "/listing",
-    badgeText: "FRETE GRÁTIS",
+    badgeText: "COMÉRCIO LOCAL",
   },
   {
     id: "b2",
-    title: "Comércio Local de Chapecó",
-    subtitle: "Compre de quem está na sua região",
+    title: "Comércio local",
+    subtitle: "Compre de lojas do município selecionado",
     imageUrl: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80",
     linkUrl: "/listing",
     badgeText: "APOIE O LOCAL",
@@ -30,20 +30,22 @@ const BANNERS = [
   {
     id: "b3",
     title: "Pague com Pix",
-    subtitle: "10% de desconto em qualquer compra",
+    subtitle: "Confira as condições disponíveis no checkout",
     imageUrl: "https://images.unsplash.com/photo-1498049794561-7780e7231661?w=800&q=80",
     linkUrl: "/listing",
-    badgeText: "PIX -10%",
+    badgeText: "PIX",
   },
 ];
 
-router.get("/home", async (_req, res): Promise<void> => {
+router.get("/home", async (req, res): Promise<void> => {
+  const city = typeof req.query.cidade === "string" ? req.query.cidade.trim().slice(0, 100) : undefined;
+  const state = typeof req.query.estado === "string" && /^[A-Za-z]{2}$/.test(req.query.estado.trim()) ? req.query.estado.trim().toUpperCase() : undefined;
   try {
-    const baseCategories = await getRealCategories();
+    const baseCategories = await getRealCategories(undefined, city, state);
     const [marketplace] = await db.select({ total: count() }).from(marketplaceListingsTable).where(eq(marketplaceListingsTable.status, "active"));
     const categories = baseCategories.map((category) => category.slug === "marketplace" ? { ...category, productCount: marketplace?.total ?? 0 } : category);
-    const featuredProducts = await getFeaturedProducts(6);
-    const flashDeals = await getPromotedProducts(8);
+    const featuredProducts = await getFeaturedProducts(6, city, state);
+    const flashDeals = await getPromotedProducts(8, city, state);
     const stories = await getActiveStoriesGrouped();
     const variedadesHoje = await getVariedadesDeHoje().catch((err) => {
       console.warn("[home] variedadesHoje indisponível (migration ainda não rodou?):", err);
@@ -57,7 +59,7 @@ router.get("/home", async (_req, res): Promise<void> => {
     const carousels = await Promise.all(
       topCategories.map(async (category) => ({
         category,
-        products: await getProductsByCategoryName(category.name, 4),
+        products: await getProductsByCategoryName(category.name, 4, city, state),
       })),
     );
 
