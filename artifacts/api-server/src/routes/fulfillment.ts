@@ -26,6 +26,12 @@ function normalizeText(value: unknown, max: number): string | null {
   return clean || null;
 }
 
+function presentVendorOrder(row: any, orderType: OrderType) {
+  const { fulfillment_status, delivery_mode, carrier, tracking_code, seller_note, shipped_at, ...order } = row;
+  return { ...order, id: String(row.id), orderType,
+    fulfillment: fulfillment_status ? { status: fulfillment_status, delivery_mode, carrier, tracking_code, seller_note, shipped_at } : null };
+}
+
 router.get("/internal/vendor-orders", async (req, res): Promise<void> => {
   if (!authorized(req, res)) return;
   const vendorId = typeof req.query.tenantId === "string" ? req.query.tenantId.trim() : "";
@@ -39,7 +45,7 @@ router.get("/internal/vendor-orders", async (req, res): Promise<void> => {
                 COALESCE((SELECT json_agg(json_build_object(
                   'description',qi.description,'quantity',qi.quantity,'unit',qi.unit,'brand',qi.brand
                 ) ORDER BY qi.id) FROM quote_request_items qi WHERE qi.quote_request_id=q.id),'[]'::json) AS items,
-                f.status AS fulfillment_status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at,
+                f.delivery_reported_at,f.delivery_received_by,f.status AS fulfillment_status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at,
                 cx.status AS cancellation_status,cx.reason AS cancellation_reason,cx.description AS cancellation_description
          FROM quote_requests q
          JOIN quote_offers o ON o.quote_request_id=q.id AND o.status='aceita' AND o.vendor_id=$1
@@ -59,7 +65,7 @@ router.get("/internal/vendor-orders", async (req, res): Promise<void> => {
                   'description',r.item_name,'specification',r.specification,
                   'quantity',o.quantity,'unit',r.unit
                 )) AS items,
-                f.status AS fulfillment_status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at,
+                f.delivery_reported_at,f.delivery_received_by,f.status AS fulfillment_status,f.delivery_mode,f.carrier,f.tracking_code,f.seller_note,f.shipped_at,f.updated_at,
                 cx.status AS cancellation_status,cx.reason AS cancellation_reason,cx.description AS cancellation_description
          FROM buying_round_orders o
          JOIN buying_rounds r ON r.id=o.round_id
@@ -73,8 +79,8 @@ router.get("/internal/vendor-orders", async (req, res): Promise<void> => {
       ),
     ]);
     const result = [
-      ...quotes.rows.map((row: any) => ({ ...row, id: String(row.id), orderType: "quote" as const })),
-      ...rounds.rows.map((row: any) => ({ ...row, id: String(row.id), orderType: "round" as const })),
+      ...quotes.rows.map((row: any) => presentVendorOrder(row, "quote")),
+      ...rounds.rows.map((row: any) => presentVendorOrder(row, "round")),
     ].sort((a, b) => new Date(b.paid_at ?? b.updated_at ?? 0).getTime() - new Date(a.paid_at ?? a.updated_at ?? 0).getTime());
     res.set("Cache-Control", "no-store").json(result);
   } catch (error) {
@@ -139,9 +145,10 @@ router.patch("/internal/vendor-orders/:type/:id/fulfillment", async (req, res): 
       }
     }
     const previous = await client.query(
-      "SELECT status FROM praca_marketplace_fulfillments WHERE order_type=$1 AND order_id=$2 AND vendor_id=$3 FOR UPDATE",
+      "SELECT status,delivery_reported_at FROM praca_marketplace_fulfillments WHERE order_type=$1 AND order_id=$2 AND vendor_id=$3 FOR UPDATE",
       [orderType, orderId, vendorId],
     );
+    if (previous.rows[0]?.delivery_reported_at) { await client.query("ROLLBACK"); return void res.status(409).json({ error: "O comprovante já foi enviado; aguarde o aceite do comprador." }); }
     const previousStatus = previous.rows[0]?.status as FulfillmentStatus | undefined;
     if (previousStatus && STATUS_ORDER[status] < STATUS_ORDER[previousStatus]) {
       await client.query("ROLLBACK");

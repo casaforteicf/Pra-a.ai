@@ -448,34 +448,6 @@ router.post("/webhooks/asaas",async(req,res,next):Promise<void>=>{
   }
 });
 
-router.post("/round-orders/:id/confirm-delivery",async(req,res):Promise<void>=>{
-  const consumer=buyerId(req);
-  if(!consumer) return void res.status(401).json({error:"Entre na sua conta para confirmar a entrega."});
-  try {
-    const delivered=await pool.query(
-      `UPDATE buying_round_orders o SET status='delivered',delivered_at=COALESCE(delivered_at,now()),updated_at=now()
-       FROM buying_round_participants p WHERE o.participant_id=p.id AND o.id=$1 AND p.consumer_id=$2 AND o.status='paid'
-         AND EXISTS (SELECT 1 FROM praca_marketplace_fulfillments f WHERE f.order_type='round' AND f.order_id=o.id AND f.vendor_id=o.vendor_id AND f.status IN ('ready','shipped'))
-         AND NOT EXISTS (SELECT 1 FROM praca_order_disputes d WHERE d.order_type='round' AND d.order_id=o.id AND d.consumer_id=p.consumer_id AND d.status IN ('aberta','em_analise','aguardando_comprador'))
-         AND NOT EXISTS (SELECT 1 FROM praca_order_cancellations x WHERE x.order_type='round' AND x.order_id=o.id AND x.consumer_id=p.consumer_id AND x.status IN ('solicitada','em_analise'))
-       RETURNING o.id`,
-      [req.params.id,consumer],
-    );
-    if(delivered.rows[0]) return void res.json({id:req.params.id,status:"delivered",payoutStatus:"pending"});
-    const existing=await pool.query("SELECT o.status FROM buying_round_orders o JOIN buying_round_participants p ON p.id=o.participant_id WHERE o.id=$1 AND p.consumer_id=$2",[req.params.id,consumer]);
-    if(existing.rows[0]?.status==="delivered"||existing.rows[0]?.status==="released") {
-      return void res.json({id:req.params.id,status:existing.rows[0].status,payoutStatus:existing.rows[0].status==="released"?"released":"pending"});
-    }
-    const dispute=await pool.query("SELECT status FROM praca_order_disputes WHERE order_type='round' AND order_id=$1 AND consumer_id=$2 AND status IN ('aberta','em_analise','aguardando_comprador') LIMIT 1",[req.params.id,consumer]);
-    const cancellation=await pool.query("SELECT status FROM praca_order_cancellations WHERE order_type='round' AND order_id=$1 AND consumer_id=$2 AND status IN ('solicitada','em_analise') LIMIT 1",[req.params.id,consumer]);
-    if(cancellation.rows[0]) return void res.status(409).json({error:"A confirmação da entrega está suspensa enquanto a solicitação de cancelamento estiver em análise."});
-    if(dispute.rows[0]) return void res.status(409).json({error:"A confirmação da entrega está suspensa enquanto a disputa estiver em análise."});
-    return void res.status(409).json({error:"A entrega pode ser confirmada depois que o vendedor informar que o pedido está pronto ou saiu para entrega."});
-  } catch(error) {
-    console.error("[rounds] delivery confirmation failed:",error);
-    return void res.status(500).json({error:"Não foi possível confirmar a entrega agora."});
-  }
-});
 
 router.post("/round-orders/:id/decline",async(req,res):Promise<void>=>{
   const consumer=buyerId(req);

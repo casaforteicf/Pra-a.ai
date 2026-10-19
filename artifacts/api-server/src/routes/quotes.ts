@@ -497,40 +497,6 @@ router.post("/quotes/:id/pay", async (req, res): Promise<void> => {
   } finally { client.release(); }
 });
 
-router.post("/quotes/:id/confirm-delivery", async (req, res): Promise<void> => {
-  const buyer = consumerId(req);
-  if (!buyer) return void res.status(401).json({ error: "Entre na sua conta para confirmar a entrega." });
-  try {
-    const delivered = await pool.query(
-      `UPDATE quote_requests q SET status='delivered',delivered_at=COALESCE(delivered_at,now())
-       WHERE q.id=$1 AND q.consumer_id=$2 AND q.status='paid' AND EXISTS (
-         SELECT 1 FROM quote_offers o JOIN praca_marketplace_fulfillments f
-           ON f.order_type='quote' AND f.order_id=q.id AND f.vendor_id=o.vendor_id
-         WHERE o.quote_request_id=q.id AND o.status='aceita' AND f.status IN ('ready','shipped')
-       ) AND NOT EXISTS (
-         SELECT 1 FROM praca_order_disputes d WHERE d.order_type='quote' AND d.order_id=q.id AND d.consumer_id=q.consumer_id
-           AND d.status IN ('aberta','em_analise','aguardando_comprador')
-       ) AND NOT EXISTS (
-         SELECT 1 FROM praca_order_cancellations x WHERE x.order_type='quote' AND x.order_id=q.id AND x.consumer_id=q.consumer_id
-           AND x.status IN ('solicitada','em_analise')
-       ) RETURNING q.id`,
-      [req.params.id, buyer],
-    );
-    if (delivered.rows[0]) return void res.json({ id: req.params.id, status: "delivered", payoutStatus: "pending" });
-    const existing = await pool.query("SELECT status FROM quote_requests WHERE id=$1 AND consumer_id=$2", [req.params.id, buyer]);
-    if (existing.rows[0]?.status === "delivered" || existing.rows[0]?.status === "released") {
-      return void res.json({ id: req.params.id, status: existing.rows[0].status, payoutStatus: existing.rows[0].status === "released" ? "released" : "pending" });
-    }
-    const dispute = await pool.query("SELECT status FROM praca_order_disputes WHERE order_type='quote' AND order_id=$1 AND consumer_id=$2 AND status IN ('aberta','em_analise','aguardando_comprador') LIMIT 1", [req.params.id, buyer]);
-    if (dispute.rows[0]) return void res.status(409).json({ error: "A confirmação da entrega está suspensa enquanto a disputa estiver em análise." });
-    const cancellation = await pool.query("SELECT status FROM praca_order_cancellations WHERE order_type='quote' AND order_id=$1 AND consumer_id=$2 AND status IN ('solicitada','em_analise') LIMIT 1", [req.params.id, buyer]);
-    if (cancellation.rows[0]) return void res.status(409).json({ error: "A confirmação da entrega está suspensa enquanto a solicitação de cancelamento estiver em análise." });
-    return void res.status(409).json({ error: "A entrega pode ser confirmada depois que o vendedor informar que o pedido está pronto ou saiu para entrega." });
-  } catch (error) {
-    console.error("[quotes] delivery confirmation failed:", error);
-    return void res.status(500).json({ error: "Não foi possível confirmar a entrega agora." });
-  }
-});
 
 router.get("/internal/quotes", async (req, res): Promise<void> => {
   if (!validVendorToken(req, res)) return;

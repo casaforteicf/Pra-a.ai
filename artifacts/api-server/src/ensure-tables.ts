@@ -312,6 +312,25 @@ CREATE TABLE IF NOT EXISTS praca_marketplace_fulfillment_events (
 CREATE INDEX IF NOT EXISTS idx_praca_marketplace_fulfillment_events_order
   ON praca_marketplace_fulfillment_events (order_type, order_id, created_at DESC);
 
+
+-- Entrega informada pelo lojista e aceite individual do comprador.
+ALTER TABLE praca_marketplace_fulfillments
+  ADD COLUMN IF NOT EXISTS delivery_reported_at timestamptz,
+  ADD COLUMN IF NOT EXISTS delivery_received_by text,
+  ADD COLUMN IF NOT EXISTS delivery_photo text,
+  ADD COLUMN IF NOT EXISTS delivery_photo_mime text;
+CREATE TABLE IF NOT EXISTS praca_delivery_acceptances (
+  order_type text NOT NULL CHECK (order_type IN ('quote','round')),
+  order_id uuid NOT NULL,
+  vendor_id text NOT NULL,
+  consumer_id integer NOT NULL REFERENCES consumers(id),
+  accepted_at timestamptz NOT NULL DEFAULT now(),
+  release_status text NOT NULL DEFAULT 'blocked_provider' CHECK (release_status IN ('blocked_provider','processing','released','reconciliation')),
+  provider_release_id text UNIQUE,
+  released_at timestamptz,
+  PRIMARY KEY(order_type,order_id)
+);
+
 CREATE TABLE IF NOT EXISTS feed_likes (
   id serial PRIMARY KEY,
   consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE CASCADE,

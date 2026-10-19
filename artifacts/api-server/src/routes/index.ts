@@ -36,6 +36,7 @@ import quotesRouter from "./quotes";
 import roundsRouter from "./rounds";
 import asaasWebhooksRouter from "./asaasWebhooks";
 import fulfillmentRouter from "./fulfillment";
+import deliveryEvidenceRouter from "./deliveryEvidence";
 
 const router: IRouter = Router();
 
@@ -76,5 +77,6 @@ router.use(quotesRouter);
 router.use(roundsRouter);
 router.use(asaasWebhooksRouter);
 router.use(fulfillmentRouter);
+router.use(deliveryEvidenceRouter);
 
 export default router;
