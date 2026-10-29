@@ -117,8 +117,8 @@ export interface CartItem {
 
 export interface Cart {
   items: CartItem[];
-  subtotal: number;
-  shipping: number;
+  subtotal: number | null;
+  shipping: number | null;
   total: number;
   itemCount: number;
 }
@@ -237,6 +237,8 @@ export const CheckoutInputPaymentMethod = {
 } as const;
 
 export interface CheckoutInput {
+  /** Frete exibido ao comprador; servidor recalcula e rejeita divergência. */
+  expectedShipping: number;
   deliveryAddress: AddressInput;
   deliveryOption: CheckoutInputDeliveryOption;
   paymentMethod: CheckoutInputPaymentMethod;

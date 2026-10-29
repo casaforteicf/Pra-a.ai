@@ -10,6 +10,8 @@ import type { CheckoutInputDeliveryOption } from './checkoutInputDeliveryOption'
 import type { CheckoutInputPaymentMethod } from './checkoutInputPaymentMethod';
 
 export interface CheckoutInput {
+  /** Frete exibido ao comprador; servidor recalcula e rejeita divergência. */
+  expectedShipping: number;
   deliveryAddress: AddressInput;
   deliveryOption: CheckoutInputDeliveryOption;
   paymentMethod: CheckoutInputPaymentMethod;

@@ -2,6 +2,7 @@ export * from "./consumers";
 export * from "./consumerAddresses";
 export * from "./carts";
 export * from "./orders";
+export * from "./buyingRounds";
 export * from "./favorites";
 export * from "./disputes";
 export * from "./productQuestions";

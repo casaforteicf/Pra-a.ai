@@ -103,8 +103,9 @@ async function buildCartResponse(cartId: number) {
     (sum, i) => sum + Number(i.product.price) * i.quantity,
     0,
   );
-  const shipping = subtotal > 0 && subtotal < 79 ? 9.9 : 0;
-  const total = subtotal + shipping;
+  // Sem destino e modalidade, não há frete nem total final definido.
+  const shipping = null;
+  const total = null;
   const itemCount = enriched.reduce((sum, i) => sum + i.quantity, 0);
 
   return { items: enriched, subtotal, shipping, total, itemCount };

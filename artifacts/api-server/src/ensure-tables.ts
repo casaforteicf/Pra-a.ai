@@ -1,3 +1,5 @@
+import { installSuborders } from "./lib/suborders";
+import { installNegotiationAudit } from "./lib/negotiationAudit";
 import { pool } from "@workspace/db";
 import { logger } from "./lib/logger";
 
@@ -157,6 +159,179 @@ CREATE TABLE IF NOT EXISTS buying_round_orders (
 );
 CREATE INDEX IF NOT EXISTS idx_buying_round_orders_vendor
   ON buying_round_orders (vendor_id, status, created_at DESC);
+ALTER TABLE buying_round_orders
+  ADD COLUMN IF NOT EXISTS payment_method text,
+  ADD COLUMN IF NOT EXISTS asaas_charge_id text,
+  ADD COLUMN IF NOT EXISTS asaas_pix_payload text,
+  ADD COLUMN IF NOT EXISTS asaas_pix_qrcode_image text,
+  ADD COLUMN IF NOT EXISTS asaas_invoice_url text,
+  ADD COLUMN IF NOT EXISTS paid_at timestamptz,
+  ADD COLUMN IF NOT EXISTS delivered_at timestamptz,
+  ADD COLUMN IF NOT EXISTS released_at timestamptz;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_buying_round_orders_asaas_charge
+  ON buying_round_orders (asaas_charge_id) WHERE asaas_charge_id IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS praca_order_disputes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_type text NOT NULL CHECK (order_type IN ('quote','round')),
+  order_id uuid NOT NULL,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE RESTRICT,
+  vendor_id text NOT NULL,
+  reason_code text NOT NULL CHECK (reason_code IN ('nao_recebido','produto_danificado','produto_incompleto','produto_divergente','atraso','outro')),
+  description text NOT NULL,
+  evidence_url text,
+  vendor_response text,
+  vendor_responded_at timestamptz,
+  status text NOT NULL DEFAULT 'aberta' CHECK (status IN ('aberta','em_analise','aguardando_comprador','resolvida','rejeitada')),
+  resolution_text text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  resolved_at timestamptz,
+  UNIQUE (order_type, order_id, consumer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_praca_order_disputes_status_created
+  ON praca_order_disputes (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_praca_order_disputes_vendor
+  ON praca_order_disputes (vendor_id, status, created_at DESC);
+CREATE TABLE IF NOT EXISTS praca_order_dispute_events (
+  id bigserial PRIMARY KEY,
+  dispute_id uuid NOT NULL REFERENCES praca_order_disputes(id) ON DELETE CASCADE,
+  from_status text,
+  to_status text NOT NULL,
+  actor_type text NOT NULL CHECK (actor_type IN ('buyer','vendor','admin')),
+  actor_consumer_id integer REFERENCES consumers(id) ON DELETE SET NULL,
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_praca_order_dispute_events_dispute
+  ON praca_order_dispute_events (dispute_id, created_at);
+
+-- Solicitações de cancelamento pós-pagamento são triadas pela plataforma;
+-- registrar o fluxo não executa nem confirma estorno no Asaas.
+CREATE TABLE IF NOT EXISTS praca_order_cancellations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_type text NOT NULL CHECK (order_type IN ('quote','round')),
+  order_id uuid NOT NULL,
+  consumer_id integer NOT NULL REFERENCES consumers(id) ON DELETE RESTRICT,
+  vendor_id text NOT NULL,
+  reason text NOT NULL CHECK (reason IN ('mudanca_de_ideia','prazo','preco','erro_no_pedido','outro')),
+  description text NOT NULL,
+  status text NOT NULL DEFAULT 'solicitada' CHECK (status IN ('solicitada','em_analise','atendida','recusada')),
+  resolution_note text,
+  refund_status text NOT NULL DEFAULT 'nao_solicitado' CHECK (refund_status IN ('nao_solicitado','solicitado','em_processamento','estornado','parcial','negado','reconciliacao')),
+  asaas_refund_requested_at timestamptz,
+  asaas_refunded_at timestamptz,
+  refund_error text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  resolved_at timestamptz,
+  UNIQUE (order_type, order_id, consumer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_praca_order_cancellations_status_created
+  ON praca_order_cancellations (status, created_at DESC);
+CREATE TABLE IF NOT EXISTS praca_order_cancellation_events (
+  id bigserial PRIMARY KEY,
+  cancellation_id uuid NOT NULL REFERENCES praca_order_cancellations(id) ON DELETE CASCADE,
+  from_status text,
+  to_status text NOT NULL,
+  actor_type text NOT NULL CHECK (actor_type IN ('buyer','admin')),
+  actor_consumer_id integer REFERENCES consumers(id) ON DELETE SET NULL,
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_praca_order_cancellation_events_case
+  ON praca_order_cancellation_events (cancellation_id, created_at, id);
+-- Upgrade aditivo para instalações onde a tabela de cancelamentos já existia.
+ALTER TABLE praca_order_cancellations
+  ADD COLUMN IF NOT EXISTS refund_status text NOT NULL DEFAULT 'nao_solicitado',
+  ADD COLUMN IF NOT EXISTS asaas_refund_requested_at timestamptz,
+  ADD COLUMN IF NOT EXISTS asaas_refunded_at timestamptz,
+  ADD COLUMN IF NOT EXISTS refund_error text;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid='praca_order_cancellations'::regclass AND conname='praca_order_cancellations_refund_status_check') THEN
+    ALTER TABLE praca_order_cancellations ADD CONSTRAINT praca_order_cancellations_refund_status_check
+      CHECK (refund_status IN ('nao_solicitado','solicitado','em_processamento','estornado','parcial','negado','reconciliacao'));
+  END IF;
+END $$;
+CREATE TABLE IF NOT EXISTS praca_asaas_webhook_events (
+  asaas_event_id text PRIMARY KEY,
+  event_type text NOT NULL,
+  charge_id text NOT NULL,
+  processed_at timestamptz NOT NULL DEFAULT now()
+);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid='buying_round_orders'::regclass
+      AND conname='buying_round_orders_status_check'
+      AND (pg_get_constraintdef(oid) NOT LIKE '%delivered%'
+        OR pg_get_constraintdef(oid) NOT LIKE '%released%')
+  ) THEN
+    ALTER TABLE buying_round_orders DROP CONSTRAINT buying_round_orders_status_check;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid='buying_round_orders'::regclass
+      AND conname='buying_round_orders_status_check'
+  ) THEN
+    ALTER TABLE buying_round_orders ADD CONSTRAINT buying_round_orders_status_check
+      CHECK (status IN ('awaiting_buyer','accepted','declined','awaiting_payment','paid','delivered','released','cancelled'));
+  END IF;
+END $$;
+
+-- Estado de expedição compartilhado entre AppVendor.ai e Praça.ai. A tabela é
+-- aditiva e guarda apenas a operação; o pagamento e o pedido continuam nas
+-- tabelas existentes de cotações e rodadas.
+CREATE TABLE IF NOT EXISTS praca_marketplace_fulfillments (
+  order_type text NOT NULL CHECK (order_type IN ('quote','round')),
+  order_id uuid NOT NULL,
+  vendor_id text NOT NULL,
+  status text NOT NULL CHECK (status IN ('preparing','ready','shipped')),
+  delivery_mode text CHECK (delivery_mode IN ('pickup','own_delivery','carrier')),
+  carrier text,
+  tracking_code text,
+  seller_note text,
+  shipped_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (order_type, order_id)
+);
+CREATE INDEX IF NOT EXISTS idx_praca_marketplace_fulfillments_vendor
+  ON praca_marketplace_fulfillments (vendor_id, status, updated_at DESC);
+CREATE TABLE IF NOT EXISTS praca_marketplace_fulfillment_events (
+  id bigserial PRIMARY KEY,
+  order_type text NOT NULL,
+  order_id uuid NOT NULL,
+  vendor_id text NOT NULL,
+  status text NOT NULL CHECK (status IN ('preparing','ready','shipped')),
+  delivery_mode text CHECK (delivery_mode IN ('pickup','own_delivery','carrier')),
+  carrier text,
+  tracking_code text,
+  seller_note text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_praca_marketplace_fulfillment_events_order
+  ON praca_marketplace_fulfillment_events (order_type, order_id, created_at DESC);
+
+
+-- Entrega informada pelo lojista e aceite individual do comprador.
+ALTER TABLE praca_marketplace_fulfillments
+  ADD COLUMN IF NOT EXISTS delivery_reported_at timestamptz,
+  ADD COLUMN IF NOT EXISTS delivery_received_by text,
+  ADD COLUMN IF NOT EXISTS delivery_photo text,
+  ADD COLUMN IF NOT EXISTS delivery_photo_mime text;
+CREATE TABLE IF NOT EXISTS praca_delivery_acceptances (
+  order_type text NOT NULL CHECK (order_type IN ('quote','round')),
+  order_id uuid NOT NULL,
+  vendor_id text NOT NULL,
+  consumer_id integer NOT NULL REFERENCES consumers(id),
+  accepted_at timestamptz NOT NULL DEFAULT now(),
+  release_status text NOT NULL DEFAULT 'blocked_provider' CHECK (release_status IN ('blocked_provider','processing','released','reconciliation')),
+  provider_release_id text UNIQUE,
+  released_at timestamptz,
+  PRIMARY KEY(order_type,order_id)
+);
 
 CREATE TABLE IF NOT EXISTS feed_likes (
   id serial PRIMARY KEY,
@@ -987,11 +1162,30 @@ ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS altura_cm numeric(10,2);
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS profundidade_cm numeric(10,2);
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS peso_kg numeric(10,3);
 ALTER TABLE produtos_catalogo ADD COLUMN IF NOT EXISTS volume_foto_url text;
+
+-- Conciliação inicial de pagamentos Asaas. Estado desconhecido para pedidos legados.
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'unknown';
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_confirmed_at timestamptz;
+
+CREATE TABLE IF NOT EXISTS asaas_payment_events (
+  id serial PRIMARY KEY,
+  provider_event_id text NOT NULL UNIQUE,
+  payment_id text NOT NULL,
+  event_type text NOT NULL,
+  order_id integer REFERENCES orders(id) ON DELETE SET NULL,
+  outcome text NOT NULL DEFAULT 'received',
+  received_at timestamptz NOT NULL DEFAULT now(),
+  processed_at timestamptz
+);
+CREATE INDEX IF NOT EXISTS idx_asaas_payment_events_payment
+  ON asaas_payment_events(payment_id, received_at DESC);
 `;
 
 export async function ensurePracaAiTablesExist(): Promise<void> {
   try {
     await pool.query(MIGRATION_SQL);
+    await installSuborders();
+    await installNegotiationAudit();
     logger.info("Migração de tabelas do Praça.ai verificada/aplicada");
   } catch (err) {
     logger.error({ err }, "Falha ao aplicar migração de tabelas do Praça.ai");

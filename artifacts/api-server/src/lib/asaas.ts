@@ -1,22 +1,17 @@
 import { logger } from "./logger";
 
-/**
- * Cliente Asaas do Praça.ai — cobra o cliente final usando a conta da
- * PLATAFORMA (ASAAS_API_KEY), não a de cada lojista individualmente.
- *
- * Isso torna o checkout real (o cliente recebe um PIX/boleto/cobrança de
- * cartão de verdade pra pagar), mas SEM split automático pros lojistas —
- * repassar o valor de cada venda pro lojista certo ainda depende de cada
- * um ter uma subconta Asaas própria com walletId (fluxo de onboarding com
- * CPF/CNPJ, dados bancários, KYC), que é uma decisão de produto maior e
- * não foi construída aqui. Até isso existir, o repasse é manual/fora do
- * sistema — mas o dinheiro do cliente já é cobrado de verdade, o que
- * resolve o gap mais grave (checkout inteiramente simulado).
- */
+/** Cliente Asaas da plataforma: cobrança, split, subcontas, escrow e estornos. O fluxo financeiro novo permanece protegido por flags e exige reconciliação por webhook. */
 
 const BASE_URL = process.env.ASAAS_SANDBOX === "true"
   ? "https://sandbox.asaas.com/api/v3"
   : "https://www.asaas.com/api/v3";
+
+export class AsaasApiError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "AsaasApiError";
+  }
+}
 
 function getApiKey(): string | null {
   return process.env.ASAAS_API_KEY ?? null;
@@ -43,7 +38,7 @@ async function asaasRequest<T>(method: string, path: string, body?: unknown): Pr
   if (!res.ok) {
     const errMsg = (data as any)?.errors?.[0]?.description ?? `Asaas API error ${res.status}`;
     logger.warn({ status: res.status, path, body: data }, `Asaas error: ${errMsg}`);
-    throw new Error(errMsg);
+    throw new AsaasApiError(errMsg, res.status);
   }
 
   return data as T;
@@ -101,6 +96,7 @@ export interface AsaasChargeOutput {
   status: string;
   invoiceUrl: string;
   bankSlipUrl: string | null;
+  split?: Array<{ id?: string; walletId?: string; status?: string }>;
 }
 
 export interface AsaasCreditCard {
@@ -129,6 +125,7 @@ export async function createCharge(data: {
   externalReference?: string;
   creditCard?: AsaasCreditCard;
   creditCardHolderInfo?: AsaasCreditCardHolderInfo;
+  split?: Array<{ walletId: string; fixedValue: number }>;
 }): Promise<AsaasChargeOutput> {
   return asaasRequest<AsaasChargeOutput>("POST", "/payments", data);
 }
@@ -141,4 +138,50 @@ export interface AsaasPixQrCode {
 
 export async function getPixQrCode(chargeId: string): Promise<AsaasPixQrCode> {
   return asaasRequest<AsaasPixQrCode>("GET", `/payments/${chargeId}/pixQrCode`);
+}
+
+export interface AsaasPaymentStatusOutput {
+  id: string;
+  status: string;
+  externalReference: string | null;
+  value: number;
+  netValue?: number;
+  refunds?: Array<{ id?: string; status?: string; value?: number; refundedSplits?: Array<{ id?: string; value?: number; done?: boolean }> }>;
+}
+
+/** Consulta o estado canônico na API antes de aceitar um webhook como pagamento confirmado. */
+export async function getPayment(paymentId: string): Promise<AsaasPaymentStatusOutput> {
+  return asaasRequest<AsaasPaymentStatusOutput>("GET", `/payments/${encodeURIComponent(paymentId)}`);
+}
+
+export interface AsaasRefundOutput {
+  id?: string;
+  status?: string;
+  [key: string]: unknown;
+}
+
+/**
+ * Solicita o estorno integral de uma cobrança recebida/confirmada.
+ * A conclusão financeira é assíncrona: o estado definitivo deve vir do
+ * webhook PAYMENT_REFUNDED/PAYMENT_REFUND_IN_PROGRESS/PAYMENT_REFUND_DENIED.
+ */
+export async function refundCharge(chargeId: string, description: string, value?: number, splitRefunds?: Array<{ walletId: string; value: number }>): Promise<AsaasRefundOutput> {
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(chargeId)) throw new Error("Identificador de cobrança inválido.");
+  if (value !== undefined && (!Number.isFinite(value) || value <= 0)) throw new Error("Valor de estorno inválido.");
+  return asaasRequest<AsaasRefundOutput>("POST", `/payments/${encodeURIComponent(chargeId)}/refund`, {
+    description: description.slice(0, 255),
+    ...(value === undefined ? {} : { value }),
+    ...(splitRefunds?.length ? { splitRefunds } : {}),
+  });
+}
+
+export interface AsaasSubaccountOutput { id: string; walletId: string; apiKey?: string; }
+export async function createSubaccount(data: Record<string, unknown>): Promise<AsaasSubaccountOutput> {
+  return asaasRequest<AsaasSubaccountOutput>("POST", "/accounts", data);
+}
+
+export async function configureEscrow(accountId: string, daysToExpire: number): Promise<Record<string, unknown>> {
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(accountId)) throw new Error("Identificador de subconta inválido.");
+  if (!Number.isSafeInteger(daysToExpire) || daysToExpire < 1 || daysToExpire > 180) throw new Error("Prazo de garantia inválido.");
+  return asaasRequest("POST", `/accounts/${encodeURIComponent(accountId)}/escrow`, { enabled: true, daysToExpire, isFeePayer: true });
 }
